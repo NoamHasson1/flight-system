@@ -1,0 +1,193 @@
+{
+  "_comment": [
+    "Scripted flight-data scenarios for the fake provider.",
+    "",
+    "These are vendor-NEUTRAL: they describe flights in the shape of RawFlight,",
+    "not in any provider's JSON. That is what lets them survive a change of",
+    "provider, and what lets the frontend be developed against them.",
+    "",
+    "Times are ISO 8601 with an explicit UTC offset. There is no such thing as",
+    "a local time in this file.",
+    "",
+    "A scenario with no 'flights' key and an 'error' key makes the provider",
+    "raise, so the failure paths above it can be exercised on demand.",
+    "",
+    "A date of '*' matches any date, which keeps demos from going stale."
+  ],
+
+  "scenarios": [
+    {
+      "flight_number": "BA165",
+      "date": "2026-08-14",
+      "description": "TLV->LHR landed 4h late. Eligible under UK261 (GBP520) only: outside EC261, and 4h is below the Israeli 8h threshold.",
+      "flights": [
+        {
+          "airline_iata": "BA",
+          "origin_iata": "TLV",
+          "destination_iata": "LHR",
+          "status": "LANDED",
+          "scheduled_departure": "2026-08-14T02:20:00+00:00",
+          "actual_departure": "2026-08-14T06:20:00+00:00",
+          "scheduled_arrival": "2026-08-14T07:20:00+00:00",
+          "actual_arrival": "2026-08-14T11:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "flight_number": "BA165",
+      "date": "2026-08-20",
+      "description": "The same route landed 9h late. Now eligible under TWO laws: ILS2450 and GBP520.",
+      "flights": [
+        {
+          "airline_iata": "BA",
+          "origin_iata": "TLV",
+          "destination_iata": "LHR",
+          "status": "LANDED",
+          "scheduled_departure": "2026-08-20T02:20:00+00:00",
+          "actual_departure": "2026-08-20T11:20:00+00:00",
+          "scheduled_arrival": "2026-08-20T07:20:00+00:00",
+          "actual_arrival": "2026-08-20T16:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "flight_number": "LY324",
+      "date": "2026-08-14",
+      "description": "CDG->TLV on El Al, 3h30 late. rules.md example C: EUR400 under EC261, because it DEPARTS the EU and departure covers any airline.",
+      "flights": [
+        {
+          "airline_iata": "LY",
+          "origin_iata": "CDG",
+          "destination_iata": "TLV",
+          "status": "LANDED",
+          "scheduled_departure": "2026-08-14T09:00:00+00:00",
+          "actual_departure": "2026-08-14T12:30:00+00:00",
+          "scheduled_arrival": "2026-08-14T13:20:00+00:00",
+          "actual_arrival": "2026-08-14T16:50:00+00:00"
+        }
+      ]
+    },
+    {
+      "flight_number": "LY325",
+      "date": "2026-08-14",
+      "description": "The mirror: TLV->CDG on El Al, same 3h30 delay. NOT eligible anywhere. Arriving into the EU only covers EU carriers.",
+      "flights": [
+        {
+          "airline_iata": "LY",
+          "origin_iata": "TLV",
+          "destination_iata": "CDG",
+          "status": "LANDED",
+          "scheduled_departure": "2026-08-14T05:00:00+00:00",
+          "actual_departure": "2026-08-14T08:30:00+00:00",
+          "scheduled_arrival": "2026-08-14T09:20:00+00:00",
+          "actual_arrival": "2026-08-14T12:50:00+00:00"
+        }
+      ]
+    },
+    {
+      "flight_number": "LH687",
+      "date": "2026-08-14",
+      "description": "TLV->FRA cancelled. NEEDS_REVIEW under EC261 and the Israeli law: both turn on a notice period no API reports.",
+      "flights": [
+        {
+          "airline_iata": "LH",
+          "origin_iata": "TLV",
+          "destination_iata": "FRA",
+          "status": "CANCELLED",
+          "scheduled_departure": "2026-08-14T04:10:00+00:00",
+          "scheduled_arrival": "2026-08-14T08:05:00+00:00"
+        }
+      ]
+    },
+    {
+      "flight_number": "LY1",
+      "date": "2026-08-14",
+      "description": "TLV->JFK still in the air: departed 9h late, no arrival time. Eligible on the Israeli departure clock, but the amount needs the arrival delay, so NEEDS_REVIEW.",
+      "flights": [
+        {
+          "airline_iata": "LY",
+          "origin_iata": "TLV",
+          "destination_iata": "JFK",
+          "status": "EN_ROUTE",
+          "scheduled_departure": "2026-08-14T07:30:00+00:00",
+          "actual_departure": "2026-08-14T16:30:00+00:00",
+          "scheduled_arrival": "2026-08-14T19:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "flight_number": "FR1234",
+      "date": "2026-08-14",
+      "description": "TWO matches: the same number flown twice in one day. The caller must ask the customer which was theirs rather than guess.",
+      "flights": [
+        {
+          "airline_iata": "FR",
+          "origin_iata": "DUB",
+          "destination_iata": "STN",
+          "status": "LANDED",
+          "scheduled_departure": "2026-08-14T06:00:00+00:00",
+          "actual_departure": "2026-08-14T06:11:00+00:00",
+          "scheduled_arrival": "2026-08-14T07:15:00+00:00",
+          "actual_arrival": "2026-08-14T07:22:00+00:00"
+        },
+        {
+          "airline_iata": "FR",
+          "origin_iata": "DUB",
+          "destination_iata": "STN",
+          "status": "LANDED",
+          "scheduled_departure": "2026-08-14T16:00:00+00:00",
+          "actual_departure": "2026-08-14T20:40:00+00:00",
+          "scheduled_arrival": "2026-08-14T17:15:00+00:00",
+          "actual_arrival": "2026-08-14T21:50:00+00:00"
+        }
+      ]
+    },
+    {
+      "flight_number": "ZZ999",
+      "date": "*",
+      "description": "An airport code we do not carry. Must become NEEDS_REVIEW at the mapper, never a confident NOT_ELIGIBLE.",
+      "flights": [
+        {
+          "airline_iata": "ZZ",
+          "origin_iata": "ZZZ",
+          "destination_iata": "LHR",
+          "status": "LANDED",
+          "scheduled_departure": "2026-08-14T02:20:00+00:00",
+          "actual_departure": "2026-08-14T06:20:00+00:00",
+          "scheduled_arrival": "2026-08-14T07:20:00+00:00",
+          "actual_arrival": "2026-08-14T11:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "flight_number": "XX999",
+      "date": "*",
+      "description": "No such flight. An empty result is an ANSWER (404), not a failure.",
+      "flights": []
+    },
+    {
+      "flight_number": "ERR503",
+      "date": "*",
+      "description": "Provider unreachable or timing out.",
+      "error": "ProviderUnavailable"
+    },
+    {
+      "flight_number": "ERR429",
+      "date": "*",
+      "description": "Over quota.",
+      "error": "ProviderRateLimited"
+    },
+    {
+      "flight_number": "ERR401",
+      "date": "*",
+      "description": "Key missing, wrong, or not subscribed to the product.",
+      "error": "ProviderAuthError"
+    },
+    {
+      "flight_number": "ERR422",
+      "date": "*",
+      "description": "The vendor answered in a shape we do not recognise: a schema change.",
+      "error": "ProviderResponseInvalid"
+    }
+  ]
+}
