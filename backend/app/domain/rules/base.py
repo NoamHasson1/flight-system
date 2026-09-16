@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
-from app.domain.models import FlightFacts, Money, Verdict
+from app.domain.models import FlightFacts, FlightStatus, Money, Verdict
 
 # --- The result of applying one regulation to one flight ---------------------
 
@@ -131,3 +131,204 @@ def format_hours(hours: float) -> str:
     total_minutes = round(abs(hours) * 60)
     sign = "-" if hours < 0 else ""
     return f"{sign}{total_minutes // 60}h {total_minutes % 60:02d}m"
+
+
+# --- United Kingdom ----------------------------------------------------------
+
+UK_TERRITORIES: frozenset[str] = frozenset({"GB"})
+
+# UK261 covers arrivals into the UK on UK carriers *and* on EU-licensed ones,
+# so its carrier set is wider than its territory set.
+UK_CARRIER_STATES: frozenset[str] = UK_TERRITORIES | EC261_CARRIER_STATES
+
+# Crown Dependencies and Gibraltar. These are not part of the United Kingdom,
+# and whether the retained regulation reaches them is genuinely unsettled rather
+# than merely unresearched. Saying "no claim" here would be a confident answer we
+# have not earned, so a route touching one of these goes to NEEDS_REVIEW.
+UK_UNSETTLED_TERRITORIES: frozenset[str] = frozenset(
+    {
+        "GI",  # Gibraltar
+        "JE",  # Jersey
+        "GG",  # Guernsey / Alderney
+        "IM",  # Isle of Man
+    }
+)
+
+
+# --- The shared shape of EC261 and UK261 -------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class ArrivalDelayRegulation:
+    """EC261 and UK261, which are the same regulation with different numbers.
+
+    UK261 is retained EU law: the United Kingdom copied Regulation 261/2004 into
+    its own statute book at Brexit, changed the currency and changed "EU" to
+    "UK". Writing the two out separately would duplicate every guard clause and
+    every reason string, and a bug fixed in one would live on in the other.
+
+    So the *flow* lives here, once, and each law is a declaration of its own
+    constants. The Israeli law deliberately does not use this: it measures
+    departure delay rather than arrival delay and reduces on a different rule,
+    so forcing it into this shape would obscure a real difference rather than
+    share a real similarity.
+    """
+
+    code: str
+    name: str
+    territories: frozenset[str]
+    carrier_states: frozenset[str]
+    jurisdiction_summary: str
+    band_boundaries: tuple[float, float]
+    compensation: tuple[Money, Money, Money]
+    minimum_arrival_delay_hours: float
+    long_haul_reduction_below_hours: float
+    unsettled_territories: frozenset[str] = frozenset()
+
+    # --- 1. Does this law apply at all? ---
+
+    def applies(self, flight: FlightFacts) -> bool:
+        """Deliberately asymmetric, and the asymmetry is what people get wrong:
+
+        * DEPARTING the territory covers *every* airline, wherever it is from.
+        * ARRIVING into it only covers the regulation's own carriers.
+        """
+        departs_from = flight.origin_country in self.territories
+        arrives_in = flight.destination_country in self.territories
+        is_covered_carrier = flight.airline_country in self.carrier_states
+
+        return departs_from or (arrives_in and is_covered_carrier)
+
+    # --- 3. How much money is owed? ---
+
+    def compensation_for(self, distance_km: float, arrival_delay_hours: float) -> Money:
+        band = distance_band(distance_km, *self.band_boundaries)
+        award = self.compensation[band]
+
+        is_long_haul = band == 2
+        arrived_early_enough = (
+            arrival_delay_hours < self.long_haul_reduction_below_hours
+        )
+        if is_long_haul and arrived_early_enough:
+            return award.halved()
+        return award
+
+    # --- Putting it together ---
+
+    def evaluate(self, flight: FlightFacts) -> RegulationOutcome:
+        unsettled = self.unsettled_territories & {
+            flight.origin_country,
+            flight.destination_country,
+        }
+        if unsettled:
+            return self._review(
+                f"the route touches {', '.join(sorted(unsettled))}, which is not part "
+                f"of the territory {self.code} plainly covers. Whether the regulation "
+                f"reaches it is unsettled, so this needs a person to look at"
+            )
+
+        if not self.applies(flight):
+            return self._outcome(
+                Verdict.NOT_ELIGIBLE,
+                applies=False,
+                reason=(
+                    f"{self.code} does not cover this flight: it departs from "
+                    f"{flight.origin_country} and arrives in "
+                    f"{flight.destination_country}, and the operating carrier "
+                    f"{flight.airline_iata} is licensed in {flight.airline_country}. "
+                    f"{self.jurisdiction_summary}"
+                ),
+            )
+
+        # From here the law applies, so every remaining answer is about this
+        # flight's facts -- and anything we cannot establish becomes
+        # NEEDS_REVIEW rather than a confident "no".
+
+        if flight.status is FlightStatus.DIVERTED:
+            return self._review("the flight was diverted, which needs a person to assess")
+
+        if flight.status is FlightStatus.UNKNOWN:
+            return self._review("we could not establish what happened to this flight")
+
+        if flight.is_cancelled:
+            # Cancellation compensation turns on how much notice the passenger
+            # was given -- under 14 days and it is payable. No flight data API
+            # reports that, and it is not ours to assume in either direction.
+            return self._review(
+                "the flight was cancelled. Compensation is payable when the airline "
+                "gave less than 14 days' notice, which we need to confirm with you"
+            )
+
+        delay = flight.arrival_delay_hours
+        if delay is None:
+            return self._review(
+                "the flight has no recorded arrival time yet, so the delay cannot "
+                "be measured"
+            )
+
+        if delay < self.minimum_arrival_delay_hours:
+            return self._outcome(
+                Verdict.NOT_ELIGIBLE,
+                applies=True,
+                reason=(
+                    f"{self.code} covers this flight, but it arrived "
+                    f"{format_hours(delay)} late, below the "
+                    f"{format_hours(self.minimum_arrival_delay_hours)} threshold."
+                ),
+            )
+
+        award = self.compensation_for(flight.distance_km, delay)
+        return self._outcome(
+            Verdict.ELIGIBLE,
+            applies=True,
+            award=award,
+            reason=(
+                f"{self.code} covers this flight ({flight.route}). It arrived "
+                f"{format_hours(delay)} late, at or over the "
+                f"{format_hours(self.minimum_arrival_delay_hours)} threshold. "
+                f"{self._describe_band(flight.distance_km, award)}"
+            ),
+        )
+
+    # --- reason-string helpers ---
+
+    def _describe_band(self, distance_km: float, award: Money) -> str:
+        band = distance_band(distance_km, *self.band_boundaries)
+        first, second = self.band_boundaries
+        full = self.compensation[band]
+        descriptions = (
+            f"The distance of {distance_km:,.0f} km is {first:,.0f} km or less",
+            f"The distance of {distance_km:,.0f} km is between {first:,.0f} and "
+            f"{second:,.0f} km",
+            f"The distance of {distance_km:,.0f} km is over {second:,.0f} km",
+        )
+        if award != full:
+            return (
+                f"{descriptions[band]}, giving {full}, halved to {award} because the "
+                f"airline landed you within "
+                f"{format_hours(self.long_haul_reduction_below_hours)}."
+            )
+        return f"{descriptions[band]}, giving {award}."
+
+    def _outcome(
+        self,
+        verdict: Verdict,
+        *,
+        applies: bool,
+        reason: str,
+        award: Money | None = None,
+    ) -> RegulationOutcome:
+        return RegulationOutcome(
+            regulation=self.code,
+            verdict=verdict,
+            reason=reason,
+            applies=applies,
+            award=award,
+        )
+
+    def _review(self, detail: str) -> RegulationOutcome:
+        return self._outcome(
+            Verdict.NEEDS_REVIEW,
+            applies=True,
+            reason=f"{self.code} covers this flight, but {detail}.",
+        )
