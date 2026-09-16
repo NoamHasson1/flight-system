@@ -215,85 +215,75 @@ Two design notes worth calling out:
 
 ## 4. The steps
 
-Each step: I explain it → I show you an example → you approve → I commit.
+**Rule of thumb: one concept per step, one to three files.** Each step: I explain what the
+file will do and why → I write it → I run it and show you the real output → you approve →
+I commit. If a step ever looks like it's turning into a pile of files, it gets split.
 
-### Step 1 — Repository scaffold and planning documents ← *you are here*
-`plan.md`, `rules.md`, `README.md`, `.gitignore`, git repo on `main`.
-**Example shown:** these two documents.
-**Commit:** `chore: initialise repo with plan and rules documentation`
+The order is deliberate: **pure business logic first, infrastructure last.** The compensation
+rules are the part you need to verify and the part that must be right. They need no database,
+no API key and no server to run — so they come first, and you can read every line of them.
 
-### Step 2 — Backend skeleton
-`uv` project pinned to Python 3.12, FastAPI app factory, `config.py` with pydantic-settings,
-`/health` endpoint, ruff + mypy + pytest configured, one passing test.
-**Example shown:** the server running, `curl /health`, `/docs` page, `pytest` output.
-**Commit:** `feat(backend): scaffold FastAPI application with tooling`
+### Phase A — The legal core (pure Python, no infrastructure)
 
-### Step 3 — Domain foundations
-`FlightFacts`, `Money`, `EligibilityResult`; haversine distance; the bundled `airports.csv`
-and `airlines.csv` plus the lookup layer.
-**Example shown:** `distance("TLV","LHR") → 3570 km` verified against a published figure.
-**Commit:** `feat(domain): flight facts, money types and great-circle distance`
+At the end of this phase the entire eligibility decision works and is provable, offline,
+with no API key and no database.
 
-### Step 4 — The rules engine ⭐ *the heart of the system*
-`ec261.py`, `uk261.py`, `israel.py`, each a small pure module with the constants from
-`rules.md` at the top; `engine.py` runs all three and ranks them.
-**Example shown:** the four worked examples from `rules.md`, evaluated live.
-**Commit:** `feat(domain): EC261, UK261 and Israeli compensation rules`
+| Step | What | Files |
+|---|---|---|
+| **2** | `pyproject.toml` — minimal `uv` project on Python 3.12 with pytest. Nothing else. | 1 |
+| **3** | `domain/distance.py` — the haversine formula. Verified: TLV→LHR = 3,570 km. | 2 |
+| **4** | `domain/models.py` — `Money` (Decimal), `FlightStatus`, `FlightFacts` and its two delay properties. | 2 |
+| **5** | `data/airports.csv` + `data/airlines.csv` + `domain/reference.py` — code → country, coordinates, carrier nationality. | 3 |
+| **6** | `domain/rules/base.py` + `domain/rules/ec261.py` — the `Regulation` protocol and the first real rule. | 3 |
+| **7** | `domain/rules/uk261.py` — same shape, British numbers. | 2 |
+| **8** | `domain/rules/israel.py` — different threshold, different bands, the 50% reduction. | 2 |
+| **9** | `domain/rules/engine.py` — run all three, rank them, produce the explanations. | 2 |
 
-### Step 5 — Flight data provider
-`FlightDataProvider` protocol; `FakeFlightProvider` reading JSON fixtures; `AeroDataBoxProvider`
-with httpx, retries, timeouts and clear "flight not found" errors; the mapper that turns an
-API response into `FlightFacts`.
-**Example shown:** the same flight resolved through both the fake and (if the key is ready)
-the real provider, producing an identical `FlightFacts`.
-**Commit:** `feat(providers): AeroDataBox client with fixture-backed fake`
+**Step 9 is the milestone.** From that point I can hand you the four worked examples from
+`rules.md` running live in a Python shell.
 
-### Step 6 — Database layer
-SQLAlchemy 2.0 models, Alembic initial migration, repository functions.
-**Example shown:** `alembic upgrade head`, then the created tables listed from the sqlite CLI.
-**Commit:** `feat(db): SQLAlchemy models, migrations and repositories`
+### Phase B — Real flight data
 
-### Step 7 — Eligibility endpoint
-`POST /api/v1/eligibility/check` — validate, fetch, evaluate, persist, return.
-**Example shown:** a real `curl` request and the full JSON response, then the saved row.
-**Commit:** `feat(api): eligibility check endpoint`
+| Step | What | Files |
+|---|---|---|
+| **10** | `providers/base.py` + `providers/fake.py` + recorded JSON fixtures. | 3 |
+| **11** | `providers/aerodatabox.py` — the HTTP client: timeouts, retries, clear errors. | 2 |
+| **12** | `providers/mapper.py` — vendor JSON → `FlightFacts`. Timezones, missing actuals, cancellations. | 2 |
 
-### Step 8 — Claim intake
-`POST /api/v1/claims` (passengers, booking, expenses), `POST /api/v1/claims/{id}/documents`
-for file uploads with type/size validation, `GET /api/v1/claims/{id}`.
-**Example shown:** submitting a claim with two passengers and a receipt upload.
-**Commit:** `feat(api): claim submission with passengers, expenses and documents`
+### Phase C — Persistence
 
-### Step 9 — Admin read API
-`GET /api/v1/admin/checks` with filtering and pagination, so the data is easy to look at.
-**Example shown:** a filtered listing.
-**Commit:** `feat(api): admin endpoints for browsing checks and claims`
+| Step | What | Files |
+|---|---|---|
+| **13** | `db/models.py` — the `eligibility_checks` table only. | 2 |
+| **14** | Alembic wired up + the initial migration. | 2 |
+| **15** | `claims`, `passengers`, `expenses`, `documents` tables + repositories. | 3 |
 
-### Step 10 — Frontend scaffold and design system
-Next.js + TypeScript + Tailwind, design tokens, typed API client, the strings file.
-Guided by the **apple-design** skill: restraint, real materials, honest motion.
-**Example shown:** the landing page and the token palette.
-**Commit:** `feat(frontend): Next.js scaffold with design system`
+### Phase D — The HTTP API
 
-### Step 11 — The check flow
-The flight-number form with real validation, the loading state, and the result screen —
-which must explain a "no" as clearly as it celebrates a "yes".
-**Example shown:** screenshots of eligible and not-eligible results.
-**Commit:** `feat(frontend): flight eligibility check flow`
+| Step | What | Files |
+|---|---|---|
+| **16** | `config.py` + `main.py` + `/health`. The first infrastructure, and only now. | 3 |
+| **17** | `POST /eligibility/check` — validate, fetch, evaluate, persist, return. | 3 |
+| **18** | `POST /claims` and document upload. | 3 |
+| **19** | `GET /admin/checks` — filtering and pagination. | 2 |
 
-### Step 12 — The claim flow
-Multi-step form: passengers → booking → expenses → receipts → review → submit. Progress is
-preserved if the user refreshes.
-**Example shown:** a full walkthrough.
-**Commit:** `feat(frontend): multi-step claim submission flow`
+### Phase E — Frontend
 
-### Step 13 — Frontend tests and end-to-end check
-Vitest + Testing Library for components; one Playwright run through the whole journey.
-**Commit:** `test(frontend): component and end-to-end coverage`
+| Step | What | Files |
+|---|---|---|
+| **20** | Next.js + TypeScript + Tailwind scaffold and the design tokens. | ~4 |
+| **21** | Typed API client + the strings file. | 2 |
+| **22** | The flight-number form: validation, loading state. | 2 |
+| **23** | The result screen — explaining a "no" as clearly as it celebrates a "yes". | 2 |
+| **24** | The claim wizard: passengers → booking → expenses → receipts → review. | ~5 |
+| **25** | Component tests and one end-to-end run. | ~4 |
 
-### Step 14 — Documentation and handover
-README with setup instructions, a `Makefile`, `.env.example`, final polish.
-**Commit:** `docs: setup, architecture and operations guide`
+### Phase F — Handover
+
+| Step | What | Files |
+|---|---|---|
+| **26** | README setup guide, `Makefile`, `.env.example`, final polish. | 3 |
+
 
 ---
 
