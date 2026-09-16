@@ -139,12 +139,14 @@ def test_awards_are_in_pounds_not_euros() -> None:
     assert "£" in str(outcome.award)
 
 
-def test_long_haul_reduction_halves_to_260() -> None:
-    """The retained Article 7(2)(c). 520 halved is 260."""
-    outcome = uk261.evaluate(
-        a_flight(origin_country="GB", distance_km=5000.0, arrival_delay_hours=3.5)
-    )
-    assert outcome.award == Money.of("260", GBP)
+def test_long_haul_always_pays_in_full() -> None:
+    """No reduction here either -- the retained Article 7(2) carries the same
+    re-routing precondition, so it does not reach delay claims."""
+    for delay in (3.0, 3.5, 4.0, 6.0):
+        outcome = uk261.evaluate(
+            a_flight(origin_country="GB", distance_km=5000.0, arrival_delay_hours=delay)
+        )
+        assert outcome.award == Money.of("520", GBP)
 
 
 def test_the_two_regulations_pay_different_amounts_for_the_same_flight() -> None:

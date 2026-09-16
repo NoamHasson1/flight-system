@@ -182,7 +182,6 @@ class ArrivalDelayRegulation:
     band_boundaries: tuple[float, float]
     compensation: tuple[Money, Money, Money]
     minimum_arrival_delay_hours: float
-    long_haul_reduction_below_hours: float
     unsettled_territories: frozenset[str] = frozenset()
 
     # --- 1. Does this law apply at all? ---
@@ -201,17 +200,19 @@ class ArrivalDelayRegulation:
 
     # --- 3. How much money is owed? ---
 
-    def compensation_for(self, distance_km: float, arrival_delay_hours: float) -> Money:
-        band = distance_band(distance_km, *self.band_boundaries)
-        award = self.compensation[band]
+    def compensation_for(self, distance_km: float) -> Money:
+        """The award for a flight of this distance.
 
-        is_long_haul = band == 2
-        arrived_early_enough = (
-            arrival_delay_hours < self.long_haul_reduction_below_hours
-        )
-        if is_long_haul and arrived_early_enough:
-            return award.halved()
-        return award
+        There is no 50% reduction here. Article 7(2), which allows one, opens
+        with "when passengers are offered re-routing to their final destination
+        on an alternative flight" -- it is about being rebooked after a
+        cancellation, not about the flight you were on landing late. A delayed
+        flight has no alternative flight, so the article does not reach it.
+
+        The Israeli law is different: its reduction is written into the delay
+        provision itself, so israel.py does implement one.
+        """
+        return self.compensation[distance_band(distance_km, *self.band_boundaries)]
 
     # --- Putting it together ---
 
@@ -277,7 +278,7 @@ class ArrivalDelayRegulation:
                 ),
             )
 
-        award = self.compensation_for(flight.distance_km, delay)
+        award = self.compensation_for(flight.distance_km)
         return self._outcome(
             Verdict.ELIGIBLE,
             applies=True,
@@ -295,19 +296,12 @@ class ArrivalDelayRegulation:
     def _describe_band(self, distance_km: float, award: Money) -> str:
         band = distance_band(distance_km, *self.band_boundaries)
         first, second = self.band_boundaries
-        full = self.compensation[band]
         descriptions = (
             f"The distance of {distance_km:,.0f} km is {first:,.0f} km or less",
             f"The distance of {distance_km:,.0f} km is between {first:,.0f} and "
             f"{second:,.0f} km",
             f"The distance of {distance_km:,.0f} km is over {second:,.0f} km",
         )
-        if award != full:
-            return (
-                f"{descriptions[band]}, giving {full}, halved to {award} because the "
-                f"airline landed you within "
-                f"{format_hours(self.long_haul_reduction_below_hours)}."
-            )
         return f"{descriptions[band]}, giving {award}."
 
     def _outcome(

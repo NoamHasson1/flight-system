@@ -37,9 +37,6 @@ COMPENSATION: tuple[Money, Money, Money] = (
     Money.of("520", Currency.GBP),  # over 3,500 km
 )
 
-# The retained equivalent of Article 7(2)(c). Halves the top band to 260 pounds
-# when the airline still lands the passenger within four hours.
-LONG_HAUL_REDUCTION_BELOW_HOURS = 4.0
 
 REGULATION = ArrivalDelayRegulation(
     code=CODE,
@@ -53,7 +50,6 @@ REGULATION = ArrivalDelayRegulation(
     band_boundaries=(BAND_1_KM, BAND_2_KM),
     compensation=COMPENSATION,
     minimum_arrival_delay_hours=MINIMUM_ARRIVAL_DELAY_HOURS,
-    long_haul_reduction_below_hours=LONG_HAUL_REDUCTION_BELOW_HOURS,
     unsettled_territories=UK_UNSETTLED_TERRITORIES,
 )
 

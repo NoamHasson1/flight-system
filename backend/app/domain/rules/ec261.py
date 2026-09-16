@@ -36,11 +36,6 @@ COMPENSATION: tuple[Money, Money, Money] = (
     Money.of("600", Currency.EUR),  # over 3,500 km
 )
 
-# Article 7(2)(c): on the longest flights the airline may pay half if it still
-# gets the passenger there within four hours. The passenger is still eligible at
-# three -- they simply receive 50%. This only ever bites in the narrow window
-# between 3 and 4 hours on flights over 3,500 km.
-LONG_HAUL_REDUCTION_BELOW_HOURS = 4.0
 
 REGULATION = ArrivalDelayRegulation(
     code=CODE,
@@ -54,7 +49,6 @@ REGULATION = ArrivalDelayRegulation(
     band_boundaries=(BAND_1_KM, BAND_2_KM),
     compensation=COMPENSATION,
     minimum_arrival_delay_hours=MINIMUM_ARRIVAL_DELAY_HOURS,
-    long_haul_reduction_below_hours=LONG_HAUL_REDUCTION_BELOW_HOURS,
 )
 
 applies = REGULATION.applies

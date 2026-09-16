@@ -206,51 +206,39 @@ def test_distance_bands(distance: float, expected: str) -> None:
     lower band. An off-by-one here underpays by 150 euro on every affected
     flight, forever, and nothing else would ever reveal it.
     """
-    # 5 hours keeps us clear of the long-haul reduction window.
     outcome = ec261.evaluate(
         a_flight(origin_country="FR", distance_km=distance, arrival_delay_hours=5.0)
     )
     assert outcome.award == Money.of(expected, EUR)
 
 
-# --- 5. The Article 7(2) long-haul reduction ---------------------------------
+# --- 5. There is deliberately NO 50% reduction -------------------------------
 
 
-@pytest.mark.parametrize(
-    ("delay", "expected", "note"),
-    [
-        (3.0, "300", "3h on a long haul -- halved"),
-        (3.9833, "300", "3h 59m -- still halved"),
-        (4.0, "600", "exactly 4h -- no longer 'within four hours'"),
-        (6.0, "600", "well past 4h -- full amount"),
-    ],
-)
-def test_long_haul_reduction_window(delay: float, expected: str, note: str) -> None:
-    """Article 7(2)(c): half the amount if the airline lands you inside 4 hours.
+@pytest.mark.parametrize("delay", [3.0, 3.5, 3.9833, 4.0, 4.0167, 6.0])
+def test_long_haul_always_pays_in_full(delay: float) -> None:
+    """Article 7(2) does not reach delay claims, so nothing is ever halved.
 
-    This only bites on flights over 3,500 km, in the narrow band between 3 and
-    4 hours. Tested on both sides of the 4-hour edge.
+    The article opens with "when passengers are offered re-routing to their
+    final destination on an alternative flight" -- it is about being rebooked
+    after a cancellation. A delayed flight has no alternative flight.
+
+    Swept across the window where a reduction would otherwise have applied
+    (3h to 4h on a long haul) plus both sides of it, because this used to be
+    implemented and the tests are what stop it creeping back.
     """
     outcome = ec261.evaluate(
         a_flight(origin_country="FR", distance_km=5000.0, arrival_delay_hours=delay)
     )
-    assert outcome.award == Money.of(expected, EUR), note
+    assert outcome.award == Money.of("600", EUR)
 
 
-def test_reduction_does_not_apply_to_shorter_flights() -> None:
-    """A 3h delay on a 2,000 km flight pays the full 400 euro."""
-    outcome = ec261.evaluate(
-        a_flight(origin_country="FR", distance_km=2000.0, arrival_delay_hours=3.0)
-    )
-    assert outcome.award == Money.of("400", EUR)
-
-
-def test_the_reduction_is_explained() -> None:
+def test_no_reason_string_mentions_halving() -> None:
+    """The customer must never be shown a reduction we do not apply."""
     outcome = ec261.evaluate(
         a_flight(origin_country="FR", distance_km=5000.0, arrival_delay_hours=3.5)
     )
-    assert "halved" in outcome.reason
-    assert "€600.00" in outcome.reason and "€300.00" in outcome.reason
+    assert "halved" not in outcome.reason
 
 
 # --- 6. Everything that must become NEEDS_REVIEW ------------------------------

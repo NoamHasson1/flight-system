@@ -84,10 +84,17 @@ Yes, if **either** of these is true:
 | 1,500 – 3,500 km | 3 hours or more |
 | Over 3,500 km | 3 hours or more |
 
-> **Note on the "4 hour" rule you may have read about.** For long flights over 3,500 km that
-> cross outside the EU, the compensation can be *halved* if the airline gets you there under
-> 4 hours late. The passenger is still eligible at 3 hours — they just receive 50%. We apply
-> this reduction rather than denying the claim.
+The threshold is the same for every distance: **3 hours late on arrival**.
+
+> **Note on the "50% reduction" you may have read about.** EC261 does contain a rule letting
+> the airline pay half. It is in Article 7(2), and it begins: *"when passengers are offered
+> re-routing to their final destination on an alternative flight…"*. That is about being
+> **rebooked after a cancellation** — it is not about the flight you were actually on landing
+> late. A delayed flight has no alternative flight, so the reduction does not reach it.
+>
+> **We therefore pay delay claims in full.** A flight over 3,500 km arriving 3 hours late is
+> worth the full €600, not €300. The Israeli law is different: its reduction is written
+> directly into the delay provision, so it genuinely does apply — see section 6.
 
 ### How much?
 
