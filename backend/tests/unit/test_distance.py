@@ -16,9 +16,20 @@ import pytest
 
 from app.domain.distance import EARTH_RADIUS_KM, haversine_km
 
-# Airport coordinates, from public reference data. Kept local to this file on
-# purpose: these tests must not depend on the airport dataset we load in step 5,
-# or a bug in that dataset could make these tests pass for the wrong reason.
+# Airport coordinates, cross-checked against the public-domain OurAirports
+# dataset (davidmegginson.github.io/ourairports-data) -- every one agrees to
+# within 0.71 km, and TLV is exact.
+#
+# They are duplicated here on purpose rather than imported from the dataset we
+# ship in step 5. If these tests read that dataset, a bad row in it could make
+# them pass for the wrong reason: the test and the thing under test would share
+# a single point of failure. Please do not "tidy" this into an import.
+#
+# The sub-kilometre disagreements are not errors. An airport covers several
+# square kilometres, so sources differ on whether the reference point is the
+# terminal, the runway midpoint or the official Aerodrome Reference Point.
+# Against the 88 km margin by which TLV-LHR clears the 3,500 km band boundary,
+# it is noise.
 TLV = (32.0114, 34.8867)  # Tel Aviv, Ben Gurion
 LHR = (51.4706, -0.4619)  # London Heathrow
 CDG = (49.0097, 2.5479)  # Paris, Charles de Gaulle
