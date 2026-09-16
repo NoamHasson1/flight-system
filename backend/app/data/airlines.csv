@@ -1,0 +1,143 @@
+iata,name,country
+# Country is the state that issued the carrier's operating licence (its AOC),
+# NOT where it happens to fly. That is what EC261 and UK261 key off when a
+# flight ARRIVES into their territory from outside it.
+#
+# There is no authoritative public dataset for this, so this list is curated by
+# hand and covers the carriers that actually serve Israel, the EU and the UK,
+# plus the major world airlines. An airline missing from this file does not
+# produce a wrong answer -- it produces NEEDS_REVIEW.
+#
+# --- Israel ---
+LY,El Al,IL
+6H,Israir,IL
+IZ,Arkia,IL
+# --- United Kingdom ---
+BA,British Airways,GB
+VS,Virgin Atlantic,GB
+U2,easyJet UK,GB
+LS,Jet2,GB
+BY,TUI Airways,GB
+W9,Wizz Air UK,GB
+RK,Ryanair UK,GB
+ZB,Scoot UK,GB
+# --- Ireland ---
+FR,Ryanair,IE
+EI,Aer Lingus,IE
+D8,Norwegian Air International,IE
+# --- Germany ---
+LH,Lufthansa,DE
+EW,Eurowings,DE
+DE,Condor,DE
+X3,TUI fly Deutschland,DE
+# --- France ---
+AF,Air France,FR
+TO,Transavia France,FR
+A5,HOP,FR
+# --- Netherlands ---
+KL,KLM,NL
+HV,Transavia,NL
+# --- Spain ---
+IB,Iberia,ES
+VY,Vueling,ES
+UX,Air Europa,ES
+NT,Binter Canarias,ES
+# --- Italy ---
+AZ,ITA Airways,IT
+NO,Neos,IT
+# --- Portugal ---
+TP,TAP Air Portugal,PT
+S4,Azores Airlines,PT
+# --- Greece & Cyprus ---
+A3,Aegean Airlines,GR
+OA,Olympic Air,GR
+CY,Cyprus Airways,CY
+# --- Austria, Belgium, Luxembourg ---
+OS,Austrian Airlines,AT
+EJU,easyJet Europe,AT
+SN,Brussels Airlines,BE
+LG,Luxair,LU
+# --- Nordics & Baltics (EEA) ---
+AY,Finnair,FI
+SK,SAS,SE
+DY,Norwegian Air Shuttle,NO
+FI,Icelandair,IS
+BT,airBaltic,LV
+# --- Central & Eastern Europe ---
+LO,LOT Polish Airlines,PL
+OK,Czech Airlines,CZ
+RO,TAROM,RO
+FB,Bulgaria Air,BG
+OU,Croatia Airlines,HR
+W6,Wizz Air,HU
+KM,KM Malta Airlines,MT
+# --- Europe, outside the EU/EEA ---
+LX,Swiss International Air Lines,CH
+WK,Edelweiss Air,CH
+JU,Air Serbia,RS
+TK,Turkish Airlines,TR
+PC,Pegasus Airlines,TR
+XQ,SunExpress,TR
+SU,Aeroflot,RU
+PS,Ukraine International,UA
+# --- Middle East ---
+MS,EgyptAir,EG
+RJ,Royal Jordanian,JO
+EK,Emirates,AE
+EY,Etihad Airways,AE
+FZ,flydubai,AE
+QR,Qatar Airways,QA
+GF,Gulf Air,BH
+WY,Oman Air,OM
+SV,Saudia,SA
+KU,Kuwait Airways,KW
+ME,Middle East Airlines,LB
+# --- North America ---
+AA,American Airlines,US
+DL,Delta Air Lines,US
+UA,United Airlines,US
+B6,JetBlue Airways,US
+WN,Southwest Airlines,US
+AS,Alaska Airlines,US
+NK,Spirit Airlines,US
+F9,Frontier Airlines,US
+AC,Air Canada,CA
+WS,WestJet,CA
+# --- Asia ---
+SQ,Singapore Airlines,SG
+CX,Cathay Pacific,HK
+TG,Thai Airways,TH
+NH,All Nippon Airways,JP
+JL,Japan Airlines,JP
+KE,Korean Air,KR
+OZ,Asiana Airlines,KR
+CA,Air China,CN
+MU,China Eastern,CN
+CZ,China Southern,CN
+AI,Air India,IN
+6E,IndiGo,IN
+MH,Malaysia Airlines,MY
+GA,Garuda Indonesia,ID
+PR,Philippine Airlines,PH
+VN,Vietnam Airlines,VN
+BR,EVA Air,TW
+CI,China Airlines,TW
+KC,Air Astana,KZ
+# --- Africa ---
+ET,Ethiopian Airlines,ET
+KQ,Kenya Airways,KE
+SA,South African Airways,ZA
+AT,Royal Air Maroc,MA
+TU,Tunisair,TN
+# --- Oceania ---
+QF,Qantas,AU
+VA,Virgin Australia,AU
+NZ,Air New Zealand,NZ
+# --- Latin America ---
+LA,LATAM Airlines,CL
+AR,Aerolineas Argentinas,AR
+AM,Aeromexico,MX
+AV,Avianca,CO
+CM,Copa Airlines,PA
+G3,Gol,BR
+AD,Azul,BR
