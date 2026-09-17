@@ -11,6 +11,10 @@ dependencies = [
     # ships a MockTransport, which lets the client be tested end to end --
     # status codes, retries, parsing -- without a network or a mocking library.
     "httpx>=0.27",
+    # step 13: persistence. SQLAlchemy 2.0 for its typed ORM, and because it
+    # makes the eventual move from SQLite to PostgreSQL a connection string
+    # rather than a rewrite.
+    "SQLAlchemy>=2.0",
 ]
 
 [dependency-groups]
