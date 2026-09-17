@@ -39,3 +39,8 @@ test-results/
 .DS_Store
 .vscode/
 .idea/
+
+# Next.js build/runtime
+frontend/.next/
+frontend/out/
+frontend/next-env.d.ts
