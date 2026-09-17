@@ -25,6 +25,9 @@ dependencies = [
     # time; uvicorn to actually serve it.
     "fastapi>=0.115",
     "pydantic-settings>=2.5",
+    # step 17: EmailStr. Validating an address at the edge is worth it because
+    # the confirmation email is how a customer ever hears from us again.
+    "email-validator>=2.2",
     "uvicorn[standard]>=0.30",
 ]
 
