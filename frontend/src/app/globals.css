@@ -147,6 +147,8 @@
   --radius-xl: 1.75rem;
   --radius-2xl: 2.25rem;
   --radius-pill: 999px;
+  --radius-field: 0.875rem;   /* inputs inside the glass card */
+  --radius-hero: 2rem;        /* the glass card itself */
 
   /* --- Motion -------------------------------------------------------------
      Durations for things no gesture drives. Anything draggable is a spring in
@@ -165,6 +167,38 @@
    redefinition here rather than a class on every element.                     */
 :root {
   color-scheme: light;
+
+  /* --- Cinematic surfaces -------------------------------------------------
+     Both references ground themselves on a graded photograph rather than flat
+     colour: Gyro on a cabin interior, Latebird on a terminal at sunrise. The
+     grade is what makes them feel current -- the photo underneath is almost
+     incidental.
+
+     These build that grade in CSS. A layered mesh of radial glows over a deep
+     base reads as lit and atmospheric, it weighs nothing, it adapts to any
+     viewport, and it does not require licensing somebody's photograph. Real
+     imagery can slot in behind it later; the glows are what carry the mood.   */
+  --hero-base: oklch(19% 0.045 285);
+  --hero-glow-violet: oklch(48% 0.190 292);
+  --hero-glow-peri: oklch(58% 0.150 268);
+  --hero-glow-warm: oklch(44% 0.120 325);
+  --hero-ink: oklch(97% 0.010 285);
+  --hero-ink-dim: oklch(78% 0.030 285);
+
+  /* Glass. The form floats on the hero as its own material rather than sitting
+     in a hole cut out of it. Border is a bright hairline -- light catching a
+     real edge -- and the shadow is deep because the surface is large.         */
+  --glass-fill: oklch(28% 0.040 285 / 0.55);
+  --glass-edge: oklch(100% 0 0 / 0.14);
+  --glass-edge-top: oklch(100% 0 0 / 0.26);
+  --glass-blur: 28px;
+  --glass-shadow: 0 2px 8px oklch(10% 0.03 285 / 0.4),
+                  0 32px 64px oklch(10% 0.03 285 / 0.45);
+
+  /* Film grain over the gradient. Without it a large smooth gradient bands
+     visibly on 8-bit displays, which is the single thing that makes a CSS
+     gradient read as "CSS gradient" rather than as an image.                  */
+  --grain-opacity: 0.16;
 
   --font-sans-stack: var(--font-inter), -apple-system, BlinkMacSystemFont,
     "Segoe UI", system-ui, sans-serif;

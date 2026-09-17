@@ -1,0 +1,163 @@
+/* The hero background.
+
+   A plain CSS module rather than utility classes: this is one composed visual
+   effect made of four stacked layers, and expressing it as a string of
+   arbitrary-value utilities would make it unreadable without making it any
+   more reusable. */
+
+.hero {
+  position: relative;
+  isolation: isolate;
+  background: var(--hero-base);
+  color: var(--hero-ink);
+  overflow: hidden;
+}
+
+/* Layer 1 — the mesh. Three offset radial glows rather than one linear
+   gradient: a linear gradient reads as a background, a mesh reads as light. */
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  z-index: -2;
+  background:
+    radial-gradient(48% 42% at 22% 18%, var(--hero-glow-peri) 0%, transparent 62%),
+    radial-gradient(52% 46% at 78% 28%, var(--hero-glow-violet) 0%, transparent 58%),
+    radial-gradient(60% 50% at 50% 92%, var(--hero-glow-warm) 0%, transparent 64%);
+  filter: blur(36px) saturate(125%);
+}
+
+/* Layer 2 — grain. A large smooth gradient bands visibly on 8-bit displays,
+   and that banding is the one thing that makes a CSS gradient look like a CSS
+   gradient instead of like an image. */
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: var(--grain-opacity);
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+}
+
+/* The glass card. */
+.glass {
+  background: var(--glass-fill);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  border: 1px solid var(--glass-edge);
+  border-top-color: var(--glass-edge-top);
+  box-shadow: var(--glass-shadow);
+  border-radius: var(--radius-hero);
+}
+
+/* Inputs sit INSIDE the glass, so they are darker than it rather than lighter.
+   Stacking a light translucent surface on another collapses legibility. */
+.field {
+  background: oklch(16% 0.035 285 / 0.62);
+  border: 1px solid oklch(100% 0 0 / 0.10);
+  border-radius: var(--radius-field);
+  color: var(--hero-ink);
+  transition: border-color var(--duration-quick) var(--ease-out-soft),
+              background-color var(--duration-quick) var(--ease-out-soft);
+}
+.field::placeholder { color: oklch(72% 0.02 285 / 0.5); }
+.field:hover { border-color: oklch(100% 0 0 / 0.18); }
+.field:focus {
+  outline: none;
+  border-color: oklch(75% 0.12 268);
+  background: oklch(16% 0.035 285 / 0.8);
+}
+
+/* The one high-contrast action on the page. White, like Gyro's — a coloured
+   CTA would collide with the verdict palette, where amber already means
+   "needs review" and green already means "eligible". */
+.cta {
+  background: var(--hero-ink);
+  color: oklch(22% 0.06 285);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 1px 2px oklch(10% 0.03 285 / 0.3),
+              0 8px 24px oklch(10% 0.03 285 / 0.35);
+  transition: transform var(--duration-instant) var(--ease-out-soft),
+              box-shadow var(--duration-quick) var(--ease-out-soft);
+}
+.cta:hover {
+  box-shadow: 0 2px 4px oklch(10% 0.03 285 / 0.32),
+              0 14px 36px oklch(10% 0.03 285 / 0.42);
+}
+/* Feedback lives on the press, not the release. Waiting for click feels dead. */
+.cta:active { transform: scale(0.975); }
+
+/* Translucent nav with content passing underneath, rather than an opaque strip
+   that consumes a fixed band of the screen. */
+.nav {
+  background: oklch(19% 0.045 285 / 0.5);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border-bottom: 1px solid oklch(100% 0 0 / 0.07);
+}
+
+.navCta {
+  background: oklch(100% 0 0 / 0.1);
+  border: 1px solid oklch(100% 0 0 / 0.16);
+  border-radius: var(--radius-pill);
+  transition: background-color var(--duration-quick) var(--ease-out-soft);
+}
+.navCta:hover { background: oklch(100% 0 0 / 0.18); }
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass, .nav, .navCta { backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .glass { background: oklch(24% 0.04 285); }
+  .nav { background: oklch(19% 0.045 285); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cta:active { transform: none; }
+}
+
+/* --- Entrance -----------------------------------------------------------
+   CSS, not JavaScript, and the reason matters.
+
+   These were Motion springs at first, and the page rendered blank: the server
+   emitted the initial `opacity: 0`, hydration did not happen, and nothing ever
+   animated it back. Content whose visibility depends on a JS bundle is content
+   that disappears when the bundle does.
+
+   Springs earn their cost for things a person can touch — a sheet they can
+   grab and reverse mid-flight. An entrance fade is not touched. CSS does it
+   with no bundle, no hydration and no failure mode.
+
+   `animation-fill-mode: backwards` holds the from-state during the delay; if
+   animations never run, the element simply sits at its natural, visible state. */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes settle {
+  from { opacity: 0; transform: translateY(18px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+.rise, .settle {
+  animation-duration: 620ms;
+  animation-timing-function: var(--ease-out-soft);
+  animation-fill-mode: backwards;
+}
+.rise { animation-name: rise; }
+.settle { animation-name: settle; }
+
+.d1 { animation-delay: 60ms; }
+.d2 { animation-delay: 130ms; }
+.d3 { animation-delay: 210ms; }
+.d4 { animation-delay: 300ms; }
+.d5 { animation-delay: 420ms; }
+
+/* Reduced motion keeps the fade and drops the travel: the element still
+   announces itself, it just does not move through space. */
+@media (prefers-reduced-motion: reduce) {
+  .rise, .settle {
+    animation-name: none;
+    animation-delay: 0ms;
+  }
+}
