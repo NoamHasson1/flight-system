@@ -1,0 +1,21 @@
+[
+  {
+    "greatCircleDistance": { "km": 2953.1 },
+    "departure": {
+      "airport": { "icao": "LLBG", "iata": "TLV", "name": "Tel Aviv", "countryCode": "IL", "timeZone": "Asia/Jerusalem" },
+      "scheduledTime": { "utc": "2026-08-14 04:10Z", "local": "2026-08-14 07:10+03:00" },
+      "quality": ["Basic"]
+    },
+    "arrival": {
+      "airport": { "icao": "EDDF", "iata": "FRA", "name": "Frankfurt", "countryCode": "DE", "timeZone": "Europe/Berlin" },
+      "scheduledTime": { "utc": "2026-08-14 08:05Z", "local": "2026-08-14 10:05+02:00" },
+      "quality": ["Basic"]
+    },
+    "lastUpdatedUtc": "2026-08-13 19:02Z",
+    "number": "LH 687",
+    "status": "Canceled",
+    "codeshareStatus": "IsOperator",
+    "isCargo": false,
+    "airline": { "name": "Lufthansa", "iata": "LH", "icao": "DLH" }
+  }
+]

@@ -1,0 +1,30 @@
+[
+  {
+    "departure": {
+      "airport": { "iata": "DUB", "countryCode": "IE" },
+      "scheduledTime": { "utc": "2026-08-14 06:00Z" },
+      "runwayTime":    { "utc": "2026-08-14 06:11Z" }
+    },
+    "arrival": {
+      "airport": { "iata": "STN", "countryCode": "GB" },
+      "scheduledTime": { "utc": "2026-08-14 07:15Z" },
+      "runwayTime":    { "utc": "2026-08-14 07:22Z" }
+    },
+    "number": "FR 1234", "status": "Arrived", "isCargo": false,
+    "airline": { "name": "Ryanair", "iata": "FR", "icao": "RYR" }
+  },
+  {
+    "departure": {
+      "airport": { "iata": "DUB", "countryCode": "IE" },
+      "scheduledTime": { "utc": "2026-08-14 16:00Z" },
+      "runwayTime":    { "utc": "2026-08-14 20:40Z" }
+    },
+    "arrival": {
+      "airport": { "iata": "STN", "countryCode": "GB" },
+      "scheduledTime": { "utc": "2026-08-14 17:15Z" },
+      "runwayTime":    { "utc": "2026-08-14 21:50Z" }
+    },
+    "number": "FR 1234", "status": "Arrived", "isCargo": false,
+    "airline": { "name": "Ryanair", "iata": "FR", "icao": "RYR" }
+  }
+]

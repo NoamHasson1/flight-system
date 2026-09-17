@@ -4,11 +4,14 @@ version = "0.1.0"
 description = "Flight delay compensation eligibility engine (EC261 / UK261 / Israeli Aviation Services Law)"
 requires-python = ">=3.12"
 
-# Deliberately empty. The compensation rules in Phase A are pure standard
-# library: math for distance, decimal for money, datetime for delays.
-# Every dependency gets added in the step that first needs it, so the
-# reason for each one stays visible in the git history.
-dependencies = []
+# Added in the step that first needs them, so the reason for each one stays
+# visible in the git history.
+dependencies = [
+    # step 11: the AeroDataBox adapter. httpx because it speaks async and
+    # ships a MockTransport, which lets the client be tested end to end --
+    # status codes, retries, parsing -- without a network or a mocking library.
+    "httpx>=0.27",
+]
 
 [dependency-groups]
 dev = [

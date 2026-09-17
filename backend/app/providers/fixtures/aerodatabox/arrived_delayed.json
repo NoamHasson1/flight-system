@@ -1,0 +1,27 @@
+[
+  {
+    "greatCircleDistance": { "meter": 3588600, "km": 3588.6, "mile": 2229.83, "nm": 1937.69, "feet": 11774606 },
+    "departure": {
+      "airport": { "icao": "LLBG", "iata": "TLV", "name": "Tel Aviv", "shortName": "Ben Gurion", "municipalityName": "Tel Aviv", "countryCode": "IL", "timeZone": "Asia/Jerusalem" },
+      "scheduledTime": { "utc": "2026-08-14 02:20Z", "local": "2026-08-14 05:20+03:00" },
+      "revisedTime":   { "utc": "2026-08-14 06:10Z", "local": "2026-08-14 09:10+03:00" },
+      "runwayTime":    { "utc": "2026-08-14 06:20Z", "local": "2026-08-14 09:20+03:00" },
+      "terminal": "3", "checkInDesk": "60-80", "gate": "B7", "quality": ["Basic", "Live"]
+    },
+    "arrival": {
+      "airport": { "icao": "EGLL", "iata": "LHR", "name": "London Heathrow", "shortName": "Heathrow", "municipalityName": "London", "countryCode": "GB", "timeZone": "Europe/London" },
+      "scheduledTime": { "utc": "2026-08-14 07:20Z", "local": "2026-08-14 08:20+01:00" },
+      "revisedTime":   { "utc": "2026-08-14 11:15Z", "local": "2026-08-14 12:15+01:00" },
+      "runwayTime":    { "utc": "2026-08-14 11:20Z", "local": "2026-08-14 12:20+01:00" },
+      "terminal": "5", "baggageBelt": "7", "quality": ["Basic", "Live"]
+    },
+    "lastUpdatedUtc": "2026-08-14 11:35Z",
+    "number": "BA 165",
+    "callSign": "BAW165",
+    "status": "Arrived",
+    "codeshareStatus": "IsOperator",
+    "isCargo": false,
+    "aircraft": { "reg": "G-ZBKA", "modeS": "406B10", "model": "Boeing 787-9" },
+    "airline": { "name": "British Airways", "iata": "BA", "icao": "BAW" }
+  }
+]

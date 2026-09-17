@@ -1,0 +1,389 @@
+"""Tests for the AeroDataBox adapter.
+
+No network. httpx ships a MockTransport, so the real client code runs end to
+end -- headers, status-code handling, retries, JSON parsing -- against scripted
+responses. That is strictly better than patching: the thing under test is the
+actual request pipeline, not a stand-in for it.
+
+The fixtures are MODELLED from the published schema rather than recorded,
+because no API key existed when this was written. See fixtures/aerodatabox/
+README.md. Any drift from the real API surfaces here as a failing parse test.
+"""
+
+import json
+from datetime import UTC, date, datetime
+from pathlib import Path
+from typing import Any
+
+import httpx
+import pytest
+
+from app.domain.models import FlightStatus
+from app.providers.aerodatabox import AeroDataBoxProvider, _parse_time, _status
+from app.providers.base import (
+    FlightDataProvider,
+    ProviderAuthError,
+    ProviderRateLimited,
+    ProviderResponseInvalid,
+    ProviderUnavailable,
+)
+from app.providers.registry import AVAILABLE, build_provider
+
+FIXTURES = Path(__file__).resolve().parents[2] / "app/providers/fixtures/aerodatabox"
+AUG_14 = date(2026, 8, 14)
+
+
+def fixture(name: str) -> Any:
+    return json.loads((FIXTURES / f"{name}.json").read_text())
+
+
+def provider_returning(
+    *responses: httpx.Response, max_attempts: int = 3
+) -> tuple[AeroDataBoxProvider, list[httpx.Request]]:
+    """An adapter wired to scripted HTTP responses, plus the requests it made.
+
+    The last response repeats if the client asks more times than we scripted.
+    """
+    seen: list[httpx.Request] = []
+    queue = list(responses)
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return queue.pop(0) if len(queue) > 1 else queue[0]
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
+    return (
+        AeroDataBoxProvider(
+            "test-key", client=client, max_attempts=max_attempts,
+            backoff_seconds=0.0,
+        ),
+        seen,
+    )
+
+
+def ok(payload: Any) -> httpx.Response:
+    return httpx.Response(200, json=payload)
+
+
+# --- The contract ------------------------------------------------------------
+
+
+def test_the_adapter_satisfies_the_provider_protocol() -> None:
+    """The same assertion made against the fake.
+
+    Both adapters satisfy one contract, which is what lets everything above this
+    layer be tested against the fake and run against the real thing.
+    """
+    adapter, _ = provider_returning(ok([]))
+    assert isinstance(adapter, FlightDataProvider)
+    assert adapter.name == "aerodatabox"
+
+
+# --- Parsing the real schema -------------------------------------------------
+
+
+async def test_a_delayed_arrival_is_parsed() -> None:
+    """The normal path, against the documented schema."""
+    adapter, _ = provider_returning(ok(fixture("arrived_delayed")))
+    flights = await adapter.fetch("BA165", AUG_14)
+
+    assert len(flights) == 1
+    flight = flights[0]
+    assert flight.airline_iata == "BA"
+    assert flight.origin_iata == "TLV"
+    assert flight.destination_iata == "LHR"
+    assert flight.status is FlightStatus.LANDED
+    assert flight.scheduled_arrival == datetime(2026, 8, 14, 7, 20, tzinfo=UTC)
+    assert flight.actual_arrival == datetime(2026, 8, 14, 11, 20, tzinfo=UTC)
+
+
+async def test_runway_time_is_preferred_over_revised_time() -> None:
+    """runwayTime is a fact; revisedTime is an estimate.
+
+    In the fixture the arrival was revised to 11:15 and actually touched down at
+    11:20. Taking the estimate would understate the delay by five minutes --
+    which, three hours from the threshold, is exactly the sort of error that
+    decides a claim.
+    """
+    adapter, _ = provider_returning(ok(fixture("arrived_delayed")))
+    flight = (await adapter.fetch("BA165", AUG_14))[0]
+    assert flight.actual_arrival == datetime(2026, 8, 14, 11, 20, tzinfo=UTC)
+    assert flight.actual_departure == datetime(2026, 8, 14, 6, 20, tzinfo=UTC)
+
+
+async def test_revised_time_is_used_when_there_is_no_runway_time() -> None:
+    """An estimate beats nothing. Inventing a time from the schedule would turn
+    a missing measurement into a confident zero delay."""
+    payload = fixture("arrived_delayed")
+    del payload[0]["arrival"]["runwayTime"]
+    adapter, _ = provider_returning(ok(payload))
+    flight = (await adapter.fetch("BA165", AUG_14))[0]
+    assert flight.actual_arrival == datetime(2026, 8, 14, 11, 15, tzinfo=UTC)
+
+
+async def test_a_cancelled_flight_has_no_actual_times() -> None:
+    """Note the American spelling in the vendor's vocabulary: "Canceled"."""
+    adapter, _ = provider_returning(ok(fixture("cancelled")))
+    flight = (await adapter.fetch("LH687", AUG_14))[0]
+    assert flight.status is FlightStatus.CANCELLED
+    assert flight.actual_departure is None
+    assert flight.actual_arrival is None
+    assert flight.scheduled_departure is not None
+
+
+async def test_two_matches_are_both_returned() -> None:
+    """The real reason `fetch` returns a sequence.
+
+    This fixture also omits aircraft, terminal and quality entirely, so it
+    doubles as proof the parser tolerates absent optional fields.
+    """
+    adapter, _ = provider_returning(ok(fixture("two_matches")))
+    flights = await adapter.fetch("FR1234", AUG_14)
+    assert len(flights) == 2
+    delays = [
+        (f.actual_arrival - f.scheduled_arrival).total_seconds() / 3600
+        for f in flights
+        if f.actual_arrival and f.scheduled_arrival
+    ]
+    assert delays[0] < 0.2 and delays[1] > 4.0
+
+
+async def test_the_untouched_payload_is_preserved() -> None:
+    """Kept so a decision can be re-explained, or re-run against corrected
+    rules, without paying the provider again."""
+    adapter, _ = provider_returning(ok(fixture("arrived_delayed")))
+    flight = (await adapter.fetch("BA165", AUG_14))[0]
+    assert flight.raw["callSign"] == "BAW165"
+    assert flight.raw["aircraft"]["model"] == "Boeing 787-9"
+
+
+# --- The timestamp format ----------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("2026-08-14 02:20Z", datetime(2026, 8, 14, 2, 20, tzinfo=UTC)),
+        ("2026-08-14 02:20:35Z", datetime(2026, 8, 14, 2, 20, 35, tzinfo=UTC)),
+        ("2026-08-14T02:20Z", datetime(2026, 8, 14, 2, 20, tzinfo=UTC)),
+        ("2026-08-14 02:20", datetime(2026, 8, 14, 2, 20, tzinfo=UTC)),
+    ],
+)
+def test_the_vendors_timestamp_format_is_parsed(
+    text: str, expected: datetime
+) -> None:
+    """AeroDataBox timestamps are NOT ISO 8601.
+
+    They put a space where the T belongs, so `datetime.fromisoformat` rejects
+    them outright. Seconds are sometimes present and sometimes not. The last
+    case has no offset at all, which this vendor's `utc` field occasionally
+    does -- treating that as local time would be worse than assuming UTC.
+    """
+    assert _parse_time(text) == expected
+
+
+def test_a_local_timestamp_keeps_its_offset() -> None:
+    """05:20+03:00 is 02:20 UTC, and must not be read as 05:20 UTC."""
+    parsed = _parse_time("2026-08-14 05:20+03:00")
+    assert parsed is not None
+    assert parsed.astimezone(UTC) == datetime(2026, 8, 14, 2, 20, tzinfo=UTC)
+
+
+@pytest.mark.parametrize("value", [None, "", "  ", "not a time", 12345, {}])
+def test_unparseable_timestamps_become_none_not_an_exception(value: Any) -> None:
+    """One bad timestamp must not take out the whole response.
+
+    None travels downstream and becomes NEEDS_REVIEW, which is the correct
+    outcome. Raising here would turn a partially-usable answer into no answer.
+    """
+    assert _parse_time(value) is None
+
+
+# --- Status vocabulary -------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("vendor", "expected"),
+    [
+        ("Arrived", FlightStatus.LANDED),
+        ("EnRoute", FlightStatus.EN_ROUTE),
+        ("Departed", FlightStatus.EN_ROUTE),
+        ("Approaching", FlightStatus.EN_ROUTE),
+        ("Expected", FlightStatus.SCHEDULED),
+        ("Boarding", FlightStatus.SCHEDULED),
+        ("Delayed", FlightStatus.SCHEDULED),
+        ("Canceled", FlightStatus.CANCELLED),
+        ("Diverted", FlightStatus.DIVERTED),
+        ("arrived", FlightStatus.LANDED),
+        ("EN ROUTE", FlightStatus.EN_ROUTE),
+    ],
+)
+def test_status_vocabulary_is_mapped(vendor: str, expected: FlightStatus) -> None:
+    assert _status(vendor) is expected
+
+
+def test_canceled_uncertain_becomes_unknown_not_cancelled() -> None:
+    """The vendor thinks it was cancelled but will not commit. Neither do we.
+
+    Mapping it to CANCELLED would put a maybe-cancellation through the
+    cancellation path; UNKNOWN sends it to a person, which is what an uncertain
+    fact deserves.
+    """
+    assert _status("CanceledUncertain") is FlightStatus.UNKNOWN
+
+
+@pytest.mark.parametrize("value", ["SomethingNew", "", None, 42])
+def test_unrecognised_statuses_become_unknown(value: Any) -> None:
+    """If the vendor adds a status we have never seen, the right response is to
+    ask a human -- not to guess which bucket it belongs in."""
+    assert _status(value) is FlightStatus.UNKNOWN
+
+
+# --- HTTP failures -----------------------------------------------------------
+
+
+async def test_no_such_flight_returns_empty_rather_than_raising() -> None:
+    """204 and 404 both mean "we looked and it is not there"."""
+    for status in (204, 404):
+        adapter, _ = provider_returning(httpx.Response(status))
+        assert await adapter.fetch("XX999", AUG_14) == ()
+
+
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [(401, ProviderAuthError), (403, ProviderAuthError), (429, ProviderRateLimited)],
+)
+async def test_client_errors_are_classified(
+    status: int, expected: type[Exception]
+) -> None:
+    adapter, _ = provider_returning(httpx.Response(status))
+    with pytest.raises(expected):
+        await adapter.fetch("BA165", AUG_14)
+
+
+async def test_a_401_explains_the_rapidapi_subscription_trap() -> None:
+    """The commonest way this integration fails.
+
+    A RapidAPI key can be perfectly valid while the account is not subscribed to
+    this particular API, and the 401 that results looks identical to a wrong
+    key. Saying so in the message saves an hour.
+    """
+    adapter, _ = provider_returning(httpx.Response(401))
+    with pytest.raises(ProviderAuthError, match="not subscribed"):
+        await adapter.fetch("BA165", AUG_14)
+
+
+async def test_client_errors_are_not_retried() -> None:
+    """Asking again with the same bad key just spends quota."""
+    adapter, seen = provider_returning(httpx.Response(401))
+    with pytest.raises(ProviderAuthError):
+        await adapter.fetch("BA165", AUG_14)
+    assert len(seen) == 1
+
+
+async def test_server_errors_are_retried_then_give_up() -> None:
+    """A 5xx might be transient, so it is worth asking again -- but only a
+    bounded number of times, and then the failure must surface."""
+    adapter, seen = provider_returning(httpx.Response(503), max_attempts=3)
+    with pytest.raises(ProviderUnavailable):
+        await adapter.fetch("BA165", AUG_14)
+    assert len(seen) == 3
+
+
+async def test_a_retry_that_succeeds_returns_the_result() -> None:
+    """The point of retrying at all: one blip must not fail the request."""
+    adapter, seen = provider_returning(
+        httpx.Response(503), ok(fixture("arrived_delayed"))
+    )
+    flights = await adapter.fetch("BA165", AUG_14)
+    assert len(flights) == 1
+    assert len(seen) == 2
+
+
+async def test_timeouts_are_retried_and_then_reported_as_unavailable() -> None:
+    attempts = 0
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+        raise httpx.ConnectTimeout("too slow", request=request)
+
+    adapter = AeroDataBoxProvider(
+        "k", client=httpx.AsyncClient(transport=httpx.MockTransport(handle)),
+        max_attempts=2, backoff_seconds=0.0,
+    )
+    with pytest.raises(ProviderUnavailable):
+        await adapter.fetch("BA165", AUG_14)
+    assert attempts == 2
+
+
+async def test_a_non_json_body_is_reported_as_an_invalid_response() -> None:
+    """Loud on purpose: silently coercing an unrecognised payload is how wrong
+    verdicts get shipped."""
+    adapter, _ = provider_returning(httpx.Response(200, text="<html>oops</html>"))
+    with pytest.raises(ProviderResponseInvalid):
+        await adapter.fetch("BA165", AUG_14)
+
+
+async def test_a_json_object_where_a_list_was_expected_is_invalid() -> None:
+    """A signal that the vendor changed their schema."""
+    adapter, _ = provider_returning(ok({"message": "something else"}))
+    with pytest.raises(ProviderResponseInvalid, match="expected a list"):
+        await adapter.fetch("BA165", AUG_14)
+
+
+# --- The request itself ------------------------------------------------------
+
+
+async def test_the_request_is_addressed_and_authenticated_correctly() -> None:
+    adapter, seen = provider_returning(ok([]))
+    await adapter.fetch("ba165", AUG_14)
+
+    request = seen[0]
+    assert request.url.path == "/flights/number/BA165/2026-08-14"
+    assert request.headers["X-RapidAPI-Key"] == "test-key"
+    assert request.headers["X-RapidAPI-Host"] == "aerodatabox.p.rapidapi.com"
+
+
+async def test_optional_payload_is_switched_off() -> None:
+    """Aircraft images and live positions are bytes we pay to transfer and then
+    throw away. Compensation needs times, airports and status."""
+    adapter, seen = provider_returning(ok([]))
+    await adapter.fetch("BA165", AUG_14)
+    assert seen[0].url.params["withAircraftImage"] == "false"
+    assert seen[0].url.params["withLocation"] == "false"
+
+
+def test_a_missing_api_key_fails_at_construction() -> None:
+    """Not at request time.
+
+    A missing key is a configuration mistake. Naming it when the application
+    starts is far cheaper to diagnose than a 401 on a customer's first check.
+    """
+    for key in ("", "   "):
+        with pytest.raises(ProviderAuthError, match="no API key configured"):
+            AeroDataBoxProvider(key)
+
+
+# --- The registry ------------------------------------------------------------
+
+
+def test_the_registry_lists_both_providers() -> None:
+    assert AVAILABLE == ("aerodatabox", "fake")
+
+
+def test_the_registry_builds_the_fake_without_a_key() -> None:
+    """Which is what lets the whole system run before a subscription exists."""
+    assert build_provider("fake").name == "fake"
+
+
+def test_the_registry_builds_aerodatabox_with_a_key() -> None:
+    assert build_provider("aerodatabox", api_key="k").name == "aerodatabox"
+
+
+def test_an_unknown_provider_name_raises_value_error_not_a_provider_error() -> None:
+    """A misconfigured provider name is a deployment mistake that should stop
+    the application at startup -- not degrade into failed lookups that get
+    reported to customers as NEEDS_REVIEW."""
+    with pytest.raises(ValueError, match="unknown flight data provider"):
+        build_provider("flightaware")
