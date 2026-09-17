@@ -15,6 +15,10 @@ dependencies = [
     # makes the eventual move from SQLite to PostgreSQL a connection string
     # rather than a rewrite.
     "SQLAlchemy>=2.0",
+    # step 14: versioned schema migrations. create_all() can build a schema
+    # from nothing but cannot alter one that already holds rows, which is the
+    # only situation that matters after the first deploy.
+    "alembic>=1.13",
 ]
 
 [dependency-groups]
