@@ -149,3 +149,72 @@ def test_one_engine_is_shared_by_the_whole_process(client: TestClient, app) -> N
     client.get("/health/ready")
     client.get("/health/ready")
     assert app.state.engine is before
+
+
+def test_routes_use_the_settings_the_app_was_built_with(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """create_app(settings) must be authoritative for route dependencies too.
+
+    This was a real bug. get_settings_dependency called the global, .env-backed
+    get_settings(), so a route asking for configuration got whatever was on
+    disk rather than what its own application was constructed with -- and an
+    app built with a temporary upload directory wrote files to the one in .env.
+
+    It hid because the engine behaved: lifespan sets that from the passed
+    settings directly, so the database was always right and only the
+    settings-derived dependencies were wrong.
+
+    Deliberately no dependency_overrides here. Overriding the very dependency
+    under test is what concealed this in the first place.
+    """
+    from app.config import Settings
+    from app.main import create_app
+
+    settings = Settings(
+        environment="staging",
+        database_url=f"sqlite:///{tmp_path / 'x.db'}",
+        upload_dir=tmp_path / "custom-uploads",
+    )
+    app = create_app(settings)
+
+    with TestClient(app) as client:
+        assert client.get("/health").json()["environment"] == "staging"
+
+
+def test_uploads_land_in_the_configured_directory(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """The consequence of the bug above, asserted end to end."""
+    import io
+
+    from app.config import Settings
+    from app.db.session import create_all
+    from app.main import create_app
+
+    uploads = tmp_path / "custom-uploads"
+    settings = Settings(
+        environment="test",
+        database_url=f"sqlite:///{tmp_path / 'x.db'}",
+        upload_dir=uploads,
+        flight_provider="fake",
+    )
+    app = create_app(settings)
+
+    with TestClient(app) as client:
+        create_all(app.state.engine)
+        check = client.post(
+            "/api/v1/eligibility/check",
+            json={"flight_number": "BA165", "flight_date": "2026-08-14"},
+        ).json()
+        claim = client.post(
+            "/api/v1/claims",
+            json={
+                "check_id": check["check_id"],
+                "contact_name": "Noam",
+                "contact_email": "n@example.com",
+            },
+        ).json()
+        response = client.post(
+            f"/api/v1/claims/{claim['id']}/documents",
+            files={"file": ("r.pdf", io.BytesIO(b"%PDF-1.7 x"), "application/pdf")},
+        )
+
+    assert response.status_code == 201
+    assert len(list(uploads.rglob("*.pdf"))) == 1

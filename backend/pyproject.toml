@@ -29,6 +29,8 @@ dependencies = [
     # the confirmation email is how a customer ever hears from us again.
     "email-validator>=2.2",
     "uvicorn[standard]>=0.30",
+    # step 18: multipart/form-data, which is how a browser uploads a receipt.
+    "python-multipart>=0.0.9",
 ]
 
 [dependency-groups]
