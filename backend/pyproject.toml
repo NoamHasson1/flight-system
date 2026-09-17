@@ -19,6 +19,13 @@ dependencies = [
     # from nothing but cannot alter one that already holds rows, which is the
     # only situation that matters after the first deploy.
     "alembic>=1.13",
+    # step 16: the HTTP layer. FastAPI for typed request/response models and
+    # the OpenAPI document it generates from them; pydantic-settings so
+    # configuration is validated at startup rather than discovered at request
+    # time; uvicorn to actually serve it.
+    "fastapi>=0.115",
+    "pydantic-settings>=2.5",
+    "uvicorn[standard]>=0.30",
 ]
 
 [dependency-groups]
