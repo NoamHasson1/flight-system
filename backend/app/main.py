@@ -15,7 +15,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.deps import build_engine_and_factory
-from app.api.routes import claims, eligibility, health
+from app.api.routes import admin, claims, eligibility, health
 from app.config import Settings, get_settings
 
 logger = logging.getLogger("flight_system")
@@ -86,6 +86,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health.router)
     app.include_router(eligibility.router)
     app.include_router(claims.router)
+    app.include_router(admin.router)
     return app
 
 

@@ -12,7 +12,9 @@ from pathlib import Path
 from functools import lru_cache
 from typing import Annotated
 
-from fastapi import Depends, Request
+import secrets
+
+from fastapi import Depends, Header, HTTPException, Request, status
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -99,6 +101,42 @@ def get_file_storage(
     """Built once per configured root. Creating the directory on every upload
     would be pointless work on the hot path of the slowest request we serve."""
     return _storage(str(settings.upload_dir))
+
+
+def require_admin(
+    settings: Annotated[Settings, Depends(get_settings_dependency)],
+    x_admin_key: Annotated[str | None, Header()] = None,
+) -> None:
+    """Guard every admin endpoint.
+
+    Three behaviours worth naming:
+
+    * No key configured means the admin API is CLOSED, and says so with 503.
+      Failing open would ship an unprotected list of every customer's name,
+      email and national identity number because somebody forgot a variable.
+    * The comparison is constant-time. A normal string comparison returns as
+      soon as it finds a difference, and the timing of that leaks the key one
+      character at a time to anybody patient enough to measure it.
+    * A wrong key and a missing key get the identical response, so probing
+      cannot distinguish "there is no admin API here" from "you guessed wrong".
+
+    This is a shared secret, which is the right amount of security for an
+    internal tool with a handful of operators and the wrong amount for anything
+    with real user accounts. Replacing it means changing this function.
+    """
+    if not settings.admin_api_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The admin API is not configured on this deployment.",
+        )
+    if x_admin_key is None or not secrets.compare_digest(
+        x_admin_key, settings.admin_api_key
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing admin key.",
+            headers={"WWW-Authenticate": "X-Admin-Key"},
+        )
 
 
 def build_engine_and_factory(settings: Settings) -> tuple[Engine, sessionmaker[Session]]:

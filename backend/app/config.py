@@ -56,6 +56,15 @@ class Settings(BaseSettings):
     # by browsers and a bad habit to start.
     cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
+    # --- the admin API ---
+    #
+    # Empty by default, and an empty key means the admin API is CLOSED rather
+    # than open. Failing closed is the only safe default for an endpoint that
+    # lists every customer's name, email address and national identity number:
+    # a system that ships unprotected because somebody forgot a variable is a
+    # breach waiting for someone to notice the URL.
+    admin_api_key: str = ""
+
     log_level: str = "INFO"
 
     @field_validator("flight_provider")
@@ -84,6 +93,10 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.environment == "production"
+
+    @property
+    def admin_api_enabled(self) -> bool:
+        return bool(self.admin_api_key.strip())
 
     @property
     def provider_needs_a_key(self) -> bool:

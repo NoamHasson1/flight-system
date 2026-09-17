@@ -13,7 +13,7 @@ from collections.abc import Sequence
 from datetime import date
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.models import EligibilityCheck
@@ -71,6 +71,35 @@ def get_check(session: Session, check_id: uuid.UUID) -> EligibilityCheck | None:
     return session.get(EligibilityCheck, check_id)
 
 
+def _filters(
+    verdict: str | None,
+    status: str | None,
+    flight_number: str | None,
+    flight_date: date | None,
+    contact_email: str | None,
+) -> list[Any]:
+    """The WHERE clauses, built once.
+
+    Shared by the listing and the count on purpose: computed separately they
+    drift, and a page of results whose total was calculated from different
+    criteria is a paginator that lies.
+    """
+    clauses: list[Any] = []
+    if verdict is not None:
+        clauses.append(EligibilityCheck.verdict == verdict)
+    if status is not None:
+        clauses.append(EligibilityCheck.status == status)
+    if flight_number is not None:
+        clauses.append(EligibilityCheck.flight_number == flight_number.strip().upper())
+    if flight_date is not None:
+        clauses.append(EligibilityCheck.flight_date == flight_date)
+    if contact_email is not None:
+        clauses.append(
+            EligibilityCheck.contact_email == contact_email.strip().lower()
+        )
+    return clauses
+
+
 def list_checks(
     session: Session,
     *,
@@ -88,32 +117,62 @@ def list_checks(
     on day four hundred, and by then it is in a dashboard nobody wants to touch.
     """
     query = select(EligibilityCheck).order_by(EligibilityCheck.created_at.desc())
-
-    if verdict is not None:
-        query = query.where(EligibilityCheck.verdict == verdict)
-    if status is not None:
-        query = query.where(EligibilityCheck.status == status)
-    if flight_number is not None:
-        query = query.where(
-            EligibilityCheck.flight_number == flight_number.strip().upper()
-        )
-    if flight_date is not None:
-        query = query.where(EligibilityCheck.flight_date == flight_date)
-    if contact_email is not None:
-        query = query.where(
-            EligibilityCheck.contact_email == contact_email.strip().lower()
-        )
-
+    for clause in _filters(verdict, status, flight_number, flight_date, contact_email):
+        query = query.where(clause)
     return session.scalars(query.limit(limit).offset(offset)).all()
 
 
-def count_checks(session: Session, *, verdict: str | None = None) -> int:
-    from sqlalchemy import func
-
+def count_checks(
+    session: Session,
+    *,
+    verdict: str | None = None,
+    status: str | None = None,
+    flight_number: str | None = None,
+    flight_date: date | None = None,
+    contact_email: str | None = None,
+) -> int:
     query = select(func.count()).select_from(EligibilityCheck)
-    if verdict is not None:
-        query = query.where(EligibilityCheck.verdict == verdict)
+    for clause in _filters(verdict, status, flight_number, flight_date, contact_email):
+        query = query.where(clause)
     return session.scalar(query) or 0
+
+
+def check_summary(session: Session) -> dict[str, Any]:
+    """The numbers an operator looks at in the morning.
+
+    Counted in SQL rather than by loading every row and tallying in Python,
+    which works beautifully until the table is large and then stops working all
+    at once.
+    """
+    by_verdict = dict(
+        session.execute(
+            select(EligibilityCheck.verdict, func.count())
+            .group_by(EligibilityCheck.verdict)
+        ).all()
+    )
+    by_status = dict(
+        session.execute(
+            select(EligibilityCheck.status, func.count())
+            .group_by(EligibilityCheck.status)
+        ).all()
+    )
+    # Per currency, never one total. Euro, pounds and shekels do not add up,
+    # and a single "pipeline value" would be a number nobody could defend.
+    pipeline = {
+        currency: str(total)
+        for currency, total in session.execute(
+            select(
+                EligibilityCheck.best_currency, func.sum(EligibilityCheck.best_amount)
+            )
+            .where(EligibilityCheck.best_amount.isnot(None))
+            .group_by(EligibilityCheck.best_currency)
+        ).all()
+    }
+    return {
+        "checks_by_verdict": {str(k): v for k, v in by_verdict.items() if k},
+        "checks_by_status": {str(k): v for k, v in by_status.items() if k},
+        "eligible_value_by_currency": pipeline,
+    }
 
 
 def find_others_on_the_same_flight(

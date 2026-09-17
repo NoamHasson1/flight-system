@@ -266,6 +266,26 @@ def list_claims(
     return session.scalars(query.limit(limit).offset(offset)).all()
 
 
+def count_claims(session: Session, *, status: str | None = None) -> int:
+    from sqlalchemy import func
+
+    query = select(func.count()).select_from(Claim)
+    if status is not None:
+        query = query.where(Claim.status == status)
+    return session.scalar(query) or 0
+
+
+def claim_summary(session: Session) -> dict[str, int]:
+    from sqlalchemy import func
+
+    return {
+        str(status): count
+        for status, count in session.execute(
+            select(Claim.status, func.count()).group_by(Claim.status)
+        ).all()
+    }
+
+
 def expense_totals(claim: Claim) -> dict[str, Decimal]:
     """Total expenses per currency.
 
@@ -310,6 +330,8 @@ def _upper(value: str | None) -> str | None:
 
 __all__ = [
     "ClaimError",
+    "claim_summary",
+    "count_claims",
     "add_document",
     "add_expense",
     "add_passenger",
