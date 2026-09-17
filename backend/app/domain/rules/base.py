@@ -184,6 +184,22 @@ class ArrivalDelayRegulation:
     minimum_arrival_delay_hours: float
     unsettled_territories: frozenset[str] = frozenset()
 
+    # How far below the threshold still counts as "too close to call".
+    #
+    # The Court of Justice held in Germanwings (C-452/13) that "arrival time"
+    # means the moment a door opens and passengers may leave -- not the moment
+    # the wheels touch the runway. Flight databases record touchdown, which
+    # comes first, typically by five to fifteen minutes.
+    #
+    # So our arrival delay is systematically a little SHORT. A flight we measure
+    # at 2h 50m may legally have arrived 3h 05m late, and answering "no" to that
+    # passenger would be a wrong denial produced entirely by our instrumentation.
+    #
+    # Within this margin we decline to decide. The Israeli law deliberately does
+    # not use one: its text keys off the "landing time", which is touchdown, so
+    # there is no gap between what it asks and what we can measure.
+    measurement_margin_hours: float = 0.25
+
     # --- 1. Does this law apply at all? ---
 
     def applies(self, flight: FlightFacts) -> bool:
@@ -267,6 +283,16 @@ class ArrivalDelayRegulation:
                 "be measured"
             )
 
+        if self._too_close_to_call(delay):
+            return self._review(
+                f"it arrived {format_hours(delay)} late, just short of the "
+                f"{format_hours(self.minimum_arrival_delay_hours)} threshold. "
+                f"Flight databases record when the wheels touched down, but the "
+                f"law counts from when the doors opened -- usually five to "
+                f"fifteen minutes later. That difference could decide this claim, "
+                f"so we will check it rather than turn you away"
+            )
+
         if delay < self.minimum_arrival_delay_hours:
             return self._outcome(
                 Verdict.NOT_ELIGIBLE,
@@ -290,6 +316,12 @@ class ArrivalDelayRegulation:
                 f"{self._describe_band(flight.distance_km, award)}"
             ),
         )
+
+    def _too_close_to_call(self, delay: float) -> bool:
+        """True when the delay sits inside the measurement margin below the
+        threshold -- close enough that touchdown-versus-doors decides it."""
+        floor = self.minimum_arrival_delay_hours - self.measurement_margin_hours
+        return floor <= delay < self.minimum_arrival_delay_hours
 
     # --- reason-string helpers ---
 

@@ -320,3 +320,20 @@ def test_rules_md_example_d_tel_aviv_to_new_york_two_hours() -> None:
     assert outcome.verdict is Verdict.NOT_ELIGIBLE
     assert outcome.applies is True
     assert "8h 00m threshold" in outcome.reason
+
+
+def test_the_israeli_law_has_no_measurement_margin() -> None:
+    """EC261 and UK261 decline to decide within fifteen minutes of their
+    threshold, because Germanwings put "arrival" at the moment a door opens
+    while flight databases record touchdown.
+
+    The Israeli law has no such gap. It triggers on the DEPARTURE delay, and its
+    reduction keys off the "landing time" -- which is touchdown, exactly what we
+    measure. There is nothing to be uncertain about, so 7h 50m is a straight no.
+    """
+    outcome = israel.evaluate(
+        a_flight(origin_country="IL", departure_delay_hours=7.8333,
+                 arrival_delay_hours=7.8333)
+    )
+    assert outcome.verdict is Verdict.NOT_ELIGIBLE
+    assert "7h 50m" in outcome.reason

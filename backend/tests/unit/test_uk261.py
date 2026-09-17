@@ -222,9 +222,15 @@ def test_unsettled_territories_do_not_affect_ec261() -> None:
 
 @pytest.mark.parametrize(
     ("delay", "expected"),
-    [(2.9833, Verdict.NOT_ELIGIBLE), (3.0, Verdict.ELIGIBLE)],
+    [
+        (2.5, Verdict.NOT_ELIGIBLE),
+        (2.9833, Verdict.NEEDS_REVIEW),  # inside the measurement margin
+        (3.0, Verdict.ELIGIBLE),
+    ],
 )
 def test_the_three_hour_threshold_applies(delay: float, expected: Verdict) -> None:
+    """Including the Germanwings measurement margin, which UK261 inherits along
+    with the rest of the retained flow."""
     outcome = uk261.evaluate(a_flight(origin_country="GB", arrival_delay_hours=delay))
     assert outcome.verdict is expected
 

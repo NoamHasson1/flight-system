@@ -144,7 +144,10 @@ def test_switzerland_is_covered_by_the_bilateral_agreement() -> None:
 @pytest.mark.parametrize(
     ("delay", "expected"),
     [
-        (2.9833, Verdict.NOT_ELIGIBLE),   # 2h 59m
+        (2.5, Verdict.NOT_ELIGIBLE),      # 2h 30m -- clearly short
+        (2.7499, Verdict.NOT_ELIGIBLE),   # 2h 44m -- just outside the margin
+        (2.75, Verdict.NEEDS_REVIEW),     # 2h 45m -- the margin starts here
+        (2.9833, Verdict.NEEDS_REVIEW),   # 2h 59m -- too close to call
         (3.0, Verdict.ELIGIBLE),          # exactly 3h -- "three hours or more"
         (3.0167, Verdict.ELIGIBLE),       # 3h 01m
     ],
@@ -152,9 +155,13 @@ def test_switzerland_is_covered_by_the_bilateral_agreement() -> None:
 def test_the_three_hour_boundary(delay: float, expected: Verdict) -> None:
     """The single most important threshold in the regulation.
 
-    Tested at 2h59, exactly 3h and 3h01 because the difference between `>` and
-    `>=` at exactly three hours is the difference between 0 and 600 euro, and
-    it is invisible in any test that only checks 2h and 5h.
+    Tested at exactly 3h and 3h01 because the difference between `>` and `>=`
+    at exactly three hours is the difference between 0 and 600 euro, and it is
+    invisible in any test that only checks 2h and 5h.
+
+    The three cases below three hours cover the measurement margin: anything
+    within fifteen minutes of the threshold goes to review rather than being
+    denied, because we measure touchdown while the law counts doors opening.
     """
     outcome = ec261.evaluate(a_flight(origin_country="FR", arrival_delay_hours=delay))
     assert outcome.verdict is expected
@@ -181,6 +188,44 @@ def test_departure_delay_is_irrelevant_to_ec261() -> None:
     outcome = ec261.evaluate(flight)
     assert outcome.verdict is Verdict.NOT_ELIGIBLE
     assert flight.departure_delay_hours == 9.0
+
+
+# --- 3b. The measurement margin (Germanwings) --------------------------------
+
+
+def test_a_delay_just_short_of_the_threshold_goes_to_review() -> None:
+    """The Court of Justice held in Germanwings (C-452/13) that arrival time
+    means the moment a door opens, not the moment the wheels touch down.
+
+    Flight databases record touchdown, which comes first -- typically by five to
+    fifteen minutes. So our measured delay is systematically a little SHORT, and
+    a flight we clock at 2h 50m may legally have arrived 3h 05m late.
+
+    Denying that passenger would be a wrong "no" produced entirely by our own
+    instrumentation, which is the worst kind: invisible, systematic, and always
+    in the airline's favour.
+    """
+    outcome = ec261.evaluate(a_flight(origin_country="FR", arrival_delay_hours=2.8333))
+    assert outcome.verdict is Verdict.NEEDS_REVIEW
+    assert "doors opened" in outcome.reason
+    assert "2h 50m" in outcome.reason
+
+
+def test_the_margin_only_reaches_downwards() -> None:
+    """A delay at or over the threshold is decided, not reviewed.
+
+    The margin exists to avoid a wrong denial, not to make every borderline
+    claim someone else's problem.
+    """
+    assert ec261.evaluate(
+        a_flight(origin_country="FR", arrival_delay_hours=3.0)
+    ).verdict is Verdict.ELIGIBLE
+
+
+def test_the_margin_is_fifteen_minutes_wide() -> None:
+    """Wide enough to cover a realistic taxi-in, narrow enough that an ordinary
+    short delay still gets a straight answer."""
+    assert ec261.REGULATION.measurement_margin_hours == 0.25
 
 
 # --- 4. Distance bands -------------------------------------------------------
