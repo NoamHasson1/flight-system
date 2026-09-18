@@ -148,6 +148,107 @@ export const strings = {
     checkAnother: "Check another flight",
   },
 
+  /** The claim wizard. */
+  claim: {
+    title: "Start your claim",
+    steps: ["Passengers", "Booking", "Costs", "Documents", "Review"] as const,
+    back: "Back",
+    next: "Continue",
+
+    passengers: {
+      title: "Who was on the booking?",
+      body:
+        "Compensation is paid per passenger, so add everyone who travelled on " +
+        "this booking — not just you.",
+      contactName: "Your full name",
+      contactEmail: "Email",
+      contactEmailHint: "This is where we send updates about the claim.",
+      contactPhone: "Phone (optional)",
+      fullName: "Full name on the ticket",
+      nationalId: "ID or passport number",
+      nationalIdHint: "Airlines ask for this to match you to the booking.",
+      minor: "Under 18",
+      add: "Add another passenger",
+      remove: "Remove",
+    },
+
+    booking: {
+      title: "Your booking",
+      body: "Two things no flight database can tell us — only you can.",
+      reference: "Booking reference",
+      referenceHint: "Six characters on your ticket, like XJ4K2P.",
+      airlineReason: "What did the airline say was the reason?",
+      airlineReasonHint:
+        "In your own words. Airlines don't have to pay when the cause was " +
+        "outside their control, so this decides a lot.",
+      notice: "If the flight was cancelled, how much notice were you given?",
+      noticeOptions: [
+        { value: "", label: "It wasn't cancelled" },
+        { value: "0", label: "On the day" },
+        { value: "7", label: "Less than 14 days before" },
+        { value: "30", label: "Two weeks or more" },
+      ] as const,
+    },
+
+    costs: {
+      title: "What did it cost you?",
+      body:
+        "Hotels, taxis, meals and calls caused by the disruption are reimbursed " +
+        "on top of the compensation — at cost, against a receipt. Skip this if " +
+        "there weren't any.",
+      category: "What was it",
+      amount: "Amount",
+      currency: "Currency",
+      description: "Description (optional)",
+      add: "Add a cost",
+      remove: "Remove",
+      none: "No out-of-pocket costs",
+    },
+
+    documents: {
+      title: "Upload what you have",
+      body:
+        "Your ticket or booking confirmation is the important one. Receipts " +
+        "back up the costs you listed. PDFs or photos, up to 10 MB each.",
+      booking: "Ticket or booking confirmation",
+      receipt: "Receipts",
+      boardingPass: "Boarding pass (optional)",
+      drop: "Choose a file",
+      uploaded: "Uploaded",
+      later: "You can add more later — we'll email you a link.",
+    },
+
+    review: {
+      title: "Check it over",
+      body: "Once you submit, we put the claim to the airline in writing.",
+      passengers: "Passengers",
+      booking: "Booking",
+      costs: "Costs",
+      documents: "Documents",
+      submit: "Submit my claim",
+      submitting: "Submitting…",
+      consent:
+        "By submitting you confirm the details are accurate and ask us to " +
+        "pursue this claim on your behalf.",
+    },
+
+    done: {
+      title: "Your claim is in",
+      body:
+        "We'll put it to the airline and email you when there's news. Keep this " +
+        "reference — it's how you or we find the claim later.",
+      reference: "Your claim reference",
+    },
+
+    errors: {
+      needPassenger: "Add at least one passenger before continuing.",
+      needName: "Enter this passenger's full name.",
+      needContactName: "We need a name to put on the claim.",
+      needContactEmail: "We need an email address to send updates to.",
+      badAmount: "Enter an amount, like 42.50.",
+    },
+  },
+
   legal: {
     disclaimer: "This is an automated estimate, not legal advice.",
   },

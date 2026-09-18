@@ -197,3 +197,98 @@
   .rise { animation: none; }
   .cta:active { transform: none; }
 }
+
+/* --- The claim wizard ----------------------------------------------------- */
+
+/* Progress. Numbered like the reference, and the numbers matter: "03 of 05"
+   tells someone how much is left, which is the single thing that stops a long
+   form being abandoned halfway. */
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pip {
+  height: 4px;
+  flex: 1;
+  border-radius: 999px;
+  background: var(--border-subtle);
+  transition: background-color var(--duration-base) var(--ease-out-soft);
+}
+.pipDone { background: var(--color-teal-400); }
+.pipNow { background: var(--color-teal-600); }
+
+.panel {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-card);
+}
+
+/* A repeated group — one passenger, one cost. Bordered rather than shadowed:
+   six shadowed cards in a column reads as clutter. */
+.row {
+  background: var(--surface-mist);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.ghostButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  color: var(--color-teal-600);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  font-weight: 600;
+  transition: border-color var(--duration-quick) var(--ease-out-soft),
+              background-color var(--duration-quick) var(--ease-out-soft);
+}
+.ghostButton:hover {
+  border-color: var(--color-teal-400);
+  background: var(--color-teal-50);
+}
+
+.secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: border-color var(--duration-quick) var(--ease-out-soft),
+              color var(--duration-quick) var(--ease-out-soft);
+}
+.secondary:hover { border-color: var(--border-strong); color: var(--text-strong); }
+
+.removeButton {
+  background: transparent;
+  border: 0;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: var(--radius-sm);
+}
+.removeButton:hover { color: var(--verdict-review); }
+
+.fileChip {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  background: var(--color-teal-50);
+  border: 1px solid var(--color-teal-200);
+  color: var(--color-teal-900);
+  border-radius: var(--radius-lg);
+}
+
+.errorBox {
+  background: var(--verdict-review-fill);
+  border: 1px solid var(--verdict-review-edge);
+  color: var(--verdict-review);
+  border-radius: var(--radius-lg);
+}

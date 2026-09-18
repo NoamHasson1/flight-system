@@ -106,7 +106,7 @@ export default async function CheckResult({ params }: Params) {
           </ol>
         </section>
 
-        <Actions primary={strings.result.startClaim} />
+        <Actions primary={strings.result.startClaim} href={`/claim/${checkId}`} />
         <Caveat />
       </Shell>
     );
@@ -260,10 +260,14 @@ function FlightCard({ check }: { check: EligibilityResponse }) {
   );
 }
 
-function Actions({ primary }: { primary: string | null }) {
+function Actions({ primary, href }: { primary: string | null; href?: string }) {
   return (
     <div className="mt-10 flex flex-wrap items-center gap-6">
-      {primary ? (
+      {primary && href ? (
+        <Link href={href} className={`${s.cta} px-7 py-4 text-subhead no-underline`} style={{ fontWeight: 700 }}>
+          {primary}
+        </Link>
+      ) : primary ? (
         <span className={`${s.cta} px-7 py-4 text-subhead`} style={{ fontWeight: 700 }}>
           {primary}
         </span>

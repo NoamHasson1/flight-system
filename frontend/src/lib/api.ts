@@ -23,6 +23,12 @@ export type FlightSummary = components["schemas"]["FlightOut"];
 export type FlightOption = components["schemas"]["FlightOptionOut"];
 export type Money = components["schemas"]["MoneyOut"];
 
+export type ClaimCreate = components["schemas"]["ClaimCreate"];
+export type ClaimOut = components["schemas"]["ClaimOut"];
+export type PassengerIn = components["schemas"]["PassengerIn"];
+export type ExpenseIn = components["schemas"]["ExpenseIn"];
+export type DocumentUpload = components["schemas"]["DocumentUploadResponse"];
+
 export type Verdict = "ELIGIBLE" | "NOT_ELIGIBLE" | "NEEDS_REVIEW";
 export type CheckStatus = "DECIDED" | "NOT_FOUND" | "AMBIGUOUS" | "UNRESOLVED";
 
@@ -36,7 +42,10 @@ export type CheckStatus = "DECIDED" | "NOT_FOUND" | "AMBIGUOUS" | "UNRESOLVED";
 export type ApiFailure =
   | { kind: "unreachable" }
   | { kind: "invalid"; messages: string[] }
-  | { kind: "notFound" };
+  | { kind: "notFound" }
+  /** The request was understood and refused for a reason worth showing:
+      a claim already submitted, a claim with no passengers. */
+  | { kind: "refused"; message: string };
 
 export type ApiResult<T> =
   | { ok: true; data: T }
@@ -74,6 +83,43 @@ export async function getCheck(
   );
 }
 
+export async function createClaim(
+  input: ClaimCreate,
+): Promise<ApiResult<ClaimOut>> {
+  return request<ClaimOut>("/api/v1/claims", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function uploadDocument(
+  claimId: string,
+  file: File,
+  kind: string,
+  expenseId?: string,
+): Promise<ApiResult<DocumentUpload>> {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("kind", kind);
+  if (expenseId) form.append("expense_id", expenseId);
+
+  // No Content-Type header: the browser must set it so it can add the
+  // multipart boundary. Setting it by hand produces a body the server cannot
+  // parse, and the error says nothing useful.
+  return request<DocumentUpload>(
+    `/api/v1/claims/${encodeURIComponent(claimId)}/documents`,
+    { method: "POST", body: form },
+  );
+}
+
+export async function submitClaim(claimId: string): Promise<ApiResult<ClaimOut>> {
+  return request<ClaimOut>(
+    `/api/v1/claims/${encodeURIComponent(claimId)}/submit`,
+    { method: "POST" },
+  );
+}
+
 // --- the one place that talks to the network --------------------------------
 
 async function request<T>(
@@ -97,6 +143,13 @@ async function request<T>(
     return { ok: false, failure: { kind: "notFound" } };
   }
 
+  if (response.status === 409) {
+    return {
+      ok: false,
+      failure: { kind: "refused", message: await detailMessage(response) },
+    };
+  }
+
   if (response.status === 422) {
     return {
       ok: false,
@@ -113,6 +166,16 @@ async function request<T>(
   } catch {
     // A 200 whose body will not parse is a broken deployment, not a verdict.
     return { ok: false, failure: { kind: "unreachable" } };
+  }
+}
+
+/** A plain `detail` string, as the claims endpoints return on a 409. */
+async function detailMessage(response: Response): Promise<string> {
+  try {
+    const body = (await response.json()) as { detail?: string };
+    return typeof body.detail === "string" ? body.detail : "";
+  } catch {
+    return "";
   }
 }
 
