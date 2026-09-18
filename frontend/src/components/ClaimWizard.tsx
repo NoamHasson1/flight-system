@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import {
   createClaim,
@@ -81,6 +81,8 @@ export function ClaimWizard({ check }: { check: EligibilityResponse }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<ClaimOut | null>(null);
+  const headingRef = useRef<HTMLDivElement>(null);
+  const errorRef = useRef<HTMLParagraphElement>(null);
 
   // Restore on mount, deliberately, and NOT in a lazy useState initializer.
   //
@@ -109,6 +111,29 @@ export function ClaimWizard({ check }: { check: EligibilityResponse }) {
       /* storage can be full or blocked; the form still works */
     }
   }, [draft, storageKey]);
+
+  /**
+   * On every step change: scroll to the top and move focus to the new heading.
+   *
+   * Without this the browser keeps both the scroll position and the focus
+   * where they were, so on a phone tapping Continue appears to do nothing --
+   * the next step rendered, but you are still looking at the bottom of it. And
+   * a screen reader announces nothing at all, because as far as it is
+   * concerned the page did not change.
+   *
+   * `behavior: "auto"` rather than "smooth": this is a page change, not a
+   * gesture, and smooth-scrolling a page change fights anyone using reduced
+   * motion.
+   */
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+    headingRef.current?.focus();
+  }, [step, done]);
+
+  /** Validation failures move focus to the message, so it is not missed. */
+  useEffect(() => {
+    if (error) errorRef.current?.focus();
+  }, [error]);
 
   const patch = useCallback((change: Partial<Draft>) => {
     setError(null);
@@ -202,20 +227,42 @@ export function ClaimWizard({ check }: { check: EligibilityResponse }) {
     <div>
       <Progress step={step} />
 
-      <div className={`${s.panel} mt-6 p-6 sm:p-8`}>
-        {step === 0 && <Passengers draft={draft} patch={patch} />}
-        {step === 1 && <Booking draft={draft} patch={patch} />}
-        {step === 2 && <Costs draft={draft} patch={patch} />}
-        {step === 3 && (
-          <Documents uploads={uploads} busy={busy} onPick={attach} />
-        )}
-        {step === 4 && <Review draft={draft} claim={claim} uploads={uploads} />}
+      {/*
+        A form element, so Enter submits the step rather than doing nothing.
+        Pressing Enter in a text field is what people do, and a wizard that
+        ignores it feels broken in a way nobody reports.
+      */}
+      <form
+        className={`${s.panel} mt-6 p-6 sm:p-8`}
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (step < 4) void forward();
+          else void finish();
+        }}
+      >
+        {/* tabIndex -1 so focus can be moved here programmatically without
+            putting it in the tab order. */}
+        <div ref={headingRef} tabIndex={-1} style={{ outline: "none" }}>
+          {step === 0 && <Passengers draft={draft} patch={patch} />}
+          {step === 1 && <Booking draft={draft} patch={patch} />}
+          {step === 2 && <Costs draft={draft} patch={patch} />}
+          {step === 3 && (
+            <Documents uploads={uploads} busy={busy} onPick={attach} />
+          )}
+          {step === 4 && <Review draft={draft} claim={claim} uploads={uploads} />}
+        </div>
 
-        {error ? (
-          <p role="alert" className={`${s.errorBox} mt-6 px-4 py-3 text-callout`}>
-            {error}
-          </p>
-        ) : null}
+        {/* aria-live so the message is announced when it appears, not only
+            when focus happens to land on it. */}
+        <p
+          ref={errorRef}
+          tabIndex={-1}
+          role="alert"
+          aria-live="polite"
+          className={error ? `${s.errorBox} mt-6 px-4 py-3 text-callout` : "sr-only"}
+        >
+          {error ?? ""}
+        </p>
 
         <div className="mt-8 flex items-center justify-between gap-4">
           {step > 0 && step < 4 ? (
@@ -232,9 +279,8 @@ export function ClaimWizard({ check }: { check: EligibilityResponse }) {
 
           {step < 4 ? (
             <button
-              type="button"
+              type="submit"
               disabled={busy}
-              onClick={() => void forward()}
               className={`${s.cta} px-7 py-3.5 text-subhead`}
               style={{ fontWeight: 700 }}
             >
@@ -242,9 +288,8 @@ export function ClaimWizard({ check }: { check: EligibilityResponse }) {
             </button>
           ) : (
             <button
-              type="button"
+              type="submit"
               disabled={busy}
-              onClick={() => void finish()}
               className={`${s.cta} px-7 py-3.5 text-subhead`}
               style={{ fontWeight: 700 }}
             >
@@ -252,7 +297,7 @@ export function ClaimWizard({ check }: { check: EligibilityResponse }) {
             </button>
           )}
         </div>
-      </div>
+      </form>
     </div>
   );
 }
@@ -377,21 +422,24 @@ function Booking({ draft, patch }: StepProps) {
           onChange={(v) => patch({ bookingReference: v })}
         />
 
-        <label className="block">
-          <Label text={t.booking.airlineReason} />
-          <textarea
-            rows={3}
-            value={draft.airlineReason}
-            onChange={(e) => patch({ airlineReason: e.target.value })}
-            placeholder="They said there was a technical fault with the aircraft."
-            className={`${s.field} mt-2 w-full resize-y px-4 py-3 text-body`}
-          />
-          <Hint>{t.booking.airlineReasonHint}</Hint>
-        </label>
+        <Field label={t.booking.airlineReason} hint={t.booking.airlineReasonHint}>
+          {(id, describedBy) => (
+            <textarea
+              id={id}
+              rows={3}
+              aria-describedby={describedBy}
+              value={draft.airlineReason}
+              onChange={(e) => patch({ airlineReason: e.target.value })}
+              placeholder="They said there was a technical fault with the aircraft."
+              className={`${s.field} mt-2 w-full resize-y px-4 py-3 text-body`}
+            />
+          )}
+        </Field>
 
-        <label className="block">
-          <Label text={t.booking.notice} />
+        <Field label={t.booking.notice}>
+          {(id) => (
           <select
+            id={id}
             value={draft.noticeDays}
             onChange={(e) => patch({ noticeDays: e.target.value })}
             className={`${s.field} mt-2 w-full px-4 py-3.5 text-body`}
@@ -402,7 +450,8 @@ function Booking({ draft, patch }: StepProps) {
               </option>
             ))}
           </select>
-        </label>
+          )}
+        </Field>
       </div>
     </>
   );
@@ -438,20 +487,22 @@ function Costs({ draft, patch }: StepProps) {
               </div>
 
               <div className="mt-3 grid gap-4 sm:grid-cols-[1.3fr_1fr_0.8fr]">
-                <label className="block">
-                  <Label text={t.costs.category} />
-                  <select
-                    value={c.category}
-                    onChange={(e) => set(i, { category: e.target.value })}
-                    className={`${s.field} mt-2 w-full px-3 py-3 text-callout`}
-                  >
-                    {CATEGORIES.map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <Field label={t.costs.category}>
+                  {(id) => (
+                    <select
+                      id={id}
+                      value={c.category}
+                      onChange={(e) => set(i, { category: e.target.value })}
+                      className={`${s.field} mt-2 w-full px-3 py-3 text-callout`}
+                    >
+                      {CATEGORIES.map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </Field>
 
                 <Text
                   label={t.costs.amount}
@@ -460,20 +511,22 @@ function Costs({ draft, patch }: StepProps) {
                   onChange={(v) => set(i, { amount: v })}
                 />
 
-                <label className="block">
-                  <Label text={t.costs.currency} />
-                  <select
-                    value={c.currency}
-                    onChange={(e) => set(i, { currency: e.target.value })}
-                    className={`${s.field} mt-2 w-full px-3 py-3 text-callout`}
-                  >
-                    {CURRENCIES.map((code) => (
-                      <option key={code} value={code}>
-                        {code}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <Field label={t.costs.currency}>
+                  {(id) => (
+                    <select
+                      id={id}
+                      value={c.currency}
+                      onChange={(e) => set(i, { currency: e.target.value })}
+                      className={`${s.field} mt-2 w-full px-3 py-3 text-callout`}
+                    >
+                      {CURRENCIES.map((code) => (
+                        <option key={code} value={code}>
+                          {code}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </Field>
               </div>
 
               <div className="mt-3">
@@ -689,12 +742,39 @@ function Label({ text }: { text: string }) {
   );
 }
 
-function Hint({ children }: { children?: string }) {
+function Hint({ id, children }: { id: string; children?: string }) {
   if (!children) return null;
   return (
-    <span className="mt-1.5 block text-caption" style={{ color: "var(--text-muted)" }}>
+    <span
+      id={id}
+      className="mt-1.5 block text-caption"
+      style={{ color: "var(--text-muted)" }}
+    >
       {children}
     </span>
+  );
+}
+
+/** A labelled control that is not an <input>: select, textarea. */
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: (id: string, describedBy: string | undefined) => React.ReactNode;
+}) {
+  const id = useId();
+  const hintId = `${id}-hint`;
+  return (
+    <div>
+      <label htmlFor={id} className="block">
+        <Label text={label} />
+      </label>
+      {children(id, hint ? hintId : undefined)}
+      <Hint id={hintId}>{hint}</Hint>
+    </div>
   );
 }
 
@@ -715,18 +795,32 @@ function Text({
   type?: string;
   uppercase?: boolean;
 }) {
+  const id = useId();
+  const hintId = `${id}-hint`;
+
+  /*
+    The hint is a DESCRIPTION, not part of the label, and the difference is not
+    cosmetic: nesting it inside <label> makes the field's accessible name
+    "Email This is where we send updates about the claim", which is what a
+    screen reader then reads out every time focus lands there.
+    aria-describedby keeps the name short and announces the hint after it.
+  */
   return (
-    <label className="block">
-      <Label text={label} />
+    <div>
+      <label htmlFor={id} className="block">
+        <Label text={label} />
+      </label>
       <input
+        id={id}
         type={type}
         value={value}
         placeholder={placeholder}
+        aria-describedby={hint ? hintId : undefined}
         onChange={(e) => onChange(e.target.value)}
         className={`${s.field} mt-2 w-full px-4 py-3.5 text-body ${uppercase ? "uppercase tabular" : ""}`}
       />
-      <Hint>{hint}</Hint>
-    </label>
+      <Hint id={hintId}>{hint}</Hint>
+    </div>
   );
 }
 

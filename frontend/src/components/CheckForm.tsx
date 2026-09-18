@@ -133,6 +133,12 @@ export function CheckForm() {
                 autoCapitalize="characters"
                 spellCheck={false}
                 aria-invalid={touched.flightNumber && !!numberError}
+                aria-describedby={numberError ? "flight-number-error" : undefined}
+                /* Autofocus is usually a nuisance. Here the page exists to
+                   receive this one value, the field is above the fold, and
+                   nothing is scrolled past to reach it -- so the cursor
+                   starting in it saves everyone a click. */
+                autoFocus
                 className={`${s.field} tabular mt-2 w-full px-4 py-3.5 text-subhead uppercase`}
               />
             </Field>
@@ -215,14 +221,17 @@ function Field({
         {label}
       </span>
       {children}
-      {error ? (
-        <span
-          className="mt-1.5 block text-caption"
-          style={{ color: "var(--verdict-review)" }}
-        >
-          {error}
-        </span>
-      ) : null}
+      {/* Always rendered, visually hidden when empty, so a screen reader
+          announces the message as it appears rather than only when focus
+          lands on the field. */}
+      <span
+        role="alert"
+        aria-live="polite"
+        className={error ? "mt-1.5 block text-caption" : "sr-only"}
+        style={{ color: "var(--verdict-review)" }}
+      >
+        {error ?? ""}
+      </span>
     </label>
   );
 }
