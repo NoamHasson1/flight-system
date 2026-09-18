@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { CheckForm } from "@/components/CheckForm";
 import s from "@/components/hero.module.css";
 import { strings } from "@/lib/strings";
@@ -61,7 +63,7 @@ function Nav() {
   return (
     <header className={`${s.nav} px-5 py-3.5 sm:px-8`}>
       <div className="mx-auto flex max-w-6xl items-center justify-between">
-        <a href="/" className="flex items-center gap-2.5 no-underline">
+        <Link href="/" className="flex items-center gap-2.5 no-underline">
           <span
             aria-hidden
             className="grid size-8 place-items-center rounded-lg"
@@ -77,7 +79,7 @@ function Nav() {
           >
             {strings.brand.name}
           </span>
-        </a>
+        </Link>
 
         <nav className="hidden items-center gap-8 text-callout md:flex">
           {["How it works", "Your rights", "Airlines", "About"].map((item) => (
