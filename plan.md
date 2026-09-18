@@ -1,9 +1,35 @@
 # Flight Compensation System — Implementation Plan
 
-> **How this document is used.** This is the contract for the build. We work through the
-> steps in order. Before each step I explain what I'm about to do and show you an example of
-> the output; I do not start the next step until you approve the current one. Each approved
-> step becomes one git commit, so `git log` reads as the story of the build.
+> **Status: all 26 steps complete.** 551 backend tests, 21 component tests, 4
+> end-to-end runs. See [`README.md`](README.md) to run it, and the "Known gaps"
+> section there for what must still happen before real customers.
+>
+> **How this document was used.** It was the contract for the build. We worked
+> through the steps in order; before each one I explained what I was about to do
+> and showed the output, and did not start the next until it was approved. Each
+> approved step became a commit, so `git log` reads as the story of the build.
+
+## What changed along the way
+
+A plan is only honest if it records where it turned out to be wrong.
+
+- **The step list was rewritten after step 1.** The original bundled the whole
+  FastAPI scaffold into one step — too large to review, and a repeat of an
+  earlier mistake on this project. It became 26 steps of one concept and one to
+  three files each, with the legal logic first and infrastructure last.
+- **The EC261 50% reduction was removed.** Article 7(2) is about being rebooked
+  after a cancellation, not about the flight you were on landing late, so it does
+  not reach delay claims. Discovered while implementing the Israeli reduction.
+- **A measurement margin was added.** *Germanwings* (C-452/13) puts arrival at
+  the moment a door opens; flight databases record touchdown. EC261 and UK261
+  now decline to decide within fifteen minutes below their threshold rather
+  than issue a denial our own instrumentation produced.
+- **The result screen stopped showing the rules.** Built to explain all three
+  regulations, then changed on request to give one plain answer. The reasoning
+  is still computed and stored — it is what support and the claim handler read —
+  it is simply not what that screen is for.
+- **The palette was rebuilt twice**: from a restrained light system, to a dark
+  cinematic one, to the brand's six colours with a light-first layout.
 
 ---
 
