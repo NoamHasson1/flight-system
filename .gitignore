@@ -17,9 +17,15 @@ build/
 .env.local
 *.local
 
-# Database
+# Database. The -wal and -shm sidecars matter as much as the .db itself:
+# WAL mode keeps recently-written rows in flight_system.db-wal, so ignoring
+# only *.db would publish real customer data while looking safe.
 *.db
+*.db-wal
+*.db-shm
 *.sqlite
+*.sqlite-wal
+*.sqlite-shm
 *.sqlite3
 
 # Uploaded customer documents — never commit
