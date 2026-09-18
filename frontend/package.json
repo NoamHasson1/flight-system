@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "types": "openapi-typescript http://127.0.0.1:8010/openapi.json -o src/lib/api-types.ts"
   },
   "dependencies": {
     "motion": "^13.4.0",

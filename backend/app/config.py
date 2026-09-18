@@ -54,7 +54,15 @@ class Settings(BaseSettings):
     # --- the frontend ---
     # Explicit origins, never "*". A wildcard with credentials is both refused
     # by browsers and a bad habit to start.
-    cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    # 3000 is Next's default; 3111 is the fallback this project uses when 3000
+    # is already taken. Both loopback spellings, because a browser treats
+    # localhost and 127.0.0.1 as different origins and people type both.
+    cors_origins: list[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3111",
+        "http://127.0.0.1:3111",
+    ]
 
     # --- the admin API ---
     #

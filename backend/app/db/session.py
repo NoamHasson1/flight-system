@@ -31,9 +31,25 @@ def create_db_engine(url: str = DEFAULT_DATABASE_URL, *, echo: bool = False) -> 
     if url.startswith("sqlite"):
 
         @event.listens_for(engine, "connect")
-        def _enforce_foreign_keys(connection, _record) -> None:  # type: ignore[no-untyped-def]
+        def _sqlite_pragmas(connection, _record) -> None:  # type: ignore[no-untyped-def]
             cursor = connection.cursor()
+
+            # Foreign keys ship OFF in SQLite for backwards compatibility, which
+            # silently turns every relationship into a suggestion.
             cursor.execute("PRAGMA foreign_keys=ON")
+
+            # Write-ahead logging. In the default rollback-journal mode a single
+            # reader blocks every writer, so opening the database in a GUI while
+            # the API is running makes every insert fail with "database is
+            # locked". WAL lets readers and one writer coexist, which is exactly
+            # the shape of local development.
+            cursor.execute("PRAGMA journal_mode=WAL")
+
+            # And when a writer genuinely does have to wait, wait rather than
+            # failing instantly. Five seconds is far longer than any write here
+            # takes and far shorter than a person's patience.
+            cursor.execute("PRAGMA busy_timeout=5000")
+
             cursor.close()
 
     return engine

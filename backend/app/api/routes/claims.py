@@ -103,7 +103,10 @@ def create_claim(
             status_code=status.HTTP_409_CONFLICT, detail=str(exc)
         ) from exc
 
-    session.flush()
+    # Committed before the response is built, for the same reason as the
+    # eligibility endpoint: a failure in dependency teardown cannot un-tell a
+    # customer that their claim was created.
+    session.commit()
     session.refresh(claim)
     return _to_out(claim)
 
@@ -195,6 +198,7 @@ async def upload_document(
             status_code=status.HTTP_409_CONFLICT, detail=str(exc)
         ) from exc
 
+    session.commit()
     return DocumentUploadResponse(
         document=_document_out(document), claim_reference=claim.reference
     )
@@ -213,6 +217,7 @@ def submit_claim(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=str(exc)
         ) from exc
+    session.commit()
     session.refresh(claim)
     return _to_out(claim)
 

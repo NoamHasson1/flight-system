@@ -68,6 +68,16 @@ async def check_eligibility(
         contact_email=payload.contact_email,
     )
 
+    # Commit HERE rather than leaving it to the session dependency's teardown.
+    #
+    # Teardown runs after the response has been built, so a commit that fails
+    # there cannot change what the customer was told. The failure mode is
+    # silent and nasty: a 200 carrying a check_id for a check that was never
+    # stored, and a bookmarkable URL that 404s forever. Committing before
+    # serialising means a storage failure surfaces as a real error instead of
+    # as a phantom success.
+    session.commit()
+
     return _to_response(outcome, row.id)
 
 

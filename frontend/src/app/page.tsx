@@ -1,4 +1,6 @@
+import { CheckForm } from "@/components/CheckForm";
 import s from "@/components/hero.module.css";
+import { strings } from "@/lib/strings";
 
 /**
  * The landing hero.
@@ -39,7 +41,7 @@ export default function Home() {
             className="text-subhead"
             style={{ fontFamily: "var(--font-display-stack)", fontWeight: 700 }}
           >
-            Skyclaim
+            {strings.brand.name}
           </span>
         </a>
 
@@ -64,7 +66,7 @@ export default function Home() {
                     className={`${s.rise} ${s.d1} text-micro uppercase`}
           style={{ color: "var(--hero-ink-dim)", letterSpacing: "0.12em" }}
         >
-          EC261 · UK261 · Israeli Aviation Services Law
+          {strings.brand.tagline}
         </p>
 
         <h1
@@ -94,61 +96,11 @@ export default function Home() {
                     className={`${s.rise} ${s.d3} mt-6 max-w-xl text-subhead text-pretty`}
           style={{ color: "var(--hero-ink-dim)", fontWeight: 400 }}
         >
-          Enter your flight number and the date it departed. We check what
-          actually happened to that flight against all three regulations and
-          show you the reasoning — not just a yes or no.
+          {strings.hero.subhead}
         </p>
 
         {/* The form: the fastest thing this page can do is let them type. */}
-        <form
-          id="check"
-          className={`${s.glass} ${s.settle} ${s.d4} mt-11 w-full max-w-xl p-5 text-left sm:p-6`}
-        >
-          <div className="grid gap-4 sm:grid-cols-[1.1fr_1fr]">
-            <label className="block">
-              <span className={`${s.rise} ${s.d1} text-micro uppercase`} style={{ color: "var(--hero-ink-dim)" }}>
-                Flight number
-              </span>
-              <input
-                name="flightNumber"
-                placeholder="BA165"
-                autoComplete="off"
-                autoCapitalize="characters"
-                spellCheck={false}
-                className={`${s.field} tabular mt-2 w-full px-4 py-3.5 text-subhead`}
-              />
-            </label>
-
-            <label className="block">
-              <span className={`${s.rise} ${s.d1} text-micro uppercase`} style={{ color: "var(--hero-ink-dim)" }}>
-                Date it departed
-              </span>
-              <input
-                name="flightDate"
-                type="date"
-                className={`${s.field} tabular mt-2 w-full px-4 py-3.5 text-subhead`}
-              />
-            </label>
-          </div>
-
-          {/* type="button", not "submit": this is a server component and the
-              form is not wired until step 22. A submit button in a form with no
-              action reloads the page, which would look like a broken product
-              rather than an unfinished one. */}
-          <button
-            type="button"
-            className={`${s.cta} mt-5 w-full px-6 py-4 text-subhead`}
-            style={{ fontFamily: "var(--font-display-stack)", fontWeight: 700 }}
-          >
-            See what you&rsquo;re owed
-          </button>
-
-          {/* Reassurance directly under the action, where the hesitation is.
-              Both references do this and both are right to. */}
-          <p className="mt-4 text-center text-caption" style={{ color: "var(--hero-ink-dim)" }}>
-            Free · No account · No card · Takes about ten seconds
-          </p>
-        </form>
+        <CheckForm />
 
         {/* Honest instead of impressive. A brand-new product claiming "50,000
             travellers" is lying, and the one thing this product sells is being
@@ -157,7 +109,7 @@ export default function Home() {
                     className={`${s.rise} ${s.d5} mt-8 text-caption`}
           style={{ color: "var(--hero-ink-dim)" }}
         >
-          Every answer shows which law applied, which did not, and why.
+          {strings.hero.footnote}
         </p>
       </main>
     </div>
