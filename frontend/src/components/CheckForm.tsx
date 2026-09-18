@@ -94,7 +94,13 @@ export function CheckForm() {
   }
 
   return (
-    <div className={`${s.glass} ${s.settle} ${s.d4} mt-11 w-full max-w-xl p-5 text-left sm:p-6`}>
+    <div id="check" className={`${s.card} ${s.rise} ${s.d4} w-full p-6 text-left sm:p-8`}>
+      <h2
+        className="text-heading"
+        style={{ color: "var(--text-strong)", fontFamily: "var(--font-display-stack)" }}
+      >
+        {strings.hero.cardTitle}
+      </h2>
       {state.phase === "choose" ? (
         <ChooseFlight
           options={state.options}
@@ -109,6 +115,7 @@ export function CheckForm() {
             event.preventDefault();
             void run();
           }}
+          className="mt-5"
         >
           <div className="grid gap-4 sm:grid-cols-[1.1fr_1fr]">
             <Field
@@ -150,7 +157,7 @@ export function CheckForm() {
           <button
             type="submit"
             disabled={busy}
-            className={`${s.cta} mt-5 flex w-full items-center justify-center gap-2.5 px-6 py-4 text-subhead disabled:opacity-80`}
+            className={`${s.cta} mt-5 w-full px-6 py-4 text-subhead`}
             style={{ fontFamily: "var(--font-display-stack)", fontWeight: 700 }}
           >
             {busy && <Spinner />}
@@ -162,9 +169,9 @@ export function CheckForm() {
               role="alert"
               className="mt-4 rounded-xl px-4 py-3 text-callout"
               style={{
-                background: "oklch(60% 0.13 70 / 0.16)",
-                border: "1px solid oklch(70% 0.11 70 / 0.35)",
-                color: "oklch(92% 0.05 85)",
+                background: "var(--verdict-review-fill)",
+                border: "1px solid var(--verdict-review-edge)",
+                color: "var(--verdict-review)",
               }}
             >
               {state.messages.map((message) => (
@@ -173,9 +180,14 @@ export function CheckForm() {
             </div>
           ) : (
             <p
-              className="mt-4 text-center text-caption"
-              style={{ color: "var(--hero-ink-dim)" }}
+              className="mt-4 flex items-center justify-center gap-2 text-caption"
+              style={{ color: "var(--text-muted)" }}
             >
+              <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor"
+                   strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <rect x="4" y="10" width="16" height="10" rx="2" />
+                <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+              </svg>
               {strings.hero.reassurance}
             </p>
           )}
@@ -198,7 +210,7 @@ function Field({
     <label className="block">
       <span
         className="text-micro uppercase"
-        style={{ color: "var(--hero-ink-dim)" }}
+        style={{ color: "var(--text-muted)" }}
       >
         {label}
       </span>
@@ -206,7 +218,7 @@ function Field({
       {error ? (
         <span
           className="mt-1.5 block text-caption"
-          style={{ color: "oklch(84% 0.10 60)" }}
+          style={{ color: "var(--verdict-review)" }}
         >
           {error}
         </span>
@@ -230,11 +242,11 @@ function ChooseFlight({
     <div>
       <h2
         className="text-heading"
-        style={{ fontFamily: "var(--font-display-stack)" }}
+        style={{ fontFamily: "var(--font-display-stack)", color: "var(--text-strong)" }}
       >
         {strings.result.ambiguousLead}
       </h2>
-      <p className="mt-2 text-callout" style={{ color: "var(--hero-ink-dim)" }}>
+      <p className="mt-2 text-callout" style={{ color: "var(--text-muted)" }}>
         {message}
       </p>
 
@@ -244,7 +256,7 @@ function ChooseFlight({
             <button
               type="button"
               onClick={() => onPick(option.key)}
-              className={`${s.field} w-full px-4 py-3.5 text-left text-subhead`}
+              className={`${s.field} w-full cursor-pointer px-4 py-3.5 text-left text-subhead`}
             >
               {option.label}
             </button>
@@ -256,7 +268,7 @@ function ChooseFlight({
         type="button"
         onClick={onBack}
         className="mt-5 text-callout underline underline-offset-4"
-        style={{ color: "var(--hero-ink-dim)" }}
+        style={{ color: "var(--text-muted)" }}
       >
         Search a different flight
       </button>

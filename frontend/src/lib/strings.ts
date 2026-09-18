@@ -23,15 +23,29 @@ export const strings = {
   },
 
   hero: {
-    headline: ["Flight delayed?", "You may be owed", "up to"] as const,
-    maxAmount: "₪3,670",
+    headlineA: "Flight delayed?",
+    headlineB: "You may be owed money.",
     subhead:
       "Enter your flight number and the date it departed. We check what " +
-      "actually happened to that flight against all three regulations and show " +
-      "you the reasoning — not just a yes or no.",
-    reassurance: "Free · No account · No card · Takes about ten seconds",
-    footnote: "Every answer shows which law applied, which did not, and why.",
+      "actually happened to that flight and tell you in seconds whether you " +
+      "can claim — and how much.",
+    cardTitle: "Check what you're owed",
+    reassurance: "Free · No account · No card",
   },
+
+  /** The four reassurances under the hero, straight from the reference. */
+  stats: [
+    { value: "Up to €600", label: "per passenger for delays, cancellations and denied boarding" },
+    { value: "Three laws", label: "EU, UK and Israeli rules checked on every flight" },
+    { value: "No risk", label: "the check is free and you are never charged to find out" },
+    { value: "Seconds", label: "an answer before you have finished your coffee" },
+  ] as const,
+
+  steps: [
+    { n: "1", title: "Enter your flight", body: "The flight number and the date it departed. Nothing else." },
+    { n: "2", title: "We check it", body: "We look up what actually happened to that flight and apply the rules." },
+    { n: "3", title: "You claim", body: "If you qualify, add your passengers and receipts and we take it from there." },
+  ] as const,
 
   form: {
     flightNumberLabel: "Flight number",
@@ -75,28 +89,41 @@ export const strings = {
       "moment, and don't assume you have no claim.",
   },
 
-  /** Headline and explanation per verdict. */
+  /**
+   * The verdict, in plain words.
+   *
+   * Deliberately NO regulation names, thresholds or clause-by-clause
+   * reasoning: the customer asked a simple question and gets a simple answer.
+   * All of that reasoning is still computed and still STORED against the check
+   * -- it is what support and the claim handler work from -- it just is not
+   * what this screen is for.
+   */
   verdict: {
     ELIGIBLE: {
       eyebrow: "Good news",
-      lead: "You're owed compensation",
-      underAmount: "under",
+      lead: "You can claim compensation",
+      amountLabel: "per passenger on the booking",
     },
     NOT_ELIGIBLE: {
       eyebrow: "Checked",
       /* Not "Sorry" and not "Unfortunately". This is a finding about an
          airline's obligation, not a rejection of the person reading it. */
       lead: "This flight doesn't qualify",
-      explain:
-        "Here's what each regulation said, so you can see exactly why.",
+      body:
+        "Nothing here is down to anything you did. Compensation depends on how " +
+        "late the flight actually was and on where it flew, and this one falls " +
+        "outside those limits.",
+      doubt:
+        "If you landed later than we show, or the airline told you something " +
+        "different, ask us to check it by hand.",
     },
     NEEDS_REVIEW: {
       eyebrow: "One more thing",
       /* Never a polite no. It has to be obvious this is unfinished. */
       lead: "We need to check this by hand",
-      explain:
-        "Something about this flight needs a person to look at it. That isn't " +
-        "a no — it means we can't answer it automatically.",
+      body:
+        "Something about this flight can't be answered automatically. That is " +
+        "not a no — leave us your email and a person will come back to you.",
     },
   },
 
@@ -106,11 +133,18 @@ export const strings = {
     ambiguousExplain:
       "More than one flight carried that number on that date. Pick yours and " +
       "we'll check it.",
-    regulationsChecked: "What each regulation said",
-    appliesYes: "Covers this flight",
-    appliesNo: "Doesn't cover this flight",
-    caveatTitle: "One thing we can't check",
-    startClaim: "Start a claim",
+    yourFlight: "Your flight",
+    whatNext: "What happens next",
+    nextSteps: [
+      "Add the passengers on your booking and upload your ticket.",
+      "We put the claim to the airline in writing, citing the rule that applies.",
+      "You get paid. We only take a fee if the claim succeeds.",
+    ] as const,
+    caveat:
+      "Airlines don't have to pay when the cause was outside their control — " +
+      "severe weather, for instance. We'll ask what you were told.",
+    startClaim: "Start my claim",
+    askHuman: "Ask us to check by hand",
     checkAnother: "Check another flight",
   },
 

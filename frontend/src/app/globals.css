@@ -3,296 +3,158 @@
 /* ============================================================================
    Design tokens.
 
-   Every value here is a deliberate choice, not a default. The reasoning lives
-   beside it, because a token nobody can justify is a token somebody will
-   change for no reason.
+   Palette fixed by the brand:
 
-   Three ideas run through the whole file:
+     #25CFC4  teal          the accent, and the only colour that means "act"
+     #149F98  deep teal     primary buttons, hover, links
+     #111820  ink           the dark band and all strong text
+     #FFFFFF  white         cards and the page
+     #F5F7F8  mist          alternating sections, input fills
+     #5B6470  slate         body copy and secondary text
 
-   1. Type is sized AND tracked AND led together. A single letter-spacing for
-      every size is wrong somewhere: large text reads too loose and wants
-      negative tracking, small text wants a touch of positive.
-   2. Motion belongs to springs, not keyframes. Anything a user can touch is
-      animated in JS (see lib/motion.ts) so it can be grabbed and reversed
-      mid-flight. CSS transitions here are only for things no gesture drives.
-   3. Accessibility preferences are first-class, not an afterthought at the
-      bottom. Reduced motion, reduced transparency and increased contrast each
-      get a real response rather than a blanket "animations off".
+   Six colours, and that is the whole palette. Everything else is one of these
+   at an opacity. A brand with six colours that appear everywhere reads as
+   designed; the same brand with fourteen near-misses reads as assembled.
+
+   Light-first, following the reference: white page, a dark band behind the
+   hero, teal used sparingly enough that it still means something.
    ========================================================================= */
 
-/* `static`, not a bare `@theme`.
-   
-   Tailwind v4 tree-shakes theme variables: it emits a custom property only for
-   tokens it can see used as a utility class in the source. Tokens consumed
-   through var() in a style attribute are invisible to it and get dropped -- 
-   which showed up here as --text-title and --text-caption resolving to nothing
-   while --text-display, used as a class, worked fine. A design-token file that
-   is read both ways has to emit everything. */
+/* `static` because tokens are read through var() in CSS modules as well as
+   through utility classes, and Tailwind v4 only emits variables for tokens it
+   can see used as a class -- the rest are silently dropped. */
 @theme static {
-  /* --- Colour -------------------------------------------------------------
-     OKLCH rather than hex: lightness is perceptually uniform, so a 10% step
-     looks like a 10% step at every hue, and the dark theme can be derived
-     rather than hand-picked twice.                                          */
+  --color-teal-50: #eefbfa;
+  --color-teal-100: #d3f5f2;
+  --color-teal-200: #a7ebe6;
+  --color-teal-400: #25cfc4; /* brand */
+  --color-teal-600: #149f98; /* brand, deeper */
+  --color-teal-700: #0f7d78;
+  --color-teal-900: #0a5450;
 
-  /* Brand: periwinkle rising to deep indigo, taken from the Gyro reference.
-     Friendlier than a corporate navy and warmer than a tech blue -- it reads
-     as sky, which is the one metaphor this product can use without straining.
-     The deepest step is a SURFACE colour, not just a text colour: the
-     reference uses it for whole cards, and that is where its confidence comes
-     from.                                                                    */
-  --color-brand-50:  oklch(97.5% 0.012 285);
-  --color-brand-100: oklch(94% 0.030 285);
-  --color-brand-200: oklch(88% 0.055 285);
-  --color-brand-300: oklch(80% 0.080 285);
-  --color-brand-400: oklch(72% 0.100 285);  /* the hero gradient */
-  --color-brand-500: oklch(62% 0.125 285);
-  --color-brand-600: oklch(52% 0.140 285);
-  --color-brand-700: oklch(42% 0.130 285);
-  --color-brand-900: oklch(26% 0.085 285);  /* deep indigo card surface */
-
-  /* Butter. One accent, used sparingly: the reference earns its warmth by
-     putting exactly one yellow card between two indigo ones. A second accent
-     would make it a palette instead of a moment.                             */
-  --color-accent-100: oklch(96% 0.055 100);
-  --color-accent-200: oklch(92% 0.090 100);
-  --color-accent-600: oklch(72% 0.130 85);
-  --color-accent-900: oklch(35% 0.070 85);
-
-  /* Verdicts. The single most important colour decision in the product:
-
-     ELIGIBLE is green, but a considered green rather than a celebratory one.
-     NOT_ELIGIBLE is DELIBERATELY NOT RED. It is an answer, not an error, and
-       not a failure by the person reading it. Red would tell someone they did
-       something wrong when all they did was ask a question.
-     NEEDS_REVIEW is amber: something is pending, nobody has failed.            */
-  --color-eligible-50:  oklch(96% 0.035 155);
-  --color-eligible-200: oklch(86% 0.095 155);
-  --color-eligible-600: oklch(55% 0.135 155);
-  --color-eligible-700: oklch(46% 0.120 155);
-
-  --color-neutralv-50:  oklch(97% 0.003 255);
-  --color-neutralv-200: oklch(89% 0.006 255);
-  --color-neutralv-600: oklch(52% 0.012 255);
-  --color-neutralv-700: oklch(42% 0.014 255);
-
-  --color-review-50:  oklch(97% 0.035 85);
-  --color-review-200: oklch(89% 0.085 85);
-  --color-review-600: oklch(60% 0.125 70);
-  --color-review-700: oklch(50% 0.115 65);
-
-  /* Surfaces and text are defined as semantic aliases below, so a component
-     never reaches for "grey 200" and then breaks in dark mode.               */
+  --color-ink: #111820; /* brand */
+  --color-mist: #f5f7f8; /* brand */
+  --color-slate: #5b6470; /* brand */
 
   /* --- Type ---------------------------------------------------------------
-     Size, tracking and leading are one decision, made per step. Tracking goes
-     negative as text grows and slightly positive as it shrinks; leading does
-     the opposite.                                                            */
-  --text-display: clamp(2.25rem, 1.5rem + 3.2vw, 3.75rem);
+     Size, tracking and leading are one decision per step. Tracking goes
+     negative as text grows -- letters read too far apart at display sizes --
+     and slightly positive as it shrinks. One letter-spacing for every size is
+     wrong somewhere. */
+  --text-display: clamp(2.25rem, 1.4rem + 3.6vw, 4rem);
   --text-display--line-height: 1.05;
-  --text-display--letter-spacing: -0.022em;
-  --text-display--font-weight: 700;
+  --text-display--letter-spacing: -0.028em;
+  --text-display--font-weight: 800;
 
-  --text-title: clamp(1.75rem, 1.35rem + 1.7vw, 2.5rem);
+  --text-title: clamp(1.75rem, 1.3rem + 1.9vw, 2.5rem);
   --text-title--line-height: 1.12;
-  --text-title--letter-spacing: -0.018em;
-  --text-title--font-weight: 680;
+  --text-title--letter-spacing: -0.02em;
+  --text-title--font-weight: 750;
 
   --text-heading: 1.375rem;
-  --text-heading--line-height: 1.28;
-  --text-heading--letter-spacing: -0.011em;
-  --text-heading--font-weight: 600;
+  --text-heading--line-height: 1.3;
+  --text-heading--letter-spacing: -0.012em;
+  --text-heading--font-weight: 700;
 
   --text-subhead: 1.0625rem;
-  --text-subhead--line-height: 1.4;
+  --text-subhead--line-height: 1.45;
   --text-subhead--letter-spacing: -0.006em;
-  --text-subhead--font-weight: 560;
+  --text-subhead--font-weight: 600;
 
   --text-body: 1rem;
-  --text-body--line-height: 1.58;
+  --text-body--line-height: 1.6;
   --text-body--letter-spacing: 0em;
 
   --text-callout: 0.9375rem;
-  --text-callout--line-height: 1.5;
+  --text-callout--line-height: 1.55;
   --text-callout--letter-spacing: 0.002em;
 
   --text-caption: 0.8125rem;
-  --text-caption--line-height: 1.45;
+  --text-caption--line-height: 1.5;
   --text-caption--letter-spacing: 0.006em;
 
   --text-micro: 0.6875rem;
   --text-micro--line-height: 1.4;
-  --text-micro--letter-spacing: 0.02em;
-  --text-micro--font-weight: 580;
+  --text-micro--letter-spacing: 0.08em;
+  --text-micro--font-weight: 700;
 
-  /* Money wants tabular figures: a column of amounts whose digits do not line
-     up reads as sloppy, and this product is asking to be trusted with money. */
-  /* Two faces, each doing what it is good at. The display face is rounded and
-     geometric and carries personality at large sizes; Inter does the working
-     UI, where it is more legible small and has dependable tabular figures.
-     One face cannot be both without compromising one of the two jobs.        */
   --font-display: var(--font-display-stack);
   --font-sans: var(--font-sans-stack);
-  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
 
-  /* --- Shape --------------------------------------------------------------
-     Radii scale with the surface. A large card with a small radius looks
-     stamped out; a small chip with a large one looks like a pill by accident. */
-  /* Softer than the original scale, following the reference: large cards sit
-     around 24-28px and buttons are near-pills. Radius still scales with the
-     surface -- a big card with a small radius looks stamped out, a small chip
-     with a large one becomes a pill by accident.                             */
-  --radius-sm: 0.625rem;
-  --radius-md: 0.875rem;
-  --radius-lg: 1.25rem;
-  --radius-xl: 1.75rem;
-  --radius-2xl: 2.25rem;
+  /* Radii scale with the surface: a large card with a small radius looks
+     stamped out, a small chip with a large one becomes a pill by accident. */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.75rem;
   --radius-pill: 999px;
-  --radius-field: 0.875rem;   /* inputs inside the glass card */
-  --radius-hero: 2rem;        /* the glass card itself */
 
-  /* --- Motion -------------------------------------------------------------
-     Durations for things no gesture drives. Anything draggable is a spring in
-     JS, because a CSS transition cannot be grabbed and reversed mid-flight.  */
   --ease-out-soft: cubic-bezier(0.32, 0.72, 0, 1);
-  --ease-in-soft: cubic-bezier(1, 0, 0.68, 0.28); /* the mirror, for reversals */
-
-  --duration-instant: 100ms;  /* press feedback -- must feel immediate */
+  --ease-in-soft: cubic-bezier(1, 0, 0.68, 0.28);
+  --duration-instant: 100ms;
   --duration-quick: 180ms;
   --duration-base: 280ms;
-  --duration-slow: 420ms;
 }
 
-/* --- Semantic aliases -------------------------------------------------------
-   Components use these, never a raw ramp step. That is what makes dark mode a
-   redefinition here rather than a class on every element.                     */
 :root {
   color-scheme: light;
-
-  /* --- Cinematic surfaces -------------------------------------------------
-     Both references ground themselves on a graded photograph rather than flat
-     colour: Gyro on a cabin interior, Latebird on a terminal at sunrise. The
-     grade is what makes them feel current -- the photo underneath is almost
-     incidental.
-
-     These build that grade in CSS. A layered mesh of radial glows over a deep
-     base reads as lit and atmospheric, it weighs nothing, it adapts to any
-     viewport, and it does not require licensing somebody's photograph. Real
-     imagery can slot in behind it later; the glows are what carry the mood.   */
-  --hero-base: oklch(19% 0.045 285);
-  --hero-glow-violet: oklch(48% 0.190 292);
-  --hero-glow-peri: oklch(58% 0.150 268);
-  --hero-glow-warm: oklch(44% 0.120 325);
-  --hero-ink: oklch(97% 0.010 285);
-  --hero-ink-dim: oklch(78% 0.030 285);
-
-  /* Glass. The form floats on the hero as its own material rather than sitting
-     in a hole cut out of it. Border is a bright hairline -- light catching a
-     real edge -- and the shadow is deep because the surface is large.         */
-  --glass-fill: oklch(28% 0.040 285 / 0.55);
-  --glass-edge: oklch(100% 0 0 / 0.14);
-  --glass-edge-top: oklch(100% 0 0 / 0.26);
-  --glass-blur: 28px;
-  --glass-shadow: 0 2px 8px oklch(10% 0.03 285 / 0.4),
-                  0 32px 64px oklch(10% 0.03 285 / 0.45);
-
-  /* Film grain over the gradient. Without it a large smooth gradient bands
-     visibly on 8-bit displays, which is the single thing that makes a CSS
-     gradient read as "CSS gradient" rather than as an image.                  */
-  --grain-opacity: 0.16;
 
   --font-sans-stack: var(--font-inter), -apple-system, BlinkMacSystemFont,
     "Segoe UI", system-ui, sans-serif;
   --font-display-stack: var(--font-jakarta), var(--font-inter), system-ui,
     sans-serif;
 
-  /* A faintly violet off-white rather than pure grey, so the page shares a hue
-     with the brand instead of sitting beside it.                             */
-  --surface-page: oklch(98% 0.005 285);
-  --surface-card: oklch(100% 0 0);
-  --surface-sunken: oklch(96% 0.008 285);
-  --surface-inverse: var(--color-brand-900);
-  --surface-accent: var(--color-accent-100);
+  /* Semantic aliases. Components use these, never a raw ramp step. */
+  --surface-page: #ffffff;
+  --surface-mist: #f5f7f8;
+  --surface-ink: #111820;
+  --surface-card: #ffffff;
 
-  /* Translucent chrome. Content scrolls underneath rather than being pushed
-     out of the way by an opaque strip.                                       */
-  --material-thin: oklch(100% 0 0 / 0.72);
-  --material-thick: oklch(100% 0 0 / 0.86);
-  --material-blur: 20px;
-  /* A bright top edge reads as light catching the edge of a real material.   */
-  --material-edge: oklch(100% 0 0 / 0.55);
+  --text-strong: #111820;
+  --text-default: #39414c;
+  --text-muted: #5b6470;
+  --text-on-ink: #ffffff;
+  --text-on-ink-dim: #a8b2bd;
 
-  --text-strong: oklch(22% 0.012 255);
-  --text-default: oklch(34% 0.010 255);
-  --text-muted: oklch(52% 0.010 255);
-  --text-faint: oklch(64% 0.008 255);
-  --text-on-brand: oklch(100% 0 0);
+  --border-subtle: #e6eaed;
+  --border-default: #d4dade;
+  --border-focus: #25cfc4;
 
-  --border-subtle: oklch(91% 0.004 255);
-  --border-default: oklch(86% 0.005 255);
-  --border-strong: oklch(72% 0.008 255);
+  /* Shadows are layered and tinted with the ink hue rather than pure black,
+     which reads as grime on a white surface. */
+  --shadow-card: 0 1px 2px rgb(17 24 32 / 0.04), 0 4px 14px rgb(17 24 32 / 0.06);
+  --shadow-raised: 0 2px 4px rgb(17 24 32 / 0.05), 0 14px 34px rgb(17 24 32 / 0.10);
+  --shadow-float: 0 4px 10px rgb(17 24 32 / 0.06), 0 26px 56px rgb(17 24 32 / 0.14);
 
-  --focus-ring: var(--color-brand-500);
+  /* Verdict colours.
 
-  /* Shadows are layered rather than single, and tinted with the surface hue
-     instead of pure black, which reads as grime on a light background.       */
-  --shadow-card: 0 1px 2px oklch(22% 0.02 255 / 0.05),
-                 0 4px 12px oklch(22% 0.02 255 / 0.05);
-  --shadow-raised: 0 2px 4px oklch(22% 0.02 255 / 0.06),
-                   0 12px 28px oklch(22% 0.02 255 / 0.10);
-  /* Bigger surfaces read as thicker: stronger blur, deeper shadow.           */
-  --shadow-overlay: 0 4px 8px oklch(22% 0.02 255 / 0.08),
-                    0 24px 56px oklch(22% 0.02 255 / 0.18);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-
-    --surface-page: oklch(16% 0.010 255);
-    --surface-card: oklch(21% 0.012 255);
-    --surface-sunken: oklch(13% 0.010 255);
-    --surface-inverse: oklch(96% 0.004 255);
-
-    --material-thin: oklch(24% 0.012 255 / 0.72);
-    --material-thick: oklch(24% 0.012 255 / 0.88);
-    --material-edge: oklch(100% 0 0 / 0.10);
-
-    --text-strong: oklch(97% 0.003 255);
-    --text-default: oklch(88% 0.005 255);
-    --text-muted: oklch(70% 0.008 255);
-    --text-faint: oklch(56% 0.008 255);
-
-    --border-subtle: oklch(28% 0.010 255);
-    --border-default: oklch(34% 0.012 255);
-    --border-strong: oklch(46% 0.014 255);
-
-    --focus-ring: var(--color-brand-400);
-
-    /* Dark surfaces separate by lightness, not by shadow -- a black shadow on
-       a dark background is invisible, so the numbers here are for depth cues
-       under raised elements only.                                            */
-    --shadow-card: 0 1px 2px oklch(0% 0 0 / 0.30);
-    --shadow-raised: 0 2px 6px oklch(0% 0 0 / 0.36), 0 12px 28px oklch(0% 0 0 / 0.30);
-    --shadow-overlay: 0 4px 10px oklch(0% 0 0 / 0.40), 0 24px 56px oklch(0% 0 0 / 0.46);
-  }
+     ELIGIBLE is the brand teal: the good outcome is also the brand's outcome,
+     so they should be the same colour.
+     NOT ELIGIBLE is slate, deliberately NOT red -- it is an answer, not an
+     error, and the person reading it did nothing wrong.
+     NEEDS REVIEW is amber, the one colour outside the six, because nothing in
+     a six-colour teal palette can say "pending" without being mistaken for
+     either the brand or a denial. */
+  --verdict-yes: #149f98;
+  --verdict-yes-fill: #eefbfa;
+  --verdict-yes-edge: #a7ebe6;
+  --verdict-no: #5b6470;
+  --verdict-no-fill: #f5f7f8;
+  --verdict-no-edge: #e6eaed;
+  --verdict-review: #b06d0a;
+  --verdict-review-fill: #fdf6e9;
+  --verdict-review-edge: #f2ddb4;
 }
 
 @theme inline {
   --color-page: var(--surface-page);
   --color-card: var(--surface-card);
-  --color-sunken: var(--surface-sunken);
-  --color-inverse: var(--surface-inverse);
-  --color-accent-surface: var(--surface-accent);
   --color-strong: var(--text-strong);
   --color-default: var(--text-default);
   --color-muted: var(--text-muted);
-  --color-faint: var(--text-faint);
-  --color-subtle: var(--border-subtle);
-  --color-line: var(--border-default);
-  --color-line-strong: var(--border-strong);
+  --color-line: var(--border-subtle);
 }
-
-/* --- Base ------------------------------------------------------------------ */
 
 *,
 *::before,
@@ -301,8 +163,6 @@
 }
 
 html {
-  /* Spacing in rem throughout, so a larger browser text size scales the layout
-     with the text instead of breaking it.                                    */
   -webkit-text-size-adjust: 100%;
 }
 
@@ -315,7 +175,6 @@ body {
   line-height: var(--text-body--line-height);
   font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
 }
 
 /* Amounts and flight numbers: digits must line up in a column. */
@@ -324,19 +183,15 @@ body {
   font-feature-settings: "tnum" 1;
 }
 
-/* One focus style everywhere, visible on every surface, and only for keyboard
-   users -- a ring on every mouse click is noise. */
+/* One focus style, visible on white and on ink, keyboard only. */
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: 2px solid var(--border-focus);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
 
-/* --- Accessibility ---------------------------------------------------------
-   Three independent signals, three different responses. Reduced motion is not
-   "no feedback" -- it is a gentler, non-vestibular equivalent, so opacity and
-   colour changes that aid comprehension stay.                                 */
-
+/* Reduced motion is a gentler equivalent, not an absence of feedback: colour
+   and opacity changes that explain what just changed stay. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -349,21 +204,10 @@ body {
   }
 }
 
-@media (prefers-reduced-transparency: reduce) {
-  :root {
-    --material-thin: var(--surface-card);
-    --material-thick: var(--surface-card);
-    --material-blur: 0px;
-  }
-}
-
 @media (prefers-contrast: more) {
   :root {
     --text-default: var(--text-strong);
     --text-muted: var(--text-strong);
-    --border-subtle: var(--border-strong);
-    --border-default: var(--border-strong);
-    --material-thin: var(--surface-card);
-    --material-thick: var(--surface-card);
+    --border-subtle: var(--border-default);
   }
 }
