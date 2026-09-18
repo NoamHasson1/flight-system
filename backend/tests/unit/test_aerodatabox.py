@@ -387,3 +387,67 @@ def test_an_unknown_provider_name_raises_value_error_not_a_provider_error() -> N
     reported to customers as NEEDS_REVIEW."""
     with pytest.raises(ValueError, match="unknown flight data provider"):
         build_provider("flightaware")
+
+
+# --- Against a genuinely recorded response -----------------------------------
+
+
+async def test_a_real_recorded_response_parses() -> None:
+    """The fixture that is NOT modelled.
+
+    Every other fixture in this suite was written by hand from AeroDataBox's
+    published schema, because no subscription existed when the adapter was
+    built. This one is a real response, recorded with
+    scripts/record_fixtures.py once a key was available: El Al 315, Tel Aviv to
+    Heathrow, 14 September 2026.
+
+    It is the test that closes the gap between "the adapter handles their
+    documentation" and "the adapter handles their API". If AeroDataBox changes
+    the shape, this fails here rather than in front of a customer.
+    """
+    adapter, _ = provider_returning(ok(fixture("live_ly315")))
+    flights = await adapter.fetch("LY315", date(2026, 9, 14))
+
+    assert len(flights) == 1
+    flight = flights[0]
+
+    assert flight.airline_iata == "LY"
+    assert flight.origin_iata == "TLV"
+    assert flight.destination_iata == "LHR"
+    assert flight.status is FlightStatus.LANDED
+
+    # Their timestamps are "2026-09-14 07:10Z" -- a space where ISO 8601 puts a
+    # T, which datetime.fromisoformat rejects outright.
+    assert flight.scheduled_departure == datetime(2026, 9, 14, 7, 10, tzinfo=UTC)
+    assert flight.scheduled_arrival == datetime(2026, 9, 14, 12, 35, tzinfo=UTC)
+
+    # runwayTime preferred over revisedTime: 13:55 touchdown, not the 13:55
+    # estimate -- and on departure the two genuinely differ (09:13 vs 09:12).
+    assert flight.actual_departure == datetime(2026, 9, 14, 9, 13, tzinfo=UTC)
+    assert flight.actual_arrival == datetime(2026, 9, 14, 13, 55, tzinfo=UTC)
+
+
+async def test_the_real_response_survives_the_mapper() -> None:
+    """Parsing it is not enough -- it has to enrich too.
+
+    A live payload can parse perfectly and still fail the mapper: an airport or
+    airline we do not carry in the reference data, an origin equal to a
+    destination, timestamps that contradict each other. This runs the whole
+    adapter-to-facts path on real data.
+    """
+    from app.providers.mapper import to_flight_facts
+    from app.domain.models import FlightFacts
+
+    adapter, _ = provider_returning(ok(fixture("live_ly315")))
+    record = (await adapter.fetch("LY315", date(2026, 9, 14)))[0]
+    facts = to_flight_facts(record)
+
+    assert isinstance(facts, FlightFacts), getattr(facts, "reason", "")
+    assert facts.origin_country == "IL"
+    assert facts.destination_country == "GB"
+    assert facts.airline_country == "IL"
+    # Departed 2h 03m late, arrived 1h 20m late: the crew made up time. This is
+    # the first real flight the system saw, and it is the exact case the rules
+    # tests were built around.
+    assert facts.departure_delay_hours == pytest.approx(2.05, abs=0.01)
+    assert facts.arrival_delay_hours == pytest.approx(1.33, abs=0.01)

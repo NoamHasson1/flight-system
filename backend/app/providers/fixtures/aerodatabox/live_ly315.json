@@ -1,0 +1,94 @@
+[
+  {
+    "greatCircleDistance": {
+      "meter": 3593140.2,
+      "km": 3593.14,
+      "mile": 2232.67,
+      "nm": 1940.14,
+      "feet": 11788517.72
+    },
+    "departure": {
+      "airport": {
+        "icao": "LLBG",
+        "iata": "TLV",
+        "name": "Tel Aviv Yafo Ben Gurion",
+        "shortName": "Ben Gurion",
+        "municipalityName": "Tel Aviv Yafo",
+        "location": {
+          "lat": 32.0114,
+          "lon": 34.8867
+        },
+        "countryCode": "IL",
+        "timeZone": "Asia/Jerusalem"
+      },
+      "scheduledTime": {
+        "utc": "2026-09-14 07:10Z",
+        "local": "2026-09-14 10:10+03:00"
+      },
+      "revisedTime": {
+        "utc": "2026-09-14 09:12Z",
+        "local": "2026-09-14 12:12+03:00"
+      },
+      "runwayTime": {
+        "utc": "2026-09-14 09:13Z",
+        "local": "2026-09-14 12:13+03:00"
+      },
+      "terminal": "3",
+      "runway": "26",
+      "quality": [
+        "Basic",
+        "Live"
+      ]
+    },
+    "arrival": {
+      "airport": {
+        "icao": "EGLL",
+        "iata": "LHR",
+        "name": "London Heathrow",
+        "shortName": "Heathrow",
+        "municipalityName": "London",
+        "location": {
+          "lat": 51.4706,
+          "lon": -0.461941
+        },
+        "countryCode": "GB",
+        "timeZone": "Europe/London"
+      },
+      "scheduledTime": {
+        "utc": "2026-09-14 12:35Z",
+        "local": "2026-09-14 13:35+01:00"
+      },
+      "revisedTime": {
+        "utc": "2026-09-14 13:55Z",
+        "local": "2026-09-14 14:55+01:00"
+      },
+      "runwayTime": {
+        "utc": "2026-09-14 13:55Z",
+        "local": "2026-09-14 14:55+01:00"
+      },
+      "terminal": "4",
+      "baggageBelt": "5",
+      "runway": "27L",
+      "quality": [
+        "Basic",
+        "Live"
+      ]
+    },
+    "lastUpdatedUtc": "2026-09-14 14:25Z",
+    "number": "LY 315",
+    "callSign": "ELY315",
+    "status": "Arrived",
+    "codeshareStatus": "IsOperator",
+    "isCargo": false,
+    "aircraft": {
+      "reg": "4X-EDL",
+      "modeS": "7380CA",
+      "model": "Boeing 787-9"
+    },
+    "airline": {
+      "name": "El Al",
+      "iata": "LY",
+      "icao": "ELY"
+    }
+  }
+]
