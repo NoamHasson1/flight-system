@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any, Final
 
 from app.domain.models import FlightStatus
+from app.observability import flow
 from app.providers.base import (
     FlightDataError,
     ProviderAuthError,
@@ -69,10 +70,12 @@ class FakeFlightProvider:
         the same 404 the customer should see.
         """
         number = flight_number.strip().upper()
+        flow.line("→ lookup", f"fake provider · scripted scenario for {number}")
         scenario = self._scenarios.get((number, flight_date.isoformat()))
         if scenario is None:
             scenario = self._scenarios.get((number, _ANY_DATE))
         if scenario is None:
+            flow.line("← response", "no scenario — no such flight")
             # A tuple, like every other return from this method. Handing back a
             # list here and a tuple there invites callers to depend on the
             # difference, and the empty case is the one they handle least.
@@ -85,10 +88,14 @@ class FakeFlightProvider:
                 f"({scenario.get('description', '')})"
             )
 
-        return tuple(
+        flights = tuple(
             _to_raw_flight(payload, number, flight_date, self.name)
             for payload in scenario.get("flights", [])
         )
+        flow.line("← response", f"{len(flights)} flight(s)  ·  {scenario.get('description', '')[:44]}")
+        for item in flights:
+            flow.cont(f"{item.route}  {item.airline_iata or '??'}  {item.status.value}")
+        return flights
 
     def describe(self) -> list[str]:
         """Every scenario, one line each. Used by the demo scripts and by

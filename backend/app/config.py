@@ -98,6 +98,12 @@ class Settings(BaseSettings):
 
     log_level: str = "INFO"
 
+    # The readable request trace: input, the API call, what came back, what we
+    # normalised it to, each law's answer, the decision, and every database
+    # write. Genuinely useful while building and far too noisy in production,
+    # so it is on by default and off when the environment is production.
+    log_flow: bool = True
+
     @field_validator("flight_provider")
     @classmethod
     def _known_provider(cls, value: str) -> str:
@@ -134,6 +140,16 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.environment == "production"
+
+    @property
+    def flow_logging_enabled(self) -> bool:
+        """On unless explicitly disabled, and never in production.
+
+        The trace prints customer emails (masked) and flight details on every
+        request. That is exactly what you want on a laptop and exactly what you
+        do not want accumulating in a production log aggregator.
+        """
+        return self.log_flow and not self.is_production
 
     @property
     def email_needs_a_server(self) -> bool:

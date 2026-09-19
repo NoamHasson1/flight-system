@@ -14,6 +14,7 @@ from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.db.models import Base
+from app.observability import flow
 
 DEFAULT_DATABASE_URL = "sqlite:///./flight_system.db"
 
@@ -56,7 +57,66 @@ def create_db_engine(url: str = DEFAULT_DATABASE_URL, *, echo: bool = False) -> 
 
 
 def create_session_factory(engine: Engine) -> sessionmaker[Session]:
-    return sessionmaker(bind=engine, expire_on_commit=False, future=True)
+    factory = sessionmaker(bind=engine, expire_on_commit=False, future=True)
+    _log_writes(factory)
+    return factory
+
+
+# Columns never worth printing, per table. `national_id` is absent rather than
+# masked: a masked secret in a log is still a secret in a log, and this is the
+# most sensitive field in the system.
+_SECRET: dict[str, set[str]] = {
+    "passengers": {"national_id"},
+}
+
+# Columns that are large and say nothing at a glance.
+_NOISY = {"flight_snapshot", "result_detail", "provider_payload", "stored_path"}
+
+
+def _log_writes(factory: sessionmaker[Session]) -> None:
+    """Log every insert and update, from the ORM rather than from call sites.
+
+    A listener rather than a line in each repository function: this way nothing
+    can write to the database without appearing, including code written later
+    by somebody who never read this file. That is the difference between "the
+    writes I remembered to log" and "the writes".
+    """
+
+    @event.listens_for(factory, "after_flush")
+    def _after_flush(session: Session, _context) -> None:  # type: ignore[no-untyped-def]
+        if not flow.enabled():
+            return
+        for instance in session.new:
+            flow.line("db INSERT", _describe(instance))
+        for instance in session.dirty:
+            if session.is_modified(instance):
+                flow.line("db UPDATE", _describe(instance))
+
+
+def _describe(instance: object) -> str:
+    """One readable line for a row, with secrets left out."""
+    table = getattr(instance, "__tablename__", type(instance).__name__)
+    hidden = _SECRET.get(table, set())
+
+    parts: list[str] = []
+    for column in instance.__table__.columns:  # type: ignore[attr-defined]
+        name = column.name
+        if name in hidden or name in _NOISY:
+            continue
+        value = getattr(instance, name, None)
+        if value is None or value == "":
+            continue
+        if name.endswith("email"):
+            value = flow.mask_email(str(value))
+        elif name == "id" or name.endswith("_id"):
+            value = f"{str(value)[:8]}…"
+        elif isinstance(value, str) and len(value) > 34:
+            value = value[:31] + "…"
+        parts.append(f"{name}={value}")
+
+    redacted = (hidden | _NOISY) & {c.name for c in instance.__table__.columns}  # type: ignore[attr-defined]
+    suffix = f"  (+{len(redacted)} not shown)" if redacted else ""
+    return f"{table}  " + "  ".join(parts[:7]) + suffix
 
 
 @contextmanager

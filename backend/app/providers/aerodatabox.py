@@ -30,6 +30,7 @@ from typing import Any, Final
 import httpx
 
 from app.domain.models import FlightStatus
+from app.observability import flow
 from app.providers.base import (
     ProviderAuthError,
     ProviderRateLimited,
@@ -113,9 +114,16 @@ class AeroDataBoxProvider:
     ) -> Sequence[RawFlight]:
         number = flight_number.strip().upper()
         path = f"/flights/number/{number}/{flight_date.isoformat()}"
+
+        # The URL, never the key. The key travels in a header precisely so it
+        # does not end up in a log or a proxy's access log, and printing it
+        # here would undo that.
+        flow.line("→ GET", f"{self._base_url}{path}")
+
         payload = await self._get(path)
 
         if payload is None:
+            flow.line("← response", "204/404 — no such flight")
             return ()  # no such flight -- an answer, not a failure
 
         if not isinstance(payload, list):
@@ -124,11 +132,26 @@ class AeroDataBoxProvider:
                 f"{type(payload).__name__}"
             )
 
-        return tuple(
+        flights = tuple(
             _to_raw_flight(item, number, flight_date, self.name)
             for item in payload
             if isinstance(item, dict)
         )
+
+        flow.line("← response", f"200 · {len(flights)} flight(s)")
+        for item in flights:
+            flow.cont(
+                f"{item.route}  {item.airline_iata or '??'}  {item.status.value}"
+            )
+            flow.cont(
+                f"  scheduled  dep {_at(item.scheduled_departure)}  "
+                f"arr {_at(item.scheduled_arrival)}"
+            )
+            flow.cont(
+                f"  actual     dep {_at(item.actual_departure)}  "
+                f"arr {_at(item.actual_arrival)}"
+            )
+        return flights
 
     # --- HTTP ---
 
@@ -239,6 +262,10 @@ def _to_raw_flight(
         actual_arrival=_actual(arrival),
         raw=dict(item),
     )
+
+
+def _at(value: datetime | None) -> str:
+    return "—" if value is None else value.strftime("%Y-%m-%d %H:%MZ")
 
 
 def _movement(item: Mapping[str, Any], key: str) -> Mapping[str, Any]:

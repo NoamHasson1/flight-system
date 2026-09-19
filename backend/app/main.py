@@ -37,6 +37,19 @@ def _configure_logging(settings: Settings) -> None:
     app_logger = logging.getLogger("flight_system")
     app_logger.setLevel(settings.log_level.upper())
 
+    # The flow trace is its own logger, so it can be silenced without silencing
+    # anything else -- and so its lines print bare, without the level and name
+    # prefix that would wreck the column alignment.
+    flow_logger = logging.getLogger("flight_system.flow")
+    flow_logger.setLevel(
+        logging.INFO if settings.flow_logging_enabled else logging.WARNING
+    )
+    flow_logger.propagate = False
+    if not flow_logger.handlers:
+        bare = logging.StreamHandler()
+        bare.setFormatter(logging.Formatter("%(message)s"))
+        flow_logger.addHandler(bare)
+
     if not app_logger.handlers:
         handler = logging.StreamHandler()
         handler.setFormatter(

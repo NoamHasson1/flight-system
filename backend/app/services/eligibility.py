@@ -24,6 +24,7 @@ from datetime import date, datetime
 from enum import StrEnum
 
 from app.domain.models import FlightFacts, Verdict
+from app.observability import flow
 from app.domain.rules import engine
 from app.domain.rules.engine import EligibilityResult
 from app.providers.base import (
@@ -116,9 +117,17 @@ async def check(
         "provider": provider.name,
     }
 
+    flow.open_block("CHECK REQUESTED", f"{number} · {flight_date.isoformat()}")
+    flow.line("raw input", f"{flight_number!r}, {flight_date.isoformat()!r}")
+    flow.line("provider", provider.name)
+    if option_key:
+        flow.line("chosen flight", option_key)
+
     try:
         records = await provider.fetch(number, flight_date)
     except FlightDataError as exc:
+        flow.line("← FAILED", f"{type(exc).__name__}")
+        flow.line("DECISION", "NEEDS_REVIEW — lookup failed, never a denial")
         # Every provider failure lands here, and every one becomes NEEDS_REVIEW.
         # An outage is not evidence about anybody's flight, and presenting it as
         # though it were would be the most expensive bug in the system.
@@ -129,6 +138,7 @@ async def check(
         )
 
     if not records:
+        flow.line("DECISION", "NOT_FOUND — a question, not a verdict")
         return CheckResult(
             status=CheckStatus.NOT_FOUND,
             message=(
@@ -160,6 +170,9 @@ async def check(
             )
             for r in records
         )
+        flow.line("DECISION", f"AMBIGUOUS — {len(options)} matches, asking which")
+        for option in options:
+            flow.cont(option.label)
         return CheckResult(
             status=CheckStatus.AMBIGUOUS,
             options=options,
@@ -173,6 +186,10 @@ async def check(
     record = records[0]
     mapped = to_flight_facts(record)
     if isinstance(mapped, MappingFailure):
+        flow.line("normalised", "FAILED")
+        for problem in mapped.problems:
+            flow.cont(problem)
+        flow.line("DECISION", "NEEDS_REVIEW — a gap in our data, not their flight")
         return CheckResult(
             status=CheckStatus.UNRESOLVED,
             message=mapped.reason,
@@ -180,13 +197,75 @@ async def check(
             **base,  # type: ignore[arg-type]
         )
 
+    _log_facts(mapped)
+    result = engine.evaluate(mapped)
+    _log_rules(result)
+
     return CheckResult(
         status=CheckStatus.DECIDED,
         flight=mapped,
-        result=engine.evaluate(mapped),
+        result=result,
         raw=record,
         **base,  # type: ignore[arg-type]
     )
+
+
+def _log_facts(flight: FlightFacts) -> None:
+    """What the vendor's payload became.
+
+    The point of showing this next to the raw response is that every
+    enrichment is visible: which country an airport resolved to, which state
+    licensed the carrier, and the distance we computed ourselves rather than
+    taking from the provider.
+    """
+    flow.line(
+        "normalised",
+        f"{flight.origin_iata}({flight.origin_country}) → "
+        f"{flight.destination_iata}({flight.destination_country})",
+    )
+    flow.cont(
+        f"carrier {flight.airline_iata} licensed in {flight.airline_country}"
+    )
+    flow.cont(f"distance {flight.distance_km:,.0f} km (computed, not provided)")
+    flow.cont(
+        f"departure delay {flow.hours(flight.departure_delay_hours)}   "
+        f"← Israeli law reads this"
+    )
+    flow.cont(
+        f"arrival delay   {flow.hours(flight.arrival_delay_hours)}   "
+        f"← EC261/UK261 read this"
+    )
+    flow.cont(f"status {flight.status.value}")
+
+
+def _log_rules(result: engine.EligibilityResult) -> None:
+    """Each law's answer, then the combined one.
+
+    Logged from the outcomes rather than from inside the rules: the rules stay
+    pure functions with no I/O, which is what makes them testable without
+    mocks and is not worth giving up for a log line.
+    """
+    flow.header("rules")
+    for outcome in result.outcomes:
+        award = f"  {outcome.award}" if outcome.award else ""
+        flow.cont(
+            f"{outcome.regulation:<7} {outcome.verdict.value:<13}"
+            f"applies={'yes' if outcome.applies else 'no ':<4}{award}"
+        )
+        flow.wrapped(outcome.reason)
+
+    if result.best_award:
+        flow.line(
+            "DECISION",
+            f"{result.verdict.value}  {result.best_award} under {result.best_regulation}",
+        )
+        if len(result.eligible_outcomes) > 1:
+            others = ", ".join(
+                f"{o.regulation} {o.award}" for o in result.eligible_outcomes[1:]
+            )
+            flow.cont(f"also payable: {others}")
+    else:
+        flow.line("DECISION", result.verdict.value)
 
 
 def _option_key(record: RawFlight) -> str:

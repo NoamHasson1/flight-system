@@ -23,6 +23,7 @@ from app.api.deps import (
 )
 from app.config import Settings
 from app.email.base import EmailSender
+from app.observability import flow
 from app.services.notifications import send_check_result
 from app.db.repositories import get_check, record_check
 from app.providers.base import FlightDataProvider
@@ -89,6 +90,11 @@ async def check_eligibility(
     # serialising means a storage failure surfaces as a real error instead of
     # as a phantom success.
     session.commit()
+
+    # Closed here, not in the service: the database write happens after the
+    # decision, and a trace that ends before the row is inserted is missing the
+    # last thing anybody wants to see.
+    flow.close_block()
 
     # Only when an address was given. The form does not require one, so an
     # address here means somebody typed it deliberately -- and a result email

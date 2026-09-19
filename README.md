@@ -58,6 +58,46 @@ failures you cannot summon from a real API on demand.
 
 ---
 
+## Watching a request
+
+`LOG_FLOW=true` (the default outside production) prints one readable block per
+check: what the customer sent, the call made to the flight API, what came back,
+what it was normalised to, each regulation's answer, the decision, and every
+database write.
+
+```
+▸ CHECK REQUESTED   BA165 · 2026-08-20
+  raw input        'ba 165', '2026-08-20'
+  provider         aerodatabox
+  → GET            https://aerodatabox.p.rapidapi.com/flights/number/BA165/2026-08-20
+  ← response       200 · 1 flight(s)
+                   TLV → LHR  BA  LANDED
+                     scheduled  dep 2026-08-20 02:20Z  arr 2026-08-20 07:20Z
+                     actual     dep 2026-08-20 11:20Z  arr 2026-08-20 16:20Z
+  normalised       TLV(IL) → LHR(GB)
+                   carrier BA licensed in GB
+                   distance 3,589 km (computed, not provided)
+                   departure delay 9h 00m   ← Israeli law reads this
+                   arrival delay   9h 00m   ← EC261/UK261 read this
+  rules
+                   ISRAEL  ELIGIBLE     applies=yes   ₪2,450.00
+                             …departed 9h 00m late, at or over the 8h 00m threshold…
+                   UK261   ELIGIBLE     applies=yes   £520.00
+                             …arrived 9h 00m late, at or over the 3h 00m threshold…
+                   EC261   NOT_ELIGIBLE applies=no
+                             …departs from IL and arrives in GB, and the carrier is GB…
+  DECISION         ELIGIBLE  ₪2,450.00 under ISRAEL
+                   also payable: UK261 £520.00
+  db INSERT        eligibility_checks  id=25fcc91e…  contact_email=n***@example.com …
+```
+
+Three things never reach it: the **API key** (it travels in a header precisely
+so it stays out of logs), **national identity numbers** (absent, not masked — a
+masked secret in a log is still a secret in a log), and **full email addresses**
+(masked to `n***@example.com`). The database lines come from a SQLAlchemy
+listener rather than from call sites, so nothing can write without appearing —
+including code written later by somebody who never read that file.
+
 ## Email
 
 Two messages are sent: a **claim confirmation** carrying the reference, and a
