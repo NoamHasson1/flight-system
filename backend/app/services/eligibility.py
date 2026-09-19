@@ -102,6 +102,13 @@ class CheckResult:
 
     @property
     def needs_human_attention(self) -> bool:
+        """Whether an OPERATOR has to do something.
+
+        LIKELY_ELIGIBLE deliberately does not count. It is waiting on the
+        passenger -- when did the airline tell you -- and putting it in the
+        operator queue would fill that queue with rows nobody can action,
+        which is how a review queue stops being worked at all.
+        """
         return self.verdict is Verdict.NEEDS_REVIEW
 
 

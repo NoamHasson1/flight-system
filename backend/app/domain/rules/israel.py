@@ -24,6 +24,7 @@ from __future__ import annotations
 
 from app.domain.models import Currency, FlightFacts, FlightStatus, Money, Verdict
 from app.domain.rules.base import (
+    OpenQuestion,
     RegulationOutcome,
     distance_band,
     format_hours,
@@ -117,9 +118,26 @@ def evaluate(flight: FlightFacts) -> RegulationOutcome:
         return _review("we could not establish what happened to this flight")
 
     if flight.is_cancelled:
-        return _review(
-            "the flight was cancelled. Compensation is payable when the airline "
-            "gave less than 14 days' notice, which we need to confirm with you"
+        # Section 6: a cancelled flight is compensated unless the passenger was
+        # told at least 14 days ahead. The amount is the full band figure --
+        # the 50% reduction belongs to the DELAY provision and is keyed to when
+        # an alternative flight landed, which for a cancellation with no
+        # rebooking recorded has not happened.
+        #
+        # So the figure is stated and the one open fact is asked. The passenger
+        # is the only person who knows when the airline told them.
+        award = COMPENSATION[distance_band(flight.distance_km, BAND_1_KM, BAND_2_KM)]
+        return _outcome(
+            Verdict.LIKELY_ELIGIBLE,
+            applies=True,
+            award=award,
+            open_question=OpenQuestion.CANCELLATION_NOTICE,
+            reason=(
+                f"{LABEL} covers this flight ({flight.route}), and it was cancelled. "
+                f"{_describe_band(flight.distance_km, award)} That is payable unless "
+                f"the airline told you at least 14 days beforehand, which is the one "
+                f"thing only you can tell us."
+            ),
         )
 
     departure_delay = flight.departure_delay_hours
@@ -142,13 +160,37 @@ def evaluate(flight: FlightFacts) -> RegulationOutcome:
         )
 
     # Eligible on the departure delay -- but the amount turns on the arrival
-    # delay, so without it we can say "yes" and not "how much". That is a
-    # question for a person rather than a guess in either direction.
+    # delay, and without it we can say "yes" and not yet "exactly how much".
+    #
+    # The full band figure is quoted, not the halved one. The reduction applies
+    # only when the airline still landed the passenger within a few hours of
+    # schedule, which is the airline's defence to raise, not our assumption to
+    # make against the passenger. Quoting the reduced amount would mean
+    # under-stating every such claim by half on the strength of a fact nobody
+    # has established.
+    #
+    # And the missing fact is not a mystery: the passenger was on the aircraft
+    # and knows when it landed. So this is a question for them, with the amount
+    # attached, rather than a blank referral that reads as a no.
     arrival_delay = flight.arrival_delay_hours
     if arrival_delay is None:
-        return _review(
-            f"it departed {format_hours(departure_delay)} late, which qualifies, but "
-            f"there is no recorded arrival time and the amount depends on it"
+        band = distance_band(flight.distance_km, BAND_1_KM, BAND_2_KM)
+        award = COMPENSATION[band]
+        ceiling = REDUCTION_ARRIVAL_CEILING_HOURS[band]
+        return _outcome(
+            Verdict.LIKELY_ELIGIBLE,
+            applies=True,
+            award=award,
+            open_question=OpenQuestion.ACTUAL_ARRIVAL,
+            reason=(
+                f"{LABEL} covers this flight ({flight.route}). It departed "
+                f"{format_hours(departure_delay)} late, at or over the "
+                f"{format_hours(MINIMUM_DEPARTURE_DELAY_HOURS)} threshold, so a claim "
+                f"is owed. {_describe_band(flight.distance_km, award)} We have no "
+                f"recorded landing time for it: if you did in fact arrive within "
+                f"{format_hours(ceiling)} of the original schedule, the law halves "
+                f"that amount. Tell us when you landed and we will confirm it."
+            ),
         )
 
     award = compensation_for(flight.distance_km, arrival_delay)
@@ -186,11 +228,33 @@ def _describe_amount(distance_km: float, arrival_delay: float, award: Money) -> 
 
 
 def _outcome(
-    verdict: Verdict, *, applies: bool, reason: str, award: Money | None = None
+    verdict: Verdict,
+    *,
+    applies: bool,
+    reason: str,
+    award: Money | None = None,
+    open_question: str | None = None,
 ) -> RegulationOutcome:
     return RegulationOutcome(
-        regulation=CODE, verdict=verdict, reason=reason, applies=applies, award=award
+        regulation=CODE,
+        verdict=verdict,
+        reason=reason,
+        applies=applies,
+        award=award,
+        open_question=open_question,
     )
+
+
+def _describe_band(distance_km: float, award: Money) -> str:
+    """Which distance band this flight falls in, and what it pays."""
+    band = distance_band(distance_km, BAND_1_KM, BAND_2_KM)
+    where = (
+        f"The distance of {distance_km:,.0f} km is {BAND_1_KM:,.0f} km or less",
+        f"The distance of {distance_km:,.0f} km is between {BAND_1_KM:,.0f} and "
+        f"{BAND_2_KM:,.0f} km",
+        f"The distance of {distance_km:,.0f} km is over {BAND_2_KM:,.0f} km",
+    )[band]
+    return f"{where}, giving {award}."
 
 
 def _review(detail: str) -> RegulationOutcome:

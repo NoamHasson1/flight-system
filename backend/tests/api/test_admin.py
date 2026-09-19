@@ -141,7 +141,9 @@ def test_the_review_queue_is_the_query_this_exists_for(
     )
     body = response.json()
 
-    assert body["total"] == 2  # the cancellation and the provider outage
+    # The provider outage. NOT the cancellation, which is priced and waiting on
+    # the passenger rather than on anyone here.
+    assert body["total"] == 1
     assert all(item["verdict"] == "NEEDS_REVIEW" for item in body["items"])
 
 
@@ -333,9 +335,12 @@ def test_the_summary_counts_the_morning(admin_client: TestClient) -> None:
 
     assert body["checks_total"] == 6
     assert body["checks_by_verdict"] == {
-        "ELIGIBLE": 2, "NOT_ELIGIBLE": 1, "NEEDS_REVIEW": 2
+        "ELIGIBLE": 2,
+        "LIKELY_ELIGIBLE": 1,
+        "NOT_ELIGIBLE": 1,
+        "NEEDS_REVIEW": 1,
     }
-    assert body["needs_review"] == 2
+    assert body["needs_review"] == 1
     assert body["claims_total"] == 0
 
 

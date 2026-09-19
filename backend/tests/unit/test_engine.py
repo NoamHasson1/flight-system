@@ -76,20 +76,49 @@ def test_eligible_beats_needs_review() -> None:
     assert result.best_regulation in {"UK261", "ISRAEL"}
 
 
-def test_needs_review_beats_not_eligible() -> None:
-    """Nothing pays outright, but something is unresolved.
+def test_a_cancelled_flight_is_priced_rather_than_shelved() -> None:
+    """Nothing pays outright, but the amount is known and the gap is one fact.
 
-    A cancelled flight: EC261 and UK261 both want to know the notice period.
-    This must not collapse to "no" -- an unanswered question is not a denial,
-    and a wrong denial is the error nobody ever discovers.
+    A cancelled Tel Aviv to Heathrow flight: UK261 and the Israeli law both
+    cover it, both can price it, and both wait on the same question -- when did
+    the airline tell you.
+
+    This must not collapse to "no": an unanswered question is not a denial, and
+    a wrong denial is the error nobody ever discovers. It must also not
+    collapse to a blank "we will look into it", which is what the passenger
+    reads as a no anyway.
     """
     result = engine.evaluate(
         tlv_lhr(status=FlightStatus.CANCELLED, arrival_delay_hours=None,
                 departure_delay_hours=None)
     )
-    assert result.verdict is Verdict.NEEDS_REVIEW
-    assert result.best_award is None
-    assert len(result.review_outcomes) >= 1
+    assert result.verdict is Verdict.LIKELY_ELIGIBLE
+    assert result.best_award is not None
+    assert result.open_questions == ("cancellation_notice",)
+
+
+def test_a_definite_payout_outranks_a_provisional_one() -> None:
+    """A flight that actually landed late and is owed money is not "likely".
+
+    Ordering matters because the headline verdict is what the customer reads.
+    """
+    result = engine.evaluate(tlv_lhr(arrival_delay_hours=4.0))
+    assert result.verdict is Verdict.ELIGIBLE
+
+
+def test_a_provisional_payout_outranks_needing_review() -> None:
+    """Between "here is the amount, one question" and "we cannot tell", the
+    first is strictly more useful and strictly as honest."""
+    cancelled = engine.evaluate(
+        tlv_lhr(status=FlightStatus.CANCELLED, arrival_delay_hours=None,
+                departure_delay_hours=None)
+    )
+    unknown = engine.evaluate(
+        tlv_lhr(status=FlightStatus.UNKNOWN, arrival_delay_hours=None,
+                departure_delay_hours=None)
+    )
+    assert cancelled.verdict is Verdict.LIKELY_ELIGIBLE
+    assert unknown.verdict is Verdict.NEEDS_REVIEW
 
 
 def test_all_three_saying_no_is_a_confident_no() -> None:
@@ -236,13 +265,19 @@ def test_applicable_outcomes_covers_laws_that_reached_the_flight() -> None:
     assert {o.regulation for o in result.applicable_outcomes} == {"UK261", "ISRAEL"}
 
 
-def test_review_outcomes_are_the_questions_to_ask() -> None:
+def test_two_laws_waiting_on_one_fact_ask_once() -> None:
+    """UK261 and the Israeli law both hang on the notice period here.
+
+    Asking the same question twice reads as a system that is not paying
+    attention, so the questions are de-duplicated while both outcomes are kept.
+    """
     result = engine.evaluate(
         tlv_lhr(status=FlightStatus.CANCELLED, arrival_delay_hours=None,
                 departure_delay_hours=None)
     )
-    assert len(result.review_outcomes) == 2
-    assert all("14 days" in o.reason for o in result.review_outcomes)
+    assert len(result.likely_outcomes) == 2
+    assert all("14 days" in o.reason for o in result.likely_outcomes)
+    assert result.open_questions == ("cancellation_notice",)
 
 
 def test_the_result_is_immutable() -> None:

@@ -67,7 +67,7 @@ def create_claim(
     contact_phone: str | None = None,
     booking_reference: str | None = None,
     airline_reason: str | None = None,
-    cancellation_notice_days: int | None = None,
+    cancellation_notice: str | None = None,
     notes: str | None = None,
 ) -> Claim:
     """Start a claim from a check.
@@ -97,7 +97,7 @@ def create_claim(
         contact_phone=_clean(contact_phone),
         booking_reference=_upper(booking_reference),
         airline_reason=_clean(airline_reason),
-        cancellation_notice_days=cancellation_notice_days,
+        cancellation_notice=cancellation_notice,
         notes=_clean(notes),
     )
     session.add(claim)

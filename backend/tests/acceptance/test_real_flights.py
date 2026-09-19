@@ -241,10 +241,14 @@ CASES: tuple[Case, ...] = (
 
     # --- Cancellation --------------------------------------------------------
     Case(
-        "LH687", "LH", "TLV", "FRA", None, None, Verdict.NEEDS_REVIEW,
+        "LH687", "LH", "TLV", "FRA", None, None, Verdict.LIKELY_ELIGIBLE,
         "Lufthansa cancelled. Both EC261 and Israeli law cover the flight, and "
         "both turn on how much notice the passenger was given -- which no flight "
-        "database records. We have to ask.",
+        "database records, but the passenger does. So the amount is stated and "
+        "the question is asked. 2,953 km puts EC261 in the middle band: EUR400, "
+        "against ILS2,450 under the Israeli law, and the shekel figure is worth "
+        "more.",
+        "ISRAEL", "2450.00", "ILS",
         status=FlightStatus.CANCELLED,
     ),
 )
@@ -316,10 +320,13 @@ def test_every_case_uses_a_real_airport_and_airline() -> None:
 
 
 def test_the_suite_covers_every_verdict() -> None:
-    """If a refactor made everything NEEDS_REVIEW, this file should notice."""
+    """If a refactor made everything one verdict, this file should notice."""
     verdicts = {case.expected_verdict for case in CASES}
     assert verdicts == {
-        Verdict.ELIGIBLE, Verdict.NOT_ELIGIBLE, Verdict.NEEDS_REVIEW
+        Verdict.ELIGIBLE,
+        Verdict.LIKELY_ELIGIBLE,
+        Verdict.NOT_ELIGIBLE,
+        Verdict.NEEDS_REVIEW,
     }
 
 

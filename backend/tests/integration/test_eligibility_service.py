@@ -188,11 +188,24 @@ async def test_an_unmappable_flight_becomes_needs_review(provider) -> None:  # t
 
 async def test_needs_human_attention_flags_every_review(provider) -> None:  # type: ignore[no-untyped-def]
     """One property the admin queue can filter on, whatever caused the review."""
-    for number in ("ERR503", "ZZ999", "LH687"):
+    for number in ("ERR503", "ZZ999"):
         assert (await check(provider, number, AUG_14)).needs_human_attention
 
     for number in ("BA165", "LY325"):
         assert not (await check(provider, number, AUG_14)).needs_human_attention
+
+
+async def test_a_provisional_payout_is_not_an_operator_s_problem(provider) -> None:  # type: ignore[no-untyped-def]
+    """LH687 is cancelled: priced, and waiting on the PASSENGER.
+
+    It belongs in front of the customer with a question attached, not in a
+    queue an operator works. Putting it there would fill that queue with rows
+    nobody can action, which is how a review queue stops being worked at all.
+    """
+    outcome = await check(provider, "LH687", AUG_14)
+
+    assert outcome.verdict is Verdict.LIKELY_ELIGIBLE
+    assert not outcome.needs_human_attention
 
 
 # --- Normalisation -----------------------------------------------------------

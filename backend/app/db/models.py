@@ -195,10 +195,10 @@ class Claim(Base):
 
     # The two questions no flight database can answer, asked of the person who
     # was actually there. `airline_reason` decides whether the disruption was
-    # within the airline's control; `cancellation_notice_days` decides whether a
+    # within the airline's control; `cancellation_notice` decides whether a
     # cancellation is payable at all.
     airline_reason: Mapped[str | None] = mapped_column(Text)
-    cancellation_notice_days: Mapped[int | None] = mapped_column(Integer)
+    cancellation_notice: Mapped[str | None] = mapped_column(String(20))
 
     notes: Mapped[str | None] = mapped_column(Text)
 

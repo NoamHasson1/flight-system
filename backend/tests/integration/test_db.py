@@ -325,16 +325,16 @@ def test_a_failed_transaction_rolls_back() -> None:
 async def test_a_decided_review_still_gets_a_readable_summary(
     session: Session,
 ) -> None:
-    """A cancelled flight is DECIDED with a NEEDS_REVIEW verdict, so it carries
-    no service-level message.
+    """A cancelled flight is DECIDED with an open question, so it carries no
+    service-level message of its own.
 
-    Without a summary the review queue shows a blank line next to it. The open
-    question is in result_detail either way, but a queue nobody can skim is a
-    queue nobody works.
+    Without a summary the row shows a blank line next to it. The open question
+    is in result_detail either way, but a list nobody can skim is a list nobody
+    works.
     """
     row = await store(session, "LH687")
     assert row.status == CheckStatus.DECIDED.value
-    assert row.verdict == Verdict.NEEDS_REVIEW.value
+    assert row.verdict == Verdict.LIKELY_ELIGIBLE.value
     assert row.message is not None
     assert "14 days" in row.message
 

@@ -8,6 +8,7 @@ a RegulationOutcome, and anything more elaborate would be ceremony.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Protocol
 
 from app.domain.models import FlightFacts, FlightStatus, Money, Verdict
@@ -30,13 +31,66 @@ class RegulationOutcome:
     applies: bool  # did this law cover the flight at all?
     award: Money | None = None
 
+    # What the passenger still has to tell us, when that is the only thing
+    # standing between this outcome and a definite answer. A key, not a
+    # sentence: the wording of the question belongs to the interface, and the
+    # same question is asked differently on a result screen and in a form.
+    open_question: str | None = None
+
     def __post_init__(self) -> None:
-        if self.verdict is Verdict.ELIGIBLE and self.award is None:
-            raise ValueError(f"{self.regulation}: ELIGIBLE outcome must carry an award")
-        if self.verdict is not Verdict.ELIGIBLE and self.award is not None:
+        pays = self.verdict in (Verdict.ELIGIBLE, Verdict.LIKELY_ELIGIBLE)
+        if pays and self.award is None:
             raise ValueError(
-                f"{self.regulation}: only an ELIGIBLE outcome may carry an award"
+                f"{self.regulation}: a {self.verdict.value} outcome must carry "
+                f"an award -- an amount is the whole point of saying so"
             )
+        if not pays and self.award is not None:
+            raise ValueError(
+                f"{self.regulation}: only an ELIGIBLE or LIKELY_ELIGIBLE "
+                f"outcome may carry an award"
+            )
+        if self.verdict is Verdict.LIKELY_ELIGIBLE and not self.open_question:
+            raise ValueError(
+                f"{self.regulation}: LIKELY_ELIGIBLE must name the open "
+                f"question, otherwise nobody knows what to ask"
+            )
+        if self.verdict is not Verdict.LIKELY_ELIGIBLE and self.open_question:
+            raise ValueError(
+                f"{self.regulation}: only a LIKELY_ELIGIBLE outcome carries an "
+                f"open question"
+            )
+
+
+# --- The questions only the passenger can answer -----------------------------
+
+
+class OpenQuestion(StrEnum):
+    """Facts no flight database holds, which decide a claim.
+
+    Each one is a key the interface turns into a question. Keeping them here,
+    as a closed set, means a rule cannot invent a question the front end has no
+    way to ask.
+    """
+
+    CANCELLATION_NOTICE = "cancellation_notice"
+    """How far in advance the airline said the flight was cancelled.
+
+    Fourteen days or more and no compensation is due, under both EC261
+    (Article 5(1)(c)) and the Israeli law. Under fourteen and it is payable.
+    Only the passenger knows when the message arrived.
+    """
+
+    ACTUAL_ARRIVAL = "actual_arrival"
+    """When the passenger actually reached their destination.
+
+    Asked when a claim is already established but the amount is not. Under the
+    Israeli law an eight-hour departure delay settles eligibility outright,
+    while the 50% reduction is keyed to the arrival delay -- so a flight with no
+    recorded landing is a certain yes of an uncertain size.
+
+    The feed does not always record a landing. The passenger was on the
+    aircraft.
+    """
 
 
 class RegulationEvaluator(Protocol):
@@ -269,11 +323,25 @@ class ArrivalDelayRegulation:
 
         if flight.is_cancelled:
             # Cancellation compensation turns on how much notice the passenger
-            # was given -- under 14 days and it is payable. No flight data API
-            # reports that, and it is not ours to assume in either direction.
-            return self._review(
-                "the flight was cancelled. Compensation is payable when the airline "
-                "gave less than 14 days' notice, which we need to confirm with you"
+            # was given: under 14 days and it is payable. No flight data API
+            # reports that, and it is not ours to assume in either direction --
+            # but it is not a mystery either, because the passenger knows.
+            #
+            # So the amount is stated and the question is asked. Withholding a
+            # figure we can compute, from someone whose flight was cancelled and
+            # who is very likely owed it, is caution pointed at the wrong risk.
+            award = self.compensation_for(flight.distance_km)
+            return self._outcome(
+                Verdict.LIKELY_ELIGIBLE,
+                applies=True,
+                award=award,
+                open_question=OpenQuestion.CANCELLATION_NOTICE,
+                reason=(
+                    f"{self.code} covers this flight ({flight.route}), and it was "
+                    f"cancelled. {self._describe_band(flight.distance_km, award)} "
+                    f"That is payable unless the airline told you at least 14 days "
+                    f"beforehand, which is the one thing only you can tell us."
+                ),
             )
 
         delay = flight.arrival_delay_hours
@@ -343,6 +411,7 @@ class ArrivalDelayRegulation:
         applies: bool,
         reason: str,
         award: Money | None = None,
+        open_question: str | None = None,
     ) -> RegulationOutcome:
         return RegulationOutcome(
             regulation=self.code,
@@ -350,6 +419,7 @@ class ArrivalDelayRegulation:
             reason=reason,
             applies=applies,
             award=award,
+            open_question=open_question,
         )
 
     def _review(self, detail: str) -> RegulationOutcome:

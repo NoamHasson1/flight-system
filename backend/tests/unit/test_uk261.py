@@ -235,12 +235,19 @@ def test_the_three_hour_threshold_applies(delay: float, expected: Verdict) -> No
     assert outcome.verdict is expected
 
 
-def test_cancelled_flights_need_review() -> None:
+def test_a_cancelled_flight_is_priced_and_the_question_is_asked() -> None:
+    """Same rule as EC261, and it must stay the same rule.
+
+    UK261 is the retained regulation; its cancellation provision is EC261's
+    word for word, so a divergence here would be a bug rather than a policy.
+    """
     outcome = uk261.evaluate(
         a_flight(origin_country="GB", status=FlightStatus.CANCELLED,
                  arrival_delay_hours=None)
     )
-    assert outcome.verdict is Verdict.NEEDS_REVIEW
+    assert outcome.verdict is Verdict.LIKELY_ELIGIBLE
+    assert outcome.award is not None
+    assert outcome.open_question == "cancellation_notice"
     assert "14 days" in outcome.reason
 
 

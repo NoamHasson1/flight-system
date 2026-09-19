@@ -293,18 +293,25 @@ def test_no_reason_string_mentions_halving() -> None:
 # that nobody ever discovers, because they just close the tab.
 
 
-def test_cancelled_flights_need_review_not_a_verdict() -> None:
+def test_a_cancelled_flight_is_priced_and_the_question_is_asked() -> None:
     """Cancellation compensation depends on how much notice the passenger got.
 
-    Under 14 days and it is payable. No flight API reports that, so we must ask.
-    Guessing "eligible" over-promises; guessing "not eligible" is the expensive
-    silent error.
+    Under 14 days it is payable. No flight API reports that -- but the
+    passenger knows, so this is not an unanswerable question, it is a question
+    for them.
+
+    Guessing "eligible" over-promises and guessing "not eligible" is the
+    expensive silent error. Stating the amount and naming the one open fact is
+    neither: the figure is exactly what the law sets for this distance, and
+    nothing is claimed about the fact we do not have.
     """
     outcome = ec261.evaluate(
         a_flight(origin_country="FR", status=FlightStatus.CANCELLED,
                  arrival_delay_hours=None)
     )
-    assert outcome.verdict is Verdict.NEEDS_REVIEW
+    assert outcome.verdict is Verdict.LIKELY_ELIGIBLE
+    assert outcome.award is not None, "an amount is the point of saying 'likely'"
+    assert outcome.open_question == "cancellation_notice"
     assert "14 days" in outcome.reason
 
 

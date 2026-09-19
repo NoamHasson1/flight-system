@@ -133,6 +133,14 @@ class OutcomeOut(BaseModel):
     )
     reason: str
     award: MoneyOut | None = None
+    open_question: str | None = Field(
+        default=None,
+        description=(
+            "Set on LIKELY_ELIGIBLE: the one fact the passenger has to supply "
+            "before this becomes a definite answer."
+        ),
+        examples=["cancellation_notice"],
+    )
 
 
 class FlightOut(BaseModel):
@@ -177,9 +185,12 @@ class EligibilityResponse(BaseModel):
     verdict: str | None = Field(
         default=None,
         description=(
-            "ELIGIBLE | NOT_ELIGIBLE | NEEDS_REVIEW. Null for NOT_FOUND and "
-            "AMBIGUOUS, which are questions rather than answers. NEEDS_REVIEW is "
-            "never a polite no -- it means we could not decide."
+            "ELIGIBLE | LIKELY_ELIGIBLE | NOT_ELIGIBLE | NEEDS_REVIEW. Null for "
+            "NOT_FOUND and AMBIGUOUS, which are questions rather than answers. "
+            "Neither NEEDS_REVIEW nor LIKELY_ELIGIBLE is a polite no: the first "
+            "means we could not decide, the second means the law covers the "
+            "flight and `best_award` is owed once the passenger answers "
+            "`open_questions`."
         ),
     )
     message: str | None = None
@@ -188,6 +199,14 @@ class EligibilityResponse(BaseModel):
     flight: FlightOut | None = None
     outcomes: list[OutcomeOut] = []
     options: list[FlightOptionOut] = []
+    open_questions: list[str] = Field(
+        default=[],
+        description=(
+            "What to ask the passenger, each question once even when two laws "
+            "wait on the same fact."
+        ),
+        examples=[["cancellation_notice"]],
+    )
     caveat: str | None = None
     provider: str
 

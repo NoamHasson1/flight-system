@@ -92,19 +92,56 @@ class FlightStatus(StrEnum):
 
 
 class Verdict(StrEnum):
-    """The three possible answers. Three, not two -- deliberately.
+    """The four possible answers. Four, not two -- deliberately.
 
-    NEEDS_REVIEW exists because the dangerous failure in this system is a wrong
-    NOT_ELIGIBLE: it costs the passenger real money and nobody ever finds out,
-    because they simply close the tab. A wrong ELIGIBLE gets caught downstream
-    by a human. So NOT_ELIGIBLE is only ever returned when the data is complete
-    and a rule genuinely failed; anything missing or unrecognised goes to
-    NEEDS_REVIEW instead.
+    The dangerous failure in this system is a wrong NOT_ELIGIBLE: it costs the
+    passenger real money and nobody ever finds out, because they simply close
+    the tab. A wrong ELIGIBLE gets caught downstream by a human. So
+    NOT_ELIGIBLE is only ever returned when the data is complete and a rule
+    genuinely failed; anything missing or unrecognised goes elsewhere.
+
+    "Elsewhere" is two different places, and the difference is who can resolve
+    it.
+
+    NEEDS_REVIEW is for what nobody at the keyboard can answer: a route whose
+    jurisdiction is unsettled, a flight with no recorded landing, a status we do
+    not recognise. Somebody has to go and find out.
+
+    LIKELY_ELIGIBLE is for when the law covers the flight, the amount is known,
+    and the single remaining fact is one the PASSENGER has: a cancelled flight
+    is payable unless the airline gave fourteen days' notice, and the passenger
+    is the only person who knows when they were told. Showing them the amount
+    and asking the question is both more honest and more useful than a blank
+    "we will look into it" -- the number is real, and it is the number that
+    makes them bother answering.
     """
 
     ELIGIBLE = "ELIGIBLE"
+    LIKELY_ELIGIBLE = "LIKELY_ELIGIBLE"
     NOT_ELIGIBLE = "NOT_ELIGIBLE"
     NEEDS_REVIEW = "NEEDS_REVIEW"
+
+
+class CancellationNotice(StrEnum):
+    """How much warning the passenger got that the flight was cancelled.
+
+    Buckets, not a number of days, because a number cannot express the two
+    answers that matter most. "I was never told" and "I cannot remember" are
+    not quantities, and an integer column forces them into a null that reads
+    identically to "not asked yet".
+
+    The boundary in both EC261 (Article 5(1)(c)) and the Israeli law is
+    fourteen days, so the buckets are drawn around it: everything up to
+    ONE_TO_TWO_WEEKS is plainly inside, OVER_TWO_WEEKS is plainly outside, and
+    the last two are for a person to settle rather than for software to guess.
+    """
+
+    NEVER_TOLD = "NEVER_TOLD"  # found out at the airport, or not at all
+    ON_THE_DAY = "ON_THE_DAY"
+    UNDER_A_WEEK = "UNDER_A_WEEK"
+    ONE_TO_TWO_WEEKS = "ONE_TO_TWO_WEEKS"
+    OVER_TWO_WEEKS = "OVER_TWO_WEEKS"  # the airline's defence, if it holds
+    CANNOT_REMEMBER = "CANNOT_REMEMBER"
 
 
 @dataclass(frozen=True, slots=True)

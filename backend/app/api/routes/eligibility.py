@@ -9,7 +9,7 @@ ever starts growing conditionals, something has leaked upwards.
 from __future__ import annotations
 
 import logging
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
@@ -186,9 +186,11 @@ def read_check(
                     if item.get("award")
                     else None
                 ),
+                open_question=item.get("open_question"),
             )
             for item in detail.get("outcomes", [])
         ],
+        open_questions=_open_questions(detail.get("outcomes", [])),
         caveat=detail.get("caveat"),
         provider=row.provider,
     )
@@ -214,6 +216,7 @@ def _to_response(outcome: CheckResult, check_id: UUID) -> EligibilityResponse:
                 applies=item.applies,
                 reason=item.reason,
                 award=MoneyOut.of(item.award),
+                open_question=item.open_question,
             )
             for item in (result.outcomes if result else ())
         ],
@@ -226,9 +229,24 @@ def _to_response(outcome: CheckResult, check_id: UUID) -> EligibilityResponse:
             )
             for option in outcome.options
         ],
+        open_questions=list(result.open_questions) if result else [],
         caveat=result.caveat if result else None,
         provider=outcome.provider,
     )
+
+
+def _open_questions(outcomes: list[dict[str, Any]]) -> list[str]:
+    """Rebuilt from the stored outcomes, de-duplicated, order preserved.
+
+    Two laws can wait on the same fact, and asking twice reads as a system that
+    is not paying attention.
+    """
+    seen: list[str] = []
+    for item in outcomes:
+        q = item.get("open_question")
+        if q and q not in seen:
+            seen.append(q)
+    return seen
 
 
 _SYMBOLS = {"EUR": "€", "GBP": "£", "ILS": "₪"}

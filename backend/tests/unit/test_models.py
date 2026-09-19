@@ -219,10 +219,20 @@ def test_facts_are_immutable() -> None:
 # --- Verdict -----------------------------------------------------------------
 
 
-def test_verdict_has_exactly_three_values() -> None:
+def test_verdict_has_exactly_four_values() -> None:
     """Guards the decision itself.
 
-    If someone later "simplifies" this to a boolean, the NEEDS_REVIEW safety net
-    disappears and failed lookups start silently becoming NOT_ELIGIBLE.
+    If someone later "simplifies" this to a boolean, the safety net disappears
+    and failed lookups start silently becoming NOT_ELIGIBLE.
+
+    The two non-answers are separate on purpose and must stay separate:
+    NEEDS_REVIEW is what nobody at the keyboard can resolve, LIKELY_ELIGIBLE is
+    what the PASSENGER can. Merging them either buries answerable claims in an
+    operator queue or shows an amount for a flight nobody can price.
     """
-    assert set(Verdict) == {Verdict.ELIGIBLE, Verdict.NOT_ELIGIBLE, Verdict.NEEDS_REVIEW}
+    assert set(Verdict) == {
+        Verdict.ELIGIBLE,
+        Verdict.LIKELY_ELIGIBLE,
+        Verdict.NOT_ELIGIBLE,
+        Verdict.NEEDS_REVIEW,
+    }

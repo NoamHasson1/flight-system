@@ -9,6 +9,7 @@ from uuid import UUID
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.db.models import ClaimStatus, DocumentKind, ExpenseCategory
+from app.domain.models import CancellationNotice
 
 
 class PassengerIn(BaseModel):
@@ -63,11 +64,15 @@ class ClaimCreate(BaseModel):
         max_length=2000,
         description="What reason the airline gave, in the customer's own words.",
     )
-    cancellation_notice_days: int | None = Field(
+    cancellation_notice: CancellationNotice | None = Field(
         default=None,
-        ge=0,
-        le=365,
-        description="For a cancellation: how many days' notice they were given.",
+        description=(
+            "For a cancellation: how much warning they were given. Buckets "
+            "rather than a day count, because 'never told' and 'cannot "
+            "remember' are not quantities and they are the answers that "
+            "matter most."
+        ),
+        examples=["NEVER_TOLD"],
     )
 
     passengers: list[PassengerIn] = Field(default_factory=list)
@@ -117,7 +122,7 @@ class ClaimOut(BaseModel):
     contact_phone: str | None
     booking_reference: str | None
     airline_reason: str | None
-    cancellation_notice_days: int | None
+    cancellation_notice: str | None
     notes: str | None
 
     passengers: list[PassengerOut]

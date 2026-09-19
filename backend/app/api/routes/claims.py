@@ -93,7 +93,11 @@ def create_claim(
             contact_phone=payload.contact_phone,
             booking_reference=payload.booking_reference,
             airline_reason=payload.airline_reason,
-            cancellation_notice_days=payload.cancellation_notice_days,
+            cancellation_notice=(
+                payload.cancellation_notice.value
+                if payload.cancellation_notice
+                else None
+            ),
             notes=payload.notes,
         )
         for passenger in payload.passengers:
@@ -323,7 +327,7 @@ def _to_out(claim: Claim) -> ClaimOut:
         contact_phone=claim.contact_phone,
         booking_reference=claim.booking_reference,
         airline_reason=claim.airline_reason,
-        cancellation_notice_days=claim.cancellation_notice_days,
+        cancellation_notice=claim.cancellation_notice,
         notes=claim.notes,
         passengers=[
             PassengerOut(

@@ -75,9 +75,32 @@ class EligibilityResult:
         return tuple(o for o in self.outcomes if o.verdict is Verdict.ELIGIBLE)
 
     @property
+    def likely_outcomes(self) -> tuple[RegulationOutcome, ...]:
+        """Every law that pays subject to one fact the passenger holds."""
+        return tuple(
+            o for o in self.outcomes if o.verdict is Verdict.LIKELY_ELIGIBLE
+        )
+
+    @property
     def review_outcomes(self) -> tuple[RegulationOutcome, ...]:
-        """Every law with an open question. These are what to ask the customer."""
+        """Every law a person has to look at."""
         return tuple(o for o in self.outcomes if o.verdict is Verdict.NEEDS_REVIEW)
+
+    @property
+    def open_questions(self) -> tuple[str, ...]:
+        """What to ask the passenger, each question once.
+
+        Two laws can hang on the same fact -- a cancelled Tel Aviv to Heraklion
+        flight is provisionally payable under both EC261 and the Israeli law,
+        and both wait on the same answer. Asking twice would read as a system
+        that is not paying attention.
+        """
+        seen: list[str] = []
+        for outcome in self.outcomes:
+            q = outcome.open_question
+            if q and q not in seen:
+                seen.append(q)
+        return tuple(seen)
 
     @property
     def applicable_outcomes(self) -> tuple[RegulationOutcome, ...]:
@@ -106,6 +129,26 @@ def evaluate(flight: FlightFacts) -> EligibilityResult:
         return EligibilityResult(
             verdict=Verdict.ELIGIBLE,
             outcomes=_ordered(outcomes, paying),
+            best_award=best.award,
+            best_regulation=best.regulation,
+            caveat=EXTRAORDINARY_CIRCUMSTANCES_CAVEAT,
+        )
+
+    likely = sorted(
+        (o for o in outcomes if o.verdict is Verdict.LIKELY_ELIGIBLE),
+        key=_by_value_then_declaration_order(outcomes),
+    )
+    if likely:
+        # Nothing pays outright, but a law covers the flight and the amount is
+        # known -- only one fact is missing, and the passenger has it.
+        #
+        # Ranked below a definite ELIGIBLE and above NEEDS_REVIEW, because that
+        # is the order of how much the system can actually stand behind.
+        best = likely[0]
+        assert best.award is not None
+        return EligibilityResult(
+            verdict=Verdict.LIKELY_ELIGIBLE,
+            outcomes=_ordered(outcomes, likely),
             best_award=best.award,
             best_regulation=best.regulation,
             caveat=EXTRAORDINARY_CIRCUMSTANCES_CAVEAT,

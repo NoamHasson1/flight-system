@@ -99,10 +99,10 @@ def test_the_two_questions_no_api_can_answer_are_captured(
     claim = a_claim(
         client,
         airline_reason="They said a technical fault with the aircraft.",
-        cancellation_notice_days=3,
+        cancellation_notice="UNDER_A_WEEK",
     )
     assert "technical fault" in claim["airline_reason"]
-    assert claim["cancellation_notice_days"] == 3
+    assert claim["cancellation_notice"] == "UNDER_A_WEEK"
 
 
 def test_a_claim_needs_a_real_check(client: TestClient) -> None:

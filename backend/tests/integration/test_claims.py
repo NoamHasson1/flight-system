@@ -27,6 +27,7 @@ from app.db.claims import (
     set_status,
     submit_claim,
 )
+from app.domain.models import CancellationNotice
 from app.db.models import ClaimStatus, DocumentKind, EligibilityCheck, ExpenseCategory
 from app.db.repositories import record_check
 from app.db.session import (
@@ -166,10 +167,10 @@ async def test_the_two_questions_no_api_can_answer_are_stored(
     claim = await a_claim(
         session,
         airline_reason="They said a technical fault with the aircraft.",
-        cancellation_notice_days=3,
+        cancellation_notice=CancellationNotice.UNDER_A_WEEK.value,
     )
     assert "technical fault" in claim.airline_reason
-    assert claim.cancellation_notice_days == 3
+    assert claim.cancellation_notice == "UNDER_A_WEEK"
 
 
 # --- Passengers --------------------------------------------------------------

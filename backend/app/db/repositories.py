@@ -252,6 +252,7 @@ def result_detail(result: EligibilityResult | None) -> dict[str, Any] | None:
                     "applies": outcome.applies,
                     "reason": outcome.reason,
                     "award": _money(outcome.award),
+                    "open_question": outcome.open_question,
                 }
                 for outcome in result.outcomes
             ],
@@ -262,15 +263,23 @@ def result_detail(result: EligibilityResult | None) -> dict[str, Any] | None:
 def _review_summary(outcome: CheckResult) -> str | None:
     """What an operator should read first about a row that needs attention.
 
-    A cancelled flight is DECIDED -- the rules ran and reached NEEDS_REVIEW --
-    so it carries no service-level message, and the review queue would show a
-    blank line. The open question is in `result_detail`, but a queue nobody can
-    skim is a queue nobody works.
+    A flight the rules could not settle is still DECIDED -- they ran and
+    reached NEEDS_REVIEW -- so it carries no service-level message, and the
+    queue would show a blank line. The open question is in `result_detail`, but
+    a queue nobody can skim is a queue nobody works.
+
+    A provisional payout gets the same treatment for the same reason: the row
+    says what is owed and what is still unanswered.
     """
     if outcome.result is None:
         return None
-    reviews = outcome.result.review_outcomes
-    return reviews[0].reason if reviews else None
+    for open_outcomes in (
+        outcome.result.review_outcomes,
+        outcome.result.likely_outcomes,
+    ):
+        if open_outcomes:
+            return open_outcomes[0].reason
+    return None
 
 
 def _money(award: Money | None) -> dict[str, Any] | None:

@@ -228,13 +228,27 @@ def test_europe_has_no_such_reduction() -> None:
 # --- Everything that must become NEEDS_REVIEW --------------------------------
 
 
-def test_cancelled_flights_need_review() -> None:
+def test_a_cancelled_flight_is_priced_at_the_full_band_amount() -> None:
+    """Section 6, and the amount is the FULL band figure.
+
+    The 50% reduction belongs to the delay provision and is keyed to when an
+    alternative flight landed. A cancellation with no rebooking recorded has no
+    such landing, so halving it would quietly under-quote every cancelled
+    flight by half.
+    """
     outcome = israel.evaluate(
         a_flight(origin_country="IL", status=FlightStatus.CANCELLED,
                  arrival_delay_hours=None, departure_delay_hours=None)
     )
-    assert outcome.verdict is Verdict.NEEDS_REVIEW
+    assert outcome.verdict is Verdict.LIKELY_ELIGIBLE
+    assert outcome.open_question == "cancellation_notice"
     assert "14 days" in outcome.reason
+
+    # The builder's flight is 3,588 km: the middle band, which pays 2,450
+    # in full and 1,225 if halved.
+    assert outcome.award == Money.of("2450", Currency.ILS), (
+        "a cancellation must not be halved"
+    )
 
 
 def test_no_departure_time_needs_review() -> None:
@@ -245,24 +259,30 @@ def test_no_departure_time_needs_review() -> None:
     assert outcome.verdict is Verdict.NEEDS_REVIEW
 
 
-def test_qualifying_departure_delay_but_no_arrival_time_needs_review() -> None:
+def test_qualifying_departure_delay_with_no_landing_time_is_priced_in_full(
+) -> None:
     """A case unique to this law, and a genuinely awkward one.
 
-    The departure delay already proves the passenger is eligible -- but the
-    amount depends on the arrival delay, which we do not have. We can say "yes"
-    and not "how much".
+    The departure delay already proves the passenger is eligible. The AMOUNT
+    depends on the arrival delay, which we do not have -- so this is a certain
+    yes of an uncertain size, and NOT_ELIGIBLE would be flatly wrong.
 
-    Guessing the full amount over-promises; guessing the halved amount
-    under-promises; NOT_ELIGIBLE would be flatly wrong. So it goes to a person,
-    and the reason says the departure delay qualified.
+    The full figure is quoted rather than the halved one. The reduction is the
+    airline's defence -- it applies only if they still landed the passenger
+    close to schedule -- and quoting the reduced amount would under-state every
+    such claim by half on the strength of a fact nobody has established.
+
+    The missing fact is also not a mystery. The passenger was on the aircraft.
     """
     outcome = israel.evaluate(
         a_flight(origin_country="IL", status=FlightStatus.EN_ROUTE,
                  departure_delay_hours=9.0, arrival_delay_hours=None)
     )
-    assert outcome.verdict is Verdict.NEEDS_REVIEW
+    assert outcome.verdict is Verdict.LIKELY_ELIGIBLE
+    assert outcome.open_question == "actual_arrival"
+    assert outcome.award == Money.of("2450", Currency.ILS), "must not be halved"
     assert "9h 00m" in outcome.reason
-    assert "qualifies" in outcome.reason
+    assert "halves" in outcome.reason
 
 
 def test_diverted_and_unknown_need_review() -> None:
