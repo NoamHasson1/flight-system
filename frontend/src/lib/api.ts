@@ -51,8 +51,25 @@ export type ApiResult<T> =
   | { ok: true; data: T }
   | { ok: false; failure: ApiFailure };
 
+/**
+ * What to put in front of every path.
+ *
+ * In the browser: nothing. Requests go to the page's own origin and the dev
+ * server proxies `/api/*` to the backend (see next.config.ts). Whatever address
+ * the page was opened on -- localhost, a LAN IP, a tunnel -- the API is reached
+ * at that same address, so the app works from another machine with no
+ * configuration and no CORS.
+ *
+ * On the server, where the result screens are rendered: an absolute URL,
+ * because fetch on the server has no page origin to be relative to. It talks to
+ * the backend over loopback, which never leaves the machine.
+ *
+ * NEXT_PUBLIC_API_URL still wins if it is set, for pointing a local frontend at
+ * a deployed backend.
+ */
 const BASE_URL = (
-  process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8010"
+  process.env.NEXT_PUBLIC_API_URL ??
+  (typeof window === "undefined" ? "http://127.0.0.1:8010" : "")
 ).replace(/\/$/, "");
 
 /**

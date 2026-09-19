@@ -58,6 +58,23 @@ failures you cannot summon from a real API on demand.
 
 ---
 
+## Opening it on another machine
+
+The dev server binds to every interface and the app reaches the API through its
+own origin, so a laptop on the same network only needs the address:
+
+```bash
+cd frontend && npm run dev -- --port 3111 --hostname 0.0.0.0
+ipconfig getifaddr en0          # the address to hand over
+```
+
+The backend stays on loopback. Nothing outside the machine talks to it, and
+nothing outside the machine can reach the database, the uploaded documents or
+the flight-API key. Requests arrive at the frontend and are proxied one hop.
+
+This is a dev server on a local network, not a deployment: no HTTPS, no
+authentication, and anyone on that network who has the address can use it.
+
 ## Watching a request
 
 `LOG_FLOW=true` (the default outside production) prints one readable block per
