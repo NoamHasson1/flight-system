@@ -189,3 +189,29 @@ def test_the_database_url_is_not_committed() -> None:
     from somebody's laptop."""
     ini = (BACKEND / "alembic.ini").read_text()
     assert "\nsqlalchemy.url = " not in ini
+
+
+def test_running_migrations_does_not_silence_the_application(
+    database_url: str,
+) -> None:
+    """fileConfig must not disable loggers it did not configure.
+
+    Python's logging.config.fileConfig defaults disable_existing_loggers to
+    True, which turns OFF every logger not named in the file it just read. Run
+    `alembic upgrade head` in-process at startup with that default and the
+    application never logs again, with nothing to explain it.
+
+    This surfaced as two email tests that passed alone and failed in the full
+    suite: a migration test had run first and switched their logger off.
+    """
+    import logging
+
+    command.upgrade(alembic_config(database_url), "head")
+
+    # Asserted on the logger itself rather than through caplog: fileConfig also
+    # replaces the ROOT logger's handlers, including the one pytest installs to
+    # capture with, so an empty caplog after a migration says nothing about
+    # whether the application can log. `disabled` is the flag that actually
+    # changed, and the one the bug set.
+    for name in ("flight_system", "flight_system.email"):
+        assert logging.getLogger(name).disabled is False, name

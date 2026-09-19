@@ -8,13 +8,22 @@ ever starts growing conditionals, something has leaked upwards.
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_flight_provider, get_session
+from app.api.deps import (
+    get_email_sender,
+    get_flight_provider,
+    get_session,
+    get_settings_dependency,
+)
+from app.config import Settings
+from app.email.base import EmailSender
+from app.services.notifications import send_check_result
 from app.db.repositories import get_check, record_check
 from app.providers.base import FlightDataProvider
 from app.schemas.eligibility import (
@@ -38,8 +47,11 @@ router = APIRouter(prefix="/api/v1/eligibility", tags=["eligibility"])
 )
 async def check_eligibility(
     payload: EligibilityRequest,
+    background: BackgroundTasks,
     provider: Annotated[FlightDataProvider, Depends(get_flight_provider)],
     session: Annotated[Session, Depends(get_session)],
+    sender: Annotated[EmailSender, Depends(get_email_sender)],
+    settings: Annotated[Settings, Depends(get_settings_dependency)],
 ) -> EligibilityResponse:
     """Look up a flight and decide whether the passenger is owed anything.
 
@@ -78,7 +90,36 @@ async def check_eligibility(
     # as a phantom success.
     session.commit()
 
+    # Only when an address was given. The form does not require one, so an
+    # address here means somebody typed it deliberately -- and a result email
+    # nobody asked for is spam however useful we think it is.
+    if payload.contact_email:
+        background.add_task(
+            _email_result, row.id, sender, settings.public_base_url,
+            settings.database_url,
+        )
+
     return _to_response(outcome, row.id)
+
+
+def _email_result(
+    check_id: UUID, sender: EmailSender, base_url: str, database_url: str
+) -> None:
+    """Send the result, in its own session -- the request's is already closed."""
+    from app.db.session import create_db_engine, create_session_factory, session_scope
+
+    engine = create_db_engine(database_url)
+    try:
+        with session_scope(create_session_factory(engine)) as session:
+            row = get_check(session, check_id)
+            if row is not None:
+                send_check_result(sender, row, base_url=base_url)
+    except Exception:  # noqa: BLE001
+        logging.getLogger("flight_system.email").exception(
+            "result email failed for check %s", check_id
+        )
+    finally:
+        engine.dispose()
 
 
 @router.get(

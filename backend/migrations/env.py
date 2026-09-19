@@ -31,7 +31,17 @@ from app.db.session import DEFAULT_DATABASE_URL  # noqa: E402
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # disable_existing_loggers=False is load-bearing, not tidiness.
+    #
+    # fileConfig defaults it to True, which DISABLES every logger not named in
+    # the file it just read -- including the application's own. Anything that
+    # runs a migration in the same process then goes silent: run
+    # `alembic upgrade head` at startup and the app never logs again, with no
+    # error to explain it.
+    #
+    # Caught by two email tests that passed alone and failed in the full suite,
+    # because a migration test had run first and turned their logger off.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # Every table Alembic should know about. Importing Base is what makes
 # `alembic revision --autogenerate` able to see the models at all.

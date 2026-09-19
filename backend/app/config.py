@@ -19,6 +19,8 @@ from pathlib import Path
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.email.registry import AVAILABLE as EMAIL_SENDERS
+from app.email.registry import CONSOLE
 from app.providers.registry import AVAILABLE, FAKE
 
 
@@ -64,6 +66,27 @@ class Settings(BaseSettings):
         "http://127.0.0.1:3111",
     ]
 
+    # --- email ---
+    #
+    # Defaults to "console", which writes messages to the log instead of
+    # sending them. Same reasoning as the fake flight provider: the system
+    # runs and is demonstrable with no mail account, and nobody can
+    # accidentally send a real message to a real person while developing.
+    email_sender: str = CONSOLE
+    email_from: str = "Skyclaim <noreply@example.com>"
+
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_starttls: bool = True
+    smtp_ssl: bool = False
+
+    # Where the links in emails point. Not derivable from a request: a
+    # background task has no request, and behind a proxy the request's own host
+    # is the proxy's, not the one the customer typed.
+    public_base_url: str = "http://localhost:3111"
+
     # --- the admin API ---
     #
     # Empty by default, and an empty key means the admin API is CLOSED rather
@@ -90,6 +113,16 @@ class Settings(BaseSettings):
             )
         return value.strip().lower()
 
+    @field_validator("email_sender")
+    @classmethod
+    def _known_email_sender(cls, value: str) -> str:
+        if value.strip().lower() not in EMAIL_SENDERS:
+            raise ValueError(
+                f"unknown email_sender {value!r}; available: "
+                f"{', '.join(EMAIL_SENDERS)}"
+            )
+        return value.strip().lower()
+
     @field_validator("environment")
     @classmethod
     def _known_environment(cls, value: str) -> str:
@@ -101,6 +134,10 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.environment == "production"
+
+    @property
+    def email_needs_a_server(self) -> bool:
+        return self.email_sender != CONSOLE
 
     @property
     def admin_api_enabled(self) -> bool:
@@ -122,6 +159,7 @@ class Settings(BaseSettings):
             "version": self.version,
             "environment": self.environment,
             "flight_provider": self.flight_provider,
+            "email_sender": self.email_sender,
             "database": self.database_url.split("://", 1)[0],
         }
 

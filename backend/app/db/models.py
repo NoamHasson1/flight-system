@@ -210,6 +210,13 @@ class Claim(Base):
     )
     submitted_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
 
+    # When the confirmation email went. Its absence is what makes sending
+    # idempotent: a retried request or a replayed background task cannot send
+    # the same confirmation twice, and a customer who receives it three times
+    # stops trusting the next email we send -- which is the one telling them
+    # the airline paid. Left NULL on a failed send, so a retry can pick it up.
+    confirmation_sent_at: Mapped[datetime | None] = mapped_column(UtcDateTime)
+
     check: Mapped[EligibilityCheck] = relationship(lazy="joined")
     passengers: Mapped[list[Passenger]] = relationship(
         back_populates="claim", cascade="all, delete-orphan", lazy="selectin"

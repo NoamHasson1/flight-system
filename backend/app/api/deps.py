@@ -20,6 +20,8 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import Settings, get_settings
 from app.db.session import create_db_engine, create_session_factory
+from app.email.base import EmailSender
+from app.email.registry import build_email_sender
 from app.providers.base import FlightDataProvider
 from app.storage.files import FileStorage, LocalFileStorage
 from app.providers.registry import build_provider
@@ -88,6 +90,24 @@ def get_flight_provider(
     connection settings; rebuilding either on every request is waste.
     """
     return _provider(settings.flight_provider, settings.aerodatabox_api_key)
+
+
+@lru_cache
+def _email_sender(name: str, fingerprint: str) -> EmailSender:
+    return build_email_sender(name, get_settings())
+
+
+def get_email_sender(
+    settings: Annotated[Settings, Depends(get_settings_dependency)],
+) -> EmailSender:
+    """Built once per configuration and reused.
+
+    The fingerprint is in the cache key so a changed host or sender produces a
+    new adapter rather than silently reusing one pointed at the old server.
+    """
+    return _email_sender(
+        settings.email_sender, f"{settings.smtp_host}|{settings.email_from}"
+    )
 
 
 @lru_cache

@@ -75,6 +75,16 @@ def readiness(
     else:
         checks["flight_provider"] = f"{settings.flight_provider}: ok"
 
+    if settings.email_needs_a_server and not settings.smtp_host:
+        # Worth failing readiness over, for the same reason as a missing API
+        # key: nothing errors, nothing alerts, and every customer quietly stops
+        # receiving the confirmation that tells them their claim exists.
+        checks["email"] = (
+            f"{settings.email_sender} selected but SMTP_HOST is not set"
+        )
+    else:
+        checks["email"] = f"{settings.email_sender}: ok"
+
     ready = all(value.endswith("ok") for value in checks.values())
     if not ready:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE

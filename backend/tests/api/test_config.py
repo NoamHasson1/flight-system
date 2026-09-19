@@ -48,3 +48,26 @@ def test_environment_and_provider_names_are_normalised() -> None:
     assert settings.environment == "production"
     assert settings.flight_provider == "fake"
     assert settings.is_production is True
+
+
+def test_the_log_level_is_actually_applied() -> None:
+    """It was declared for several steps before anything read it.
+
+    A setting nobody reads is worse than no setting: it looks configurable, so
+    somebody changes it, and nothing happens. Meanwhile the real level is
+    whatever the last library to touch logging decided -- Alembic's fileConfig
+    sets the root logger to WARN, which would have silently swallowed every
+    INFO message the application writes, including "we could not send email".
+    """
+    import logging
+
+    from app.main import create_app
+
+    create_app(Settings(environment="test", log_level="DEBUG"))
+    app_logger = logging.getLogger("flight_system")
+
+    assert app_logger.level == logging.DEBUG
+    # Its own handler and no propagation, so another library reconfiguring the
+    # root logger cannot decide whether our messages appear.
+    assert app_logger.handlers
+    assert app_logger.propagate is False

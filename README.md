@@ -58,6 +58,40 @@ failures you cannot summon from a real API on demand.
 
 ---
 
+## Email
+
+Two messages are sent: a **claim confirmation** carrying the reference, and a
+**check result** — the latter only when somebody types an address into the
+optional field, because a result email nobody asked for is spam.
+
+The default sender is `console`: it writes the full message to the log instead
+of sending it, so the system runs with no mail account and cannot email a real
+person by accident while you work on it.
+
+To send for real, any SMTP provider works — Postmark, SES, SendGrid, Mailgun,
+Resend, your own Postfix — because they all speak SMTP:
+
+```
+EMAIL_SENDER=smtp
+EMAIL_FROM=Skyclaim <noreply@yourdomain.com>
+SMTP_HOST=smtp.postmarkapp.com
+SMTP_PORT=587
+SMTP_USERNAME=...
+SMTP_PASSWORD=...
+PUBLIC_BASE_URL=https://yourdomain.com
+```
+
+`/health/ready` reports `email: smtp: ok`, and fails readiness if a real sender
+is selected with no host — the same reasoning as a missing API key: nothing
+errors and nothing alerts while every customer quietly stops getting the email
+that tells them their claim exists.
+
+**Sending never blocks or fails a request.** It runs in a background task, and
+a dead mail server leaves the claim submitted and the customer looking at their
+reference. A confirmation is recorded once sent, so a retry cannot send it
+twice — and is deliberately *not* recorded on failure, so a retry can still
+pick it up.
+
 ## Using real flight data
 
 1. Sign up at [rapidapi.com/aedbx-aedbx/api/aerodatabox](https://rapidapi.com/aedbx-aedbx/api/aerodatabox)
@@ -188,7 +222,6 @@ Named deliberately rather than left to be discovered.
 | | |
 |---|---|
 | **`national_id` is not encrypted** | Sensitive under GDPR and Israeli law. Must be encrypted at rest with a retention policy **before a real customer uses this** |
-| **No email** | A claim is submitted, a reference is shown, and nothing is ever sent. The biggest product gap |
 | **Arrival time is touchdown** | The law counts from the doors opening (*Germanwings* C-452/13), 5–15 minutes later. EC261/UK261 send anything within 15 minutes of the threshold to review rather than deny it |
 | **No multi-leg support** | A missed connection is compensated on the *final* destination and *total* distance. The biggest coverage gap |
 | **Denied boarding** | Covered by all three laws, undetectable from any API. Needs a self-declared path |

@@ -2,14 +2,32 @@
 
 from __future__ import annotations
 
+import logging
 from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+    status,
+)
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_file_storage, get_session
+from app.api.deps import (
+    get_email_sender,
+    get_session,
+    get_file_storage,
+    get_settings_dependency,
+)
+from app.config import Settings
+from app.email.base import EmailSender
+from app.services.notifications import send_claim_confirmation
 from app.db import claims as repo
 from app.db.models import Claim, DocumentKind
 from app.db.repositories import get_check
@@ -208,7 +226,11 @@ async def upload_document(
     "/{claim_id}/submit", response_model=ClaimOut, summary="Submit a finished claim"
 )
 def submit_claim(
-    claim_id: UUID, session: Annotated[Session, Depends(get_session)]
+    claim_id: UUID,
+    background: BackgroundTasks,
+    session: Annotated[Session, Depends(get_session)],
+    sender: Annotated[EmailSender, Depends(get_email_sender)],
+    settings: Annotated[Settings, Depends(get_settings_dependency)],
 ) -> ClaimOut:
     claim = _require(session, claim_id)
     try:
@@ -219,7 +241,47 @@ def submit_claim(
         ) from exc
     session.commit()
     session.refresh(claim)
+
+    # A BACKGROUND task, and the response is already built before it runs.
+    #
+    # Sending inline would make this request as slow as the mail server and, if
+    # the server were down, would fail it -- telling a customer their claim did
+    # not go through when it did. They would then either give up or submit it
+    # again. The claim is the valuable thing; the email is a courtesy, and a
+    # courtesy must never break the thing it is reporting on.
+    background.add_task(
+        _confirm, claim.id, sender, settings.public_base_url, settings.database_url
+    )
+
     return _to_out(claim)
+
+
+def _confirm(
+    claim_id: UUID, sender: EmailSender, base_url: str, database_url: str
+) -> None:
+    """Send the confirmation, in its own session.
+
+    Its own, because the request's session is closed by the time a background
+    task runs -- FastAPI tears down dependencies before the task starts -- so
+    reusing it raises on the first attribute that needs loading.
+    """
+    from app.db.session import create_db_engine, create_session_factory, session_scope
+
+    engine = create_db_engine(database_url)
+    try:
+        with session_scope(create_session_factory(engine)) as session:
+            claim = repo.get_claim(session, claim_id)
+            if claim is not None:
+                send_claim_confirmation(sender, claim, base_url=base_url)
+    except Exception:  # noqa: BLE001
+        # Nothing above this can act on it, and the customer already has their
+        # reference. Logged by the sender; swallowed here so a mail failure
+        # cannot surface as a 500 on a request that already succeeded.
+        logging.getLogger("flight_system.email").exception(
+            "confirmation task failed for claim %s", claim_id
+        )
+    finally:
+        engine.dispose()
 
 
 # --- helpers -----------------------------------------------------------------

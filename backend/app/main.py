@@ -20,6 +20,31 @@ from app.config import Settings, get_settings
 
 logger = logging.getLogger("flight_system")
 
+
+def _configure_logging(settings: Settings) -> None:
+    """Apply LOG_LEVEL to the application's own logger.
+
+    Set on `flight_system` rather than on the root, and with propagate off,
+    so the level is ours and stays ours. Anything else that configures logging
+    in this process -- Alembic's fileConfig, uvicorn, a test harness -- can then
+    change the root logger without silently deciding whether the application's
+    own messages appear.
+
+    `settings.log_level` existed for several steps before anything read it,
+    which meant the level was whatever the last library to touch logging had
+    chosen.
+    """
+    app_logger = logging.getLogger("flight_system")
+    app_logger.setLevel(settings.log_level.upper())
+
+    if not app_logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(
+            logging.Formatter("%(levelname)s %(name)s: %(message)s")
+        )
+        app_logger.addHandler(handler)
+    app_logger.propagate = False
+
 DESCRIPTION = """
 Checks whether an air passenger is owed compensation for a delayed or cancelled
 flight under **EC261** (EU), **UK261** and the **Israeli Aviation Services Law**,
@@ -34,6 +59,7 @@ This is an automated estimate, not legal advice.
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
+    _configure_logging(settings)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:

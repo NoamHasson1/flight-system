@@ -53,6 +53,9 @@ export const strings = {
     flightNumberHint: "The airline code and number, like BA165 or LY324.",
     dateLabel: "Date it departed",
     dateHint: "The day the flight took off, not the day you booked.",
+    emailLabel: "Email me the result (optional)",
+    emailPlaceholder: "you@example.com",
+    emailHint: "Only used to send you this result. No account, no list.",
     submit: "See what you're owed",
     submitting: "Checking your flight…",
   },
@@ -70,6 +73,7 @@ export const strings = {
       "That doesn't look like a flight number. It's usually two letters and " +
       "some digits, like BA165.",
     dateRequired: "Enter the date the flight departed.",
+    emailFormat: "That doesn't look like an email address.",
     dateFuture:
       "That date is in the future. Enter the date the flight departed — we " +
       "can only check flights that have already taken off.",
