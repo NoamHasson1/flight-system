@@ -284,6 +284,22 @@ export interface components {
             expense_id?: string | null;
         };
         /**
+         * CancellationNotice
+         * @description How much warning the passenger got that the flight was cancelled.
+         *
+         *     Buckets, not a number of days, because a number cannot express the two
+         *     answers that matter most. "I was never told" and "I cannot remember" are
+         *     not quantities, and an integer column forces them into a null that reads
+         *     identically to "not asked yet".
+         *
+         *     The boundary in both EC261 (Article 5(1)(c)) and the Israeli law is
+         *     fourteen days, so the buckets are drawn around it: everything up to
+         *     ONE_TO_TWO_WEEKS is plainly inside, OVER_TWO_WEEKS is plainly outside, and
+         *     the last two are for a person to settle rather than for software to guess.
+         * @enum {string}
+         */
+        CancellationNotice: "NEVER_TOLD" | "ON_THE_DAY" | "UNDER_A_WEEK" | "ONE_TO_TWO_WEEKS" | "OVER_TWO_WEEKS" | "CANNOT_REMEMBER";
+        /**
          * CheckDetail
          * @description One check, opened.
          *
@@ -415,10 +431,10 @@ export interface components {
              */
             airline_reason?: string | null;
             /**
-             * Cancellation Notice Days
-             * @description For a cancellation: how many days' notice they were given.
+             * @description For a cancellation: how much warning they were given. Buckets rather than a day count, because 'never told' and 'cannot remember' are not quantities and they are the answers that matter most.
+             * @example NEVER_TOLD
              */
-            cancellation_notice_days?: number | null;
+            cancellation_notice?: components["schemas"]["CancellationNotice"] | null;
             /** Passengers */
             passengers?: components["schemas"]["PassengerIn"][];
             /** Expenses */
@@ -455,8 +471,8 @@ export interface components {
             booking_reference: string | null;
             /** Airline Reason */
             airline_reason: string | null;
-            /** Cancellation Notice Days */
-            cancellation_notice_days: number | null;
+            /** Cancellation Notice */
+            cancellation_notice: string | null;
             /** Notes */
             notes: string | null;
             /** Passengers */
@@ -629,7 +645,7 @@ export interface components {
             status: string;
             /**
              * Verdict
-             * @description ELIGIBLE | NOT_ELIGIBLE | NEEDS_REVIEW. Null for NOT_FOUND and AMBIGUOUS, which are questions rather than answers. NEEDS_REVIEW is never a polite no -- it means we could not decide.
+             * @description ELIGIBLE | LIKELY_ELIGIBLE | NOT_ELIGIBLE | NEEDS_REVIEW. Null for NOT_FOUND and AMBIGUOUS, which are questions rather than answers. Neither NEEDS_REVIEW nor LIKELY_ELIGIBLE is a polite no: the first means we could not decide, the second means the law covers the flight and `best_award` is owed once the passenger answers `open_questions`.
              */
             verdict?: string | null;
             /** Message */
@@ -648,6 +664,15 @@ export interface components {
              * @default []
              */
             options: components["schemas"]["FlightOptionOut"][];
+            /**
+             * Open Questions
+             * @description What to ask the passenger, each question once even when two laws wait on the same fact.
+             * @default []
+             * @example [
+             *       "cancellation_notice"
+             *     ]
+             */
+            open_questions: string[];
             /** Caveat */
             caveat?: string | null;
             /** Provider */
@@ -752,16 +777,10 @@ export interface components {
             distance_km: number;
             /** Status */
             status: string;
-            /**
-             * Scheduled Departure
-             * Format: date-time
-             */
-            scheduled_departure: string;
-            /**
-             * Scheduled Arrival
-             * Format: date-time
-             */
-            scheduled_arrival: string;
+            /** Scheduled Departure */
+            scheduled_departure: string | null;
+            /** Scheduled Arrival */
+            scheduled_arrival: string | null;
             /** Actual Departure */
             actual_departure: string | null;
             /** Actual Arrival */
@@ -842,6 +861,12 @@ export interface components {
             /** Reason */
             reason: string;
             award?: components["schemas"]["MoneyOut"] | null;
+            /**
+             * Open Question
+             * @description Set on LIKELY_ELIGIBLE: the one fact the passenger has to supply before this becomes a definite answer.
+             * @example cancellation_notice
+             */
+            open_question?: string | null;
         };
         /** Page[CheckRow] */
         Page_CheckRow_: {

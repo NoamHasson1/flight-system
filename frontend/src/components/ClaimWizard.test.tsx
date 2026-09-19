@@ -6,7 +6,7 @@
  * they break.
  */
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -86,6 +86,51 @@ describe("moving through the steps", () => {
     await user.click(screen.getByRole("button", { name: /^back$/i }));
 
     expect(screen.getByLabelText(/your full name/i)).toHaveValue("Noam Hasson");
+  });
+});
+
+describe("when the airline told them", () => {
+  it("offers the two answers a number cannot hold", async () => {
+    // The whole reason this stopped being a day count.
+    //
+    // "They never told me" is the strongest possible answer -- no notice at
+    // all -- and "I can't remember" is the honest one. Neither is a quantity,
+    // so an integer field turned both into a blank that a claim handler could
+    // not tell apart from a question nobody asked.
+    const user = await startClaim();
+    await screen.findByText(/your booking/i);
+
+    const select = screen.getByLabelText(/when did the airline tell you/i);
+    expect(
+      within(select).getByRole("option", { name: /never told me/i }),
+    ).toBeInTheDocument();
+    expect(
+      within(select).getByRole("option", { name: /can't remember/i }),
+    ).toBeInTheDocument();
+
+    await user.selectOptions(select, "NEVER_TOLD");
+    expect(select).toHaveValue("NEVER_TOLD");
+  });
+
+  it("sends the answer as the backend's own vocabulary", async () => {
+    // The values are the CancellationNotice enum, not labels and not days. A
+    // mismatch here is rejected by the API, so it must be pinned somewhere.
+    createClaim.mockResolvedValue({ ok: true, data: CLAIM });
+    const user = await startClaim();
+    await screen.findByText(/your booking/i);
+
+    await user.selectOptions(
+      screen.getByLabelText(/when did the airline tell you/i),
+      "ONE_TO_TWO_WEEKS",
+    );
+    await user.click(screen.getByRole("button", { name: /continue/i }));
+    await screen.findByText(/what did it cost you/i);
+    await user.click(screen.getByRole("button", { name: /continue/i }));
+
+    await waitFor(() => expect(createClaim).toHaveBeenCalled());
+    expect(createClaim.mock.calls[0][0]).toMatchObject({
+      cancellation_notice: "ONE_TO_TWO_WEEKS",
+    });
   });
 });
 

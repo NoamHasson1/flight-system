@@ -258,6 +258,46 @@ the 2-hour delay did not reach the 8-hour threshold — so the passenger underst
 
 ---
 
+## 9a. "You look owed" — when we show a figure before we are certain
+
+Some flights land in a state that is neither yes nor no, and treating them as
+"we'll get back to you" throws away a real claim.
+
+Two cases, and they have the same shape:
+
+**A cancelled flight.** The law pays unless the airline warned you at least 14
+days ahead. No flight database records when the airline emailed you. **You do.**
+
+**A flight that left 8+ hours late with no recorded landing.** Under Israeli law
+the departure delay alone settles that you are owed something. It does not
+settle *how much*, because the amount halves if the airline still got you there
+close to schedule — and we sometimes have no landing time. **You were on the
+aircraft.**
+
+In both, the law is settled, the amount is computed, and one fact is missing
+that only the passenger has. So the screen shows the figure, says "almost
+certainly", and asks the question — rather than showing nothing and asking for
+an email.
+
+**The figure shown is always the full amount, never the reduced one.** The 50%
+reduction is the airline's defence: it applies only if they landed you close to
+schedule, which nobody has established. Quoting the halved figure would
+under-state every such claim by half on the strength of a fact that has not been
+proved.
+
+This is a fourth answer, not a softer version of "yes":
+
+| | What it means | Who resolves it |
+|---|---|---|
+| **Eligible** | Owed, amount known | nobody — it is settled |
+| **You look owed** | Covered, amount known, one fact open | **you** |
+| **Needs checking** | We could not establish something | a person here |
+| **Not eligible** | The data is complete and a rule genuinely failed | nobody |
+
+The middle two are kept apart on purpose. Merging them would either bury
+answerable claims in a queue nobody can action, or show an amount for a flight
+nobody can price.
+
 ## 10. What the system does NOT decide
 
 Being transparent about the boundaries matters as much as the rules themselves.

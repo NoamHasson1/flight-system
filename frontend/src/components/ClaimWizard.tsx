@@ -39,7 +39,7 @@ type Draft = {
   passengers: Passenger[];
   bookingReference: string;
   airlineReason: string;
-  noticeDays: string;
+  cancellationNotice: string;
   costs: Cost[];
 };
 
@@ -66,7 +66,7 @@ function blankDraft(): Draft {
     passengers: [{ ...EMPTY_PASSENGER }],
     bookingReference: "",
     airlineReason: "",
-    noticeDays: "",
+    cancellationNotice: "",
     costs: [],
   };
 }
@@ -176,7 +176,7 @@ export function ClaimWizard({ check }: { check: EligibilityResponse }) {
       contact_phone: draft.contactPhone.trim() || null,
       booking_reference: draft.bookingReference.trim() || null,
       airline_reason: draft.airlineReason.trim() || null,
-      cancellation_notice_days: draft.noticeDays ? Number(draft.noticeDays) : null,
+      cancellation_notice: (draft.cancellationNotice || null) as never,
       passengers: draft.passengers.map((p) => ({
         full_name: p.fullName.trim(),
         national_id: p.nationalId.trim() || null,
@@ -440,8 +440,8 @@ function Booking({ draft, patch }: StepProps) {
           {(id) => (
           <select
             id={id}
-            value={draft.noticeDays}
-            onChange={(e) => patch({ noticeDays: e.target.value })}
+            value={draft.cancellationNotice}
+            onChange={(e) => patch({ cancellationNotice: e.target.value })}
             className={`${s.field} mt-2 w-full px-4 py-3.5 text-body`}
           >
             {t.booking.noticeOptions.map((o) => (

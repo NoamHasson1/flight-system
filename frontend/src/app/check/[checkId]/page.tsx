@@ -66,8 +66,65 @@ export default async function CheckResult({ params }: Params) {
 
   const verdict = (check.verdict ?? "NEEDS_REVIEW") as
     | "ELIGIBLE"
+    | "LIKELY_ELIGIBLE"
     | "NOT_ELIGIBLE"
     | "NEEDS_REVIEW";
+
+  /**
+   * The law covers the flight and the amount is known; one fact is missing,
+   * and the person reading this has it.
+   *
+   * The figure leads, exactly as it does for a settled claim, because that is
+   * what is true. What differs is the badge above it and the question below
+   * it -- not a smaller, hedged, greyed-out version of the number, which would
+   * be a design that disbelieves its own answer.
+   */
+  if (verdict === "LIKELY_ELIGIBLE") {
+    const copy = strings.verdict.LIKELY_ELIGIBLE;
+    const asked = (check.open_questions ?? [])
+      .map((key) => strings.questions[key as keyof typeof strings.questions])
+      .filter(Boolean);
+
+    return (
+      <Shell>
+        <Eyebrow tone="likely">{copy.eyebrow}</Eyebrow>
+        <Lead>{copy.lead}</Lead>
+
+        <p
+          className="tabular mt-7 text-display"
+          style={{ color: "var(--verdict-yes)", fontFamily: "var(--font-sans-stack)" }}
+        >
+          {check.best_award?.formatted}
+        </p>
+        <p className="mt-1 text-subhead" style={{ color: "var(--text-muted)", fontWeight: 500 }}>
+          {copy.amountLabel}
+        </p>
+
+        {check.flight ? <FlightCard check={check} /> : null}
+
+        {asked.map((question) => (
+          <section
+            key={question.title}
+            className="mt-10 rounded-2xl p-6"
+            style={{
+              background: "var(--surface-mist)",
+              border: "1px solid var(--border-subtle)",
+            }}
+          >
+            <h2 className="text-subhead" style={{ color: "var(--text-strong)" }}>
+              {question.title}
+            </h2>
+            <p className="mt-2 text-callout" style={{ color: "var(--text-muted)" }}>
+              {question.explain}
+            </p>
+          </section>
+        ))}
+
+        <Actions primary={strings.result.startClaim} href={`/claim/${checkId}`} />
+        <Caveat />
+      </Shell>
+    );
+  }
 
   if (verdict === "ELIGIBLE") {
     const copy = strings.verdict.ELIGIBLE;
@@ -160,6 +217,10 @@ const TONE = {
   yes: "var(--verdict-yes)",
   no: "var(--text-muted)",
   review: "var(--verdict-review)",
+  /* Teal like a settled yes, not amber like an unfinished lookup: the money
+     is real and the law is settled. The hedge belongs in the words, which say
+     "almost certainly", not in a colour that undercuts the figure. */
+  likely: "var(--verdict-yes)",
 } as const;
 
 function Shell({ children }: { children: React.ReactNode }) {

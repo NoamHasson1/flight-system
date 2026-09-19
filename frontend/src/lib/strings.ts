@@ -129,6 +129,52 @@ export const strings = {
         "Something about this flight can't be answered automatically. That is " +
         "not a no — leave us your email and a person will come back to you.",
     },
+    /**
+     * The amount is real and the law is settled. One fact is missing, and the
+     * person reading this is the only one who has it.
+     *
+     * Showing the figure is the point. "We'll look into it" and "you are owed
+     * 1,530 shekels, subject to one question" describe the same state of
+     * knowledge, and only one of them gets answered.
+     */
+    LIKELY_ELIGIBLE: {
+      eyebrow: "Almost certainly",
+      lead: "You look owed",
+      amountLabel: "per passenger, subject to one question",
+    },
+  },
+
+  /**
+   * The questions no flight database can answer.
+   *
+   * Each is keyed to what the backend asked for. The wording lives here and
+   * the key lives in the rules, so a law can require an answer without
+   * dictating how it is put to somebody.
+   */
+  questions: {
+    cancellation_notice: {
+      title: "When did the airline tell you?",
+      /* The law, in one sentence, so the question does not read as an
+         obstacle invented by us. */
+      explain:
+        "Two weeks' notice or more lets the airline off. Less than that, and " +
+        "this is payable.",
+      options: [
+        { value: "NEVER_TOLD", label: "They never told me" },
+        { value: "ON_THE_DAY", label: "On the day of the flight" },
+        { value: "UNDER_A_WEEK", label: "Less than a week before" },
+        { value: "ONE_TO_TWO_WEEKS", label: "One to two weeks before" },
+        { value: "OVER_TWO_WEEKS", label: "More than two weeks before" },
+        { value: "CANNOT_REMEMBER", label: "I can't remember" },
+      ],
+    },
+    actual_arrival: {
+      title: "When did you actually land?",
+      explain:
+        "Your flight left late enough to qualify whatever happened next. If " +
+        "the airline still got you there close to schedule, the amount halves.",
+      options: [] as const,
+    },
   },
 
   result: {
@@ -185,12 +231,23 @@ export const strings = {
       airlineReasonHint:
         "In your own words. Airlines don't have to pay when the cause was " +
         "outside their control, so this decides a lot.",
-      notice: "If the flight was cancelled, how much notice were you given?",
+      notice: "If the flight was cancelled, when did the airline tell you?",
+      /**
+       * Buckets, not a day count, and two of them are not quantities at all.
+       *
+       * "They never told me" and "I can't remember" are the answers that decide
+       * the most claims, and a number cannot hold either: both collapse into a
+       * blank that a claim handler cannot tell apart from an unanswered
+       * question. The values match the backend's CancellationNotice.
+       */
       noticeOptions: [
         { value: "", label: "It wasn't cancelled" },
-        { value: "0", label: "On the day" },
-        { value: "7", label: "Less than 14 days before" },
-        { value: "30", label: "Two weeks or more" },
+        { value: "NEVER_TOLD", label: "They never told me" },
+        { value: "ON_THE_DAY", label: "On the day of the flight" },
+        { value: "UNDER_A_WEEK", label: "Less than a week before" },
+        { value: "ONE_TO_TWO_WEEKS", label: "One to two weeks before" },
+        { value: "OVER_TWO_WEEKS", label: "More than two weeks before" },
+        { value: "CANNOT_REMEMBER", label: "I can't remember" },
       ] as const,
     },
 
