@@ -12,19 +12,26 @@
   Running often is free. No key, no quota, one HTTP request, and a run that
   finds nothing new writes nothing at all.
 
-  To install (edit the two paths first):
+  To install (check the two absolute paths below match your machine first --
+  `which uv` and the repository location):
 
       cp deploy/com.flightsystem.archive.plist ~/Library/LaunchAgents/
-      launchctl load ~/Library/LaunchAgents/com.flightsystem.archive.plist
+      launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.flightsystem.archive.plist
+      launchctl kickstart gui/$UID/com.flightsystem.archive
+
+  `bootstrap`, not the older `load`: on current macOS `load` registers the job
+  but does not honour RunAtLoad, which leaves it looking installed and idle.
+  The `kickstart` runs it once immediately so the archive is current rather
+  than waiting fifteen minutes for the first tick.
 
   To check it is running:
 
-      launchctl list | grep flightsystem
+      launchctl print gui/$UID/com.flightsystem.archive | grep -E "runs|last exit"
       tail -f /tmp/flightsystem-archive.log
 
   To stop:
 
-      launchctl unload ~/Library/LaunchAgents/com.flightsystem.archive.plist
+      launchctl bootout gui/$UID/com.flightsystem.archive
 -->
 <plist version="1.0">
 <dict>

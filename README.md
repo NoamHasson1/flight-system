@@ -154,8 +154,23 @@ archived 1501 flight-days (0 new or updated, 1501 already settled)   ← seconds
 On macOS, `backend/deploy/com.flightsystem.archive.plist` is ready to install:
 
 ```bash
-cp backend/deploy/com.flightsystem.archive.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.flightsystem.archive.plist
+crontab -e     # then paste the line from backend/deploy/crontab.txt
+crontab -l     # check it took
+```
+
+**cron, not launchd**, though launchd is the macOS-native answer. On the
+machine this was built on, launchd's `StartInterval` never fired — not for
+this job and not for a two-line probe. Both sat at `runs = 0` with `pended
+nondemand spawn = interval` while the Mac was demonstrably awake, and ran only
+when kicked by hand. `RunAtLoad` did not fire either. cron worked first time.
+
+The plist is kept in `backend/deploy/` for machines where launchd behaves.
+
+Whichever you use, **verify it ran** rather than assuming — a scheduler that
+registers and silently never fires looks exactly like one that works:
+
+```bash
+tail -f /tmp/flightsystem-archive.log
 ```
 
 On a server, `*/15 * * * *  cd /path/to/backend && uv run python -m app.tasks.archive_board`

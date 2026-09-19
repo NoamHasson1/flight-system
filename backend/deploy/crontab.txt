@@ -1,0 +1,29 @@
+# The archive, every 15 minutes.
+#
+#   crontab -e          edit
+#   crontab -l          check
+#   crontab -r          remove everything (careful: ALL your cron entries)
+#
+# Paths are absolute because cron has almost no environment: no shell profile,
+# no PATH beyond /usr/bin:/bin. `which uv` gives the value below.
+#
+# WHY CRON AND NOT LAUNCHD, which is the macOS-native answer:
+#
+# launchd's StartInterval did not fire on the machine this was built on. Not
+# for this job and not for a two-line probe -- both sat at `runs = 0` with
+# `pended nondemand spawn = interval` while the Mac was demonstrably awake,
+# and only ran when kicked by hand. RunAtLoad did not fire either. cron, which
+# is a separate daemon, worked first time.
+#
+# The plist is kept alongside this file for machines where launchd behaves.
+# Whichever you use, VERIFY IT RAN rather than assuming: a scheduler that
+# registers and silently never fires looks exactly like one that works.
+#
+#   tail -f /tmp/flightsystem-archive.log
+
+*/15 * * * * cd /Users/noamhasson/Desktop/flight_system/backend && /opt/homebrew/bin/uv run python -m app.tasks.archive_board >> /tmp/flightsystem-archive.log 2>&1
+
+# Optional, once a day: buy the far end of disrupted flights while the paid
+# feed still sells it. Costs API units, so it is not on by default.
+#
+# 30 4 * * * cd /Users/noamhasson/Desktop/flight_system/backend && /opt/homebrew/bin/uv run python -m app.tasks.enrich --min-delay 1 >> /tmp/flightsystem-enrich.log 2>&1
