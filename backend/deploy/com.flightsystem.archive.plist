@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Keeps the Ben Gurion board after it forgets.
+
+  Every 15 minutes, because the board sheds the past continuously rather than
+  holding a fixed window: 189 flights recorded for one day at 09:00, only 145
+  still listed four hours later. A cancelled flight can appear and disappear
+  between two nightly runs, and a cancellation is the most valuable row there
+  is -- IZ1168 on 18 September was cancelled, paid ILS1,530, and was gone from
+  the board within two days.
+
+  Running often is free. No key, no quota, one HTTP request, and a run that
+  finds nothing new writes nothing at all.
+
+  To install (edit the two paths first):
+
+      cp deploy/com.flightsystem.archive.plist ~/Library/LaunchAgents/
+      launchctl load ~/Library/LaunchAgents/com.flightsystem.archive.plist
+
+  To check it is running:
+
+      launchctl list | grep flightsystem
+      tail -f /tmp/flightsystem-archive.log
+
+  To stop:
+
+      launchctl unload ~/Library/LaunchAgents/com.flightsystem.archive.plist
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.flightsystem.archive</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <!-- Absolute paths: launchd does not read your shell profile, so `uv`
+             is not on its PATH. `which uv` gives the right value here. -->
+        <string>/opt/homebrew/bin/uv</string>
+        <string>run</string>
+        <string>python</string>
+        <string>-m</string>
+        <string>app.tasks.archive_board</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/noamhasson/Desktop/flight_system/backend</string>
+
+    <key>StartInterval</key>
+    <integer>900</integer>
+
+    <!-- Runs once when loaded, so a gap after a reboot is 15 minutes at worst
+         rather than however long until the next tick. -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/flightsystem-archive.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/flightsystem-archive.log</string>
+</dict>
+</plist>

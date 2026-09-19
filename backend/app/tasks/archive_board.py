@@ -6,28 +6,43 @@ WHAT THIS IS FOR
 ----------------
 Israel lets a passenger claim for four years. The UK allows six. Every
 commercial flight feed we can buy reaches back one year at the very most --
-AeroDataBox tops out at 365 days on its $499 plan, and the free Ben Gurion
-board publishes a rolling five days before dropping the oldest.
+AeroDataBox tops out at 365 days on its $499 plan -- and the Ben Gurion board
+does not reach back at all.
 
 That gap cannot be closed by spending money. There is no subscription that
 sells 2023.
 
 It can be closed by paying attention. The board publishes today's truth today;
-this job writes it down. Run once a day it never misses a flight, because five
-days of window against one day of interval leaves four days of overlap -- so
-the machine can be off for most of a week and the archive still has no holes.
-Run every day for four years and the archive covers the entire Israeli claim
-window, from the authoritative source, owned outright.
+this job writes it down.
 
-It costs nothing and it is worth more every day it is not started.
+HOW OFTEN
+---------
+Every few minutes, not once a night.
+
+The board is not a five-day window over a fixed set of days. It SHEDS THE PAST
+CONTINUOUSLY: 189 flights were recorded for one day at 09:00 and only 145 of
+them were still listed four hours later. A flight can be added, cancelled and
+dropped between two nightly runs, and a cancellation is the most valuable row
+there is.
+
+That is a real, measured miss. IZ1168 on 18 September was cancelled and paid
+ILS1,530; it was on the board on the 17th and gone by the 19th, so a daily job
+would never have seen it.
+
+Running often is free -- no key, no quota, one request -- and an unchanged row
+is skipped rather than rewritten, so a run that finds nothing new costs a
+single HTTP call and a few hundred reads.
+
+    */15 * * * *  cd /path/to/backend && uv run python -m app.tasks.archive_board
 
 HOW IT BEHAVES
 --------------
-Idempotent. Running it twice in an hour changes nothing that matters: each
-flight is one row keyed by (provider, number, date), and a row already marked
-settled is never overwritten. That last part is what makes the archive
-trustworthy -- a flight that has landed cannot be un-landed by a later,
-thinner answer from a source that has begun to forget it.
+Idempotent. Running it twice in a minute changes nothing: each flight is one
+row keyed by (provider, number, date), a row already marked settled is never
+overwritten, and a row whose contents have not changed is left alone. That
+middle part is what makes the archive trustworthy -- a flight that has landed
+cannot be un-landed by a later, thinner answer from a source that has begun to
+forget it.
 
 It writes to the same `flight_lookups` table the cache reads. That is not
 frugality, it is the same fact: "what did this source say about this flight".
@@ -92,6 +107,7 @@ def fold_in(
     with session_factory() as session:
         for (number, flight_date), group in grouped.items():
             is_final = all(f.status in SETTLED for f in group)
+            payload = [encode(f) for f in group]
             row = session.scalar(
                 select(FlightLookup).where(
                     FlightLookup.provider == provider,
@@ -107,20 +123,29 @@ def fold_in(
                         flight_date=flight_date,
                         observed_at=now(),
                         is_final=is_final,
-                        flights=[encode(f) for f in group],
+                        flights=payload,
                     )
                 )
                 written += 1
-            elif row.is_final:
-                # Already settled. Tomorrow's board will not contain today's
-                # flight at all, so a run that could overwrite a landed flight
-                # with whatever it knows now would leave the archive forever as
-                # thin as its most recent snapshot.
+            elif row.is_final or row.flights == payload:
+                # Already settled, or unchanged since the last run.
+                #
+                # Settled rows are never rewritten: tomorrow's board will not
+                # contain today's flight at all, so a run that could overwrite a
+                # landed flight with whatever it knows now would leave the
+                # archive forever as thin as its most recent snapshot.
+                #
+                # Unchanged rows are skipped so that running this every few
+                # minutes costs almost nothing. That matters more than it
+                # sounds: the board sheds the past continuously -- 44 of the
+                # 189 flights recorded for one day had vanished from it four
+                # hours later -- so a daily job misses everything that appears
+                # and disappears in between, which includes cancellations.
                 kept += 1
             else:
                 row.observed_at = now()
                 row.is_final = is_final
-                row.flights = [encode(f) for f in group]
+                row.flights = payload
                 written += 1
         session.commit()
 

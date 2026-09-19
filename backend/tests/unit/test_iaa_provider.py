@@ -270,3 +270,40 @@ async def test_an_unparsable_flight_number_is_not_an_error() -> None:
     """Junk in the box is a question we can answer: there is no such flight."""
     flights = await _fetch("???", date(2026, 9, 19))
     assert flights == ()
+
+
+# --- Flight numbers as passengers actually hold them -------------------------
+
+
+async def test_a_relief_section_suffix_is_not_a_different_flight() -> None:
+    """LY385A is the second section of LY385, and the board files both under
+    the bare number.
+
+    Airlines add a trailing letter when a service is oversubscribed and a
+    relief aircraft is put on. The passenger's boarding pass says LY385A;
+    refusing the suffix told them their flight does not exist.
+    """
+    records = [
+        {
+            "CHOPER": "LY",
+            "CHFLTN": "385",
+            "CHAORD": "D",
+            "CHLOC1": "FCO",
+            "CHSTOL": "2026-09-19T08:00:00",
+            "CHPTOL": "2026-09-19T08:00:00",
+            "CHRMINE": "ON TIME",
+        }
+    ]
+    flights = await _fetch("LY385A", date(2026, 9, 19), records)
+
+    assert len(flights) == 1
+    assert flights[0].airline_iata == "LY"
+
+
+async def test_a_two_character_number_is_still_refused() -> None:
+    """The suffix rule must not turn junk into a lookup.
+
+    "X1" is an airline code and one digit stripped to nothing; it is not a
+    flight number, and asking the board about it is wasted.
+    """
+    assert await _fetch("X1", date(2026, 9, 19), []) == ()

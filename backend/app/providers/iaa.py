@@ -241,10 +241,18 @@ class IsraelAirportsProvider:
 
 
 def _split(flight_number: str) -> tuple[str | None, int | None]:
-    """"LY 315" -> ("LY", 315). Anything unparsable -> (None, None)."""
+    """"LY 315" -> ("LY", 315). Anything unparsable -> (None, None).
+
+    A trailing letter is dropped. Airlines add one to mark a second section of
+    an oversubscribed service -- LY385A is the relief aircraft for LY385 -- and
+    the board files both under the bare number. Refusing the suffix told a
+    passenger holding a boarding pass that says LY385A that their flight does
+    not exist.
+    """
     compact = "".join(flight_number.split()).upper()
-    head = compact[:2]
-    tail = compact[2:]
+    if len(compact) > 3 and compact[-1].isalpha():
+        compact = compact[:-1]
+    head, tail = compact[:2], compact[2:]
     if len(head) != 2 or not head.isalnum() or not tail.isdigit():
         return None, None
     return head, int(tail)

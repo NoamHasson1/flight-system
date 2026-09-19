@@ -96,24 +96,40 @@ cd backend && uv run python -m app.tasks.archive_board
 
 Israel lets a passenger claim for **four years**. The UK allows **six**. Every
 commercial feed we can buy reaches back **one** — AeroDataBox tops out at 365
-days on its most expensive plan — and the Ben Gurion board publishes a rolling
-**five days** before dropping the oldest.
+days on its most expensive plan — and the Ben Gurion board does not reach back
+at all.
 
 No subscription closes that gap. Nobody sells 2023.
 
 Writing it down does. The board publishes today's truth today; this job saves
-it. Run daily it cannot miss a flight — five days of window against one day of
-interval leaves four days of slack, so the machine can be off for most of a
-week without leaving a hole. Run it for four years and the archive covers the
-entire Israeli claim window, from the authoritative source, owned outright.
+it.
 
-One run archives about 1,500 flight-days and costs nothing.
+**Run it every 15 minutes, not nightly.** The board does not hold a fixed
+window — it sheds the past continuously. 189 flights were recorded for one day
+at 09:00 and only 145 were still listed four hours later. A flight can be
+added, cancelled and dropped between two nightly runs, and a cancellation is
+the most valuable row there is.
 
-Schedule it with `launchd` on macOS or `cron` on a server:
+That is a measured miss, not a hypothetical: IZ1168 on 18 September was
+cancelled and pays ₪1,530. It was on the board on the 17th and gone by the
+19th.
+
+Running often is free — no key, no quota, one request — and a run that finds
+nothing new writes nothing at all:
 
 ```
-15 4 * * *  cd /path/to/backend && uv run python -m app.tasks.archive_board
+archived 1501 flight-days (1310 new or updated, 191 already settled)
+archived 1501 flight-days (0 new or updated, 1501 already settled)   ← seconds later
 ```
+
+On macOS, `backend/deploy/com.flightsystem.archive.plist` is ready to install:
+
+```bash
+cp backend/deploy/com.flightsystem.archive.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.flightsystem.archive.plist
+```
+
+On a server, `*/15 * * * *  cd /path/to/backend && uv run python -m app.tasks.archive_board`
 
 It writes to `flight_lookups`, the same table the cache reads, because it is
 the same fact: *what did this source say about this flight*. A flight archived
