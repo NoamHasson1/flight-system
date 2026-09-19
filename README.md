@@ -136,6 +136,45 @@ the same fact: *what did this source say about this flight*. A flight archived
 tonight answers a customer's question next year with no API call, and without
 the board still holding it.
 
+## Who is owed money right now
+
+```bash
+cd backend
+uv run python -m app.tasks.disruptions                # last 7 days, 3h+
+uv run python -m app.tasks.disruptions --min-delay 8  # the Israeli threshold only
+uv run python -m app.tasks.disruptions --days 30 --csv out.csv
+```
+
+```
+DATE        FLIGHT  ROUTE      STATUS     DELAY  MEASURED   VERDICT          AMOUNT     LAW     SOURCE
+2026-09-19  BZ734   TLV → HER  CANCELLED  —      —          LIKELY_ELIGIBLE  ₪1,530.00  ISRAEL  iaa
+2026-09-15  AC5520  TLV → EWR  EN_ROUTE   17.2h  departure  LIKELY_ELIGIBLE  ₪3,670.00  ISRAEL  aerodatabox
+2026-09-18  BZ704   TLV → ATH  LANDED     3.6h   departure  ELIGIBLE         €250.00    EC261   aerodatabox (≠ iaa:NEEDS_REVIEW)
+2026-09-18  6H361   TLV → BRI  EN_ROUTE   5.0h   departure  NOT_ELIGIBLE                        iaa
+
+22 disrupted flights · 18 with a claim · 4 needing a person or not owed
+```
+
+A report over the archive, not a second store — keeping a separate table of
+"the interesting ones" would be a copy that drifts from the thing it copies.
+
+Two uses. **Checking the answers:** run the same flights through another
+service and every difference is a bug on one side or the other, found here
+rather than in front of a customer. **Finding the customers:** every row is a
+passenger who is owed money and does not know it — a cancelled Tel Aviv to
+Heraklion flight is 180 people with a claim.
+
+`MEASURED` says which clock the delay came from. Israeli law reads the
+departure and EC261 reads the arrival, so without it two correct systems can
+look like they disagree.
+
+`SOURCE` marks it when the two sources reached different verdicts about the
+same flight. That is the most useful line in the report: either a data problem
+worth chasing or a bug worth fixing.
+
+It can only show what the archive captured — which is the argument for running
+`archive_board` every few minutes rather than nightly.
+
 ## Not paying twice for one answer
 
 `FLIGHT_CACHE=true` (the default) makes each source answer from
