@@ -25,15 +25,26 @@ from app.providers.chain import ChainProvider
 WHEN = date(2026, 9, 19)
 
 
-def _flight(provider: str) -> RawFlight:
-    return RawFlight(
-        flight_number="BZ734",
-        flight_date=WHEN,
-        status=FlightStatus.CANCELLED,
-        provider=provider,
-        origin_iata="TLV",
-        destination_iata="HER",
-    )
+def _flight(provider: str, **overrides: object) -> RawFlight:
+    """A complete record: both ends of the journey described.
+
+    Both ends matter to the chain, not just for realism. A record that knows
+    only one end is deliberately NOT a finished answer -- the chain goes on to
+    ask the next source for the other half -- so a stub missing them would
+    silently be testing the completion path instead of the one it names.
+    """
+    base: dict[str, object] = {
+        "flight_number": "BZ734",
+        "flight_date": WHEN,
+        "status": FlightStatus.CANCELLED,
+        "provider": provider,
+        "origin_iata": "TLV",
+        "destination_iata": "HER",
+        "scheduled_departure": datetime(2026, 9, 19, 5, 0, tzinfo=UTC),
+        "scheduled_arrival": datetime(2026, 9, 19, 7, 30, tzinfo=UTC),
+    }
+    base.update(overrides)
+    return RawFlight(**base)  # type: ignore[arg-type]
 
 
 class Stub:
@@ -228,6 +239,107 @@ async def test_a_usable_record_still_wins_immediately() -> None:
     good, other = _has("aerodatabox"), _has("iaa")
     await ChainProvider([good, other]).fetch("BZ734", WHEN)
     assert other.calls == 0
+
+
+# --- Filling in the half a source does not have ------------------------------
+#
+# The Ben Gurion board records the movement AT Ben Gurion: a departure row
+# knows the take-off and never learns the landing. That is enough for the
+# Israeli law, which measures at departure, and not enough for EC261, which
+# measures at arrival -- so half of every route's claims would be invisible if
+# the chain stopped at the first source that had the flight.
+
+
+def _departure_only(name: str) -> Stub:
+    """A board record: take-off known, landing unknown."""
+    return Stub(
+        name,
+        result=(
+            _flight(name, scheduled_arrival=None, actual_arrival=None,
+                    status=FlightStatus.LANDED,
+                    actual_departure=datetime(2026, 9, 19, 8, 0, tzinfo=UTC)),
+        ),
+    )
+
+
+def _full(name: str) -> Stub:
+    return Stub(
+        name,
+        result=(
+            _flight(name, status=FlightStatus.LANDED,
+                    actual_departure=datetime(2026, 9, 19, 9, 9, tzinfo=UTC),
+                    actual_arrival=datetime(2026, 9, 19, 11, 0, tzinfo=UTC)),
+        ),
+    )
+
+
+async def test_the_missing_half_is_filled_from_the_next_source() -> None:
+    """The board knows the departure; the feed supplies the landing.
+
+    Without this an EC261 claim on a Tel Aviv departure can never be priced,
+    because the amount turns on how late the passenger actually arrived.
+    """
+    board, feed = _departure_only("iaa"), _full("aerodatabox")
+    flights = await ChainProvider([board, feed]).fetch("BZ734", WHEN)
+
+    assert len(flights) == 1
+    assert flights[0].actual_arrival is not None, "the far half was not filled"
+    assert feed.calls == 1
+
+
+async def test_the_first_source_is_never_overwritten() -> None:
+    """Only empty fields are filled.
+
+    The board is the airport's own record of what happened at that airport, and
+    the commercial feed has already been caught mis-dating exactly these
+    flights. Where they disagree, the airport wins.
+    """
+    board, feed = _departure_only("iaa"), _full("aerodatabox")
+    flights = await ChainProvider([board, feed]).fetch("BZ734", WHEN)
+
+    assert flights[0].actual_departure == datetime(2026, 9, 19, 8, 0, tzinfo=UTC)
+    assert flights[0].provider == "iaa"
+
+
+async def test_a_complete_record_costs_no_second_lookup() -> None:
+    """Completion must not turn every check into two API calls."""
+    board, feed = _full("iaa"), _full("aerodatabox")
+    await ChainProvider([board, feed]).fetch("BZ734", WHEN)
+    assert feed.calls == 0
+
+
+async def test_times_are_not_borrowed_from_a_different_leg() -> None:
+    """A number covering two routes must not lend one leg's times to the other.
+
+    Guessing which leg to borrow from is how one passenger's delay gets
+    attached to another passenger's flight -- and then paid out, or refused, on
+    that basis.
+    """
+    board = _departure_only("iaa")
+    elsewhere = Stub(
+        "aerodatabox",
+        result=(
+            _flight("aerodatabox", origin_iata="TLV", destination_iata="ATH",
+                    actual_arrival=datetime(2026, 9, 19, 12, 0, tzinfo=UTC)),
+        ),
+    )
+    flights = await ChainProvider([board, elsewhere]).fetch("BZ734", WHEN)
+
+    assert flights[0].actual_arrival is None, "times came from the wrong leg"
+
+
+async def test_a_source_that_cannot_fill_it_in_is_not_fatal() -> None:
+    """Half an answer beats none.
+
+    A Tel Aviv departure with only a take-off time still settles the Israeli
+    question outright, so an unreachable second source must not lose it.
+    """
+    board = _departure_only("iaa")
+    broken = _broken("aerodatabox", ProviderUnavailable("down"))
+
+    flights = await ChainProvider([board, broken]).fetch("BZ734", WHEN)
+    assert len(flights) == 1
+    assert flights[0].actual_departure is not None
 
 
 # --- Shape -------------------------------------------------------------------

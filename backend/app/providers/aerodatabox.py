@@ -80,6 +80,16 @@ _STATUS: Final[Mapping[str, FlightStatus]] = {
 }
 
 
+# Which of our statuses mean the event at each end has actually occurred.
+#
+# DIVERTED departed and then landed somewhere else, so its departure is a fact
+# and its arrival at the scheduled destination never happened at all.
+_HAS_DEPARTED: Final = frozenset(
+    {FlightStatus.EN_ROUTE, FlightStatus.LANDED, FlightStatus.DIVERTED}
+)
+_HAS_ARRIVED: Final = frozenset({FlightStatus.LANDED})
+
+
 class AeroDataBoxProvider:
     """Fetches flight data from AeroDataBox. Satisfies `FlightDataProvider`."""
 
@@ -275,19 +285,20 @@ def _to_raw_flight(
 ) -> RawFlight:
     departure = _movement(item, "departure")
     arrival = _movement(item, "arrival")
+    status = _status(item.get("status"))
 
     return RawFlight(
         flight_number=number,
         flight_date=flight_date,
-        status=_status(item.get("status")),
+        status=status,
         provider=provider,
         airline_iata=_code(item.get("airline"), "iata"),
         origin_iata=_airport(departure.get("airport")),
         destination_iata=_airport(arrival.get("airport")),
         scheduled_departure=_time(departure, "scheduledTime"),
-        actual_departure=_actual(departure),
+        actual_departure=_actual(departure, status in _HAS_DEPARTED),
         scheduled_arrival=_time(arrival, "scheduledTime"),
-        actual_arrival=_actual(arrival),
+        actual_arrival=_actual(arrival, status in _HAS_ARRIVED),
         raw=dict(item),
     )
 
@@ -301,15 +312,26 @@ def _movement(item: Mapping[str, Any], key: str) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
 
-def _actual(movement: Mapping[str, Any]) -> datetime | None:
-    """The best available "what really happened" time.
+def _actual(movement: Mapping[str, Any], has_happened: bool) -> datetime | None:
+    """The best available "what really happened" time, or None if it has not.
 
-    runwayTime is the fact -- wheels up, or wheels down. revisedTime is the
-    airline's latest estimate. Preferring the fact and falling back to the
-    estimate is the right order; inventing one from scheduledTime would turn a
-    missing measurement into a confident zero delay.
+    runwayTime is the fact -- wheels up, or wheels down -- and counts whenever
+    it is there.
+
+    revisedTime is the airline's latest ESTIMATE, and only becomes a fact once
+    the event it describes has occurred. Before that it is a prediction, and on
+    an undisrupted flight it equals scheduledTime exactly -- so reading it
+    unconditionally reports every flight in next week's timetable as having
+    departed precisely on time. Worse, it reports a flight currently running
+    three hours late as on time right up until it moves.
+
+    `has_happened` comes from the flight's status, which is the only thing that
+    distinguishes a revised time that is a measurement from one that is a hope.
     """
-    return _time(movement, "runwayTime") or _time(movement, "revisedTime")
+    runway = _time(movement, "runwayTime")
+    if runway is not None:
+        return runway
+    return _time(movement, "revisedTime") if has_happened else None
 
 
 def _time(movement: Mapping[str, Any], key: str) -> datetime | None:

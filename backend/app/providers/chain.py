@@ -34,6 +34,7 @@ and neither is hardcoded.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import replace
 from datetime import date
 
 from app.observability import flow
@@ -117,7 +118,22 @@ class ChainProvider:
                 continue
 
             if is_usable(flights):
-                return flights
+                if _knows_both_ends(flights):
+                    return flights
+                # Usable, but it only describes one end of the journey.
+                #
+                # The Ben Gurion board records the movement at Ben Gurion: a
+                # departure row knows the take-off and never learns the
+                # landing. That is enough for the Israeli law, which measures
+                # at departure, and not enough for EC261, which measures at
+                # arrival -- so half of every route's claims would be invisible
+                # if this stopped here.
+                #
+                # So the far half is asked of the next source and merged in.
+                # The first source's values are kept: it is the one closer to
+                # the airport, and where they disagree it is the one to
+                # believe.
+                return await self._complete(flights, flight_number, flight_date)
 
             # Found, but incoherent -- see `_usable`. Keeping the FIRST such
             # answer and asking the next source is the point of having sources
@@ -146,3 +162,83 @@ class ChainProvider:
         # Nobody could look. Report the first failure: it is the one from the
         # provider the operator chose to trust first.
         raise errors[0][1]
+
+    async def _complete(
+        self,
+        flights: Sequence[RawFlight],
+        flight_number: str,
+        flight_date: date,
+    ) -> Sequence[RawFlight]:
+        """Fill the half the first source did not have, from a later one."""
+        for provider in self._providers:
+            if provider.name == flights[0].provider:
+                continue
+            try:
+                other = await provider.fetch(flight_number, flight_date)
+            except FlightDataError as exc:
+                flow.line("provider", f"{provider.name} could not fill it in — {exc}")
+                continue
+            if not other or not is_usable(other):
+                continue
+
+            merged = tuple(_merge(f, other) for f in flights)
+            if _knows_both_ends(merged):
+                flow.line(
+                    "completed",
+                    f"the other end of the journey from {provider.name}",
+                )
+                return merged
+            flights = merged
+
+        return flights
+
+
+def _knows_both_ends(flights: Sequence[RawFlight]) -> bool:
+    """True when every record has a scheduled time at BOTH ends.
+
+    Not "has every timestamp": a flight that has not landed has no actual
+    arrival, and that is a fact about the flight rather than a gap in the
+    record. What matters is whether both ends are described at all, because a
+    delay can only be measured against a schedule.
+    """
+    return all(
+        f.scheduled_departure is not None and f.scheduled_arrival is not None
+        for f in flights
+    )
+
+
+def _merge(flight: RawFlight, others: Sequence[RawFlight]) -> RawFlight:
+    """Fill this record's empty timestamps from a matching one elsewhere.
+
+    Matched on the route, because that is what identifies a leg when a number
+    covers several. A number that matches no leg, or more than one, is left
+    alone -- guessing which leg to borrow times from is how one passenger's
+    delay gets attached to another passenger's flight.
+
+    ONLY EMPTY FIELDS ARE FILLED. Nothing the first source said is overwritten,
+    even where the second disagrees: the board is the airport's own record of
+    what happened at that airport, and the commercial feed has already been
+    caught mis-dating exactly these flights.
+    """
+    candidates = [
+        o
+        for o in others
+        if o.origin_iata == flight.origin_iata
+        and o.destination_iata == flight.destination_iata
+    ]
+    if len(candidates) != 1:
+        return flight
+
+    other = candidates[0]
+    filled = {
+        name: getattr(flight, name) or getattr(other, name)
+        for name in (
+            "scheduled_departure",
+            "actual_departure",
+            "scheduled_arrival",
+            "actual_arrival",
+        )
+    }
+    if all(getattr(flight, name) == value for name, value in filled.items()):
+        return flight
+    return replace(flight, **filled)

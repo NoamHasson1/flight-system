@@ -507,3 +507,90 @@ async def test_unrelenting_throttling_still_reads_as_throttling() -> None:
         await provider.fetch("BA165", AUG_14)
 
     assert len(seen) == 3, "the retries were skipped"
+
+
+# --- An estimate is not a measurement ----------------------------------------
+
+
+def _movement(sched: str, revised: str | None = None, runway: str | None = None):
+    block: dict = {
+        "airport": {"iata": "TLV"},
+        "scheduledTime": {"utc": sched},
+    }
+    if revised:
+        block["revisedTime"] = {"utc": revised}
+    if runway:
+        block["runwayTime"] = {"utc": runway}
+    return block
+
+
+def _record(status: str, **movements):  # type: ignore[no-untyped-def]
+    item = {"number": "BZ 736", "status": status, "airline": {"iata": "BZ"}}
+    item.update(movements)
+    return item
+
+
+async def test_a_revised_time_on_a_future_flight_is_not_a_departure() -> None:
+    """The trap this feed sets, and it is silent.
+
+    On an undisrupted flight revisedTime equals scheduledTime exactly. Read
+    unconditionally, every flight in next week's timetable reports as having
+    departed precisely on time -- and a flight currently running three hours
+    late reports as on time right up until it actually moves.
+    """
+    dep = _movement("2026-09-20 02:25Z", revised="2026-09-20 02:25Z")
+    arr = _movement("2026-09-20 05:00Z", revised="2026-09-20 05:00Z")
+    arr["airport"] = {"iata": "HER"}
+
+    provider, _ = provider_returning(
+        httpx.Response(200, json=[_record("Scheduled", departure=dep, arrival=arr)])
+    )
+    flight = (await provider.fetch("BZ736", AUG_14))[0]
+
+    assert flight.status is FlightStatus.SCHEDULED
+    assert flight.actual_departure is None, "an estimate was read as a departure"
+    assert flight.actual_arrival is None
+
+
+async def test_a_revised_time_counts_once_the_flight_has_moved() -> None:
+    """The other half of the rule: after departure it is a measurement."""
+    dep = _movement("2026-09-20 02:25Z", revised="2026-09-20 05:25Z")
+    arr = _movement("2026-09-20 05:00Z", revised="2026-09-20 08:00Z")
+    arr["airport"] = {"iata": "HER"}
+
+    provider, _ = provider_returning(
+        httpx.Response(200, json=[_record("Arrived", departure=dep, arrival=arr)])
+    )
+    flight = (await provider.fetch("BZ736", AUG_14))[0]
+
+    assert flight.actual_departure is not None
+    assert flight.actual_arrival is not None
+
+
+async def test_an_airborne_flight_has_departed_but_not_arrived() -> None:
+    """Its take-off is measured; its landing is still a forecast."""
+    dep = _movement("2026-09-20 02:25Z", revised="2026-09-20 05:25Z")
+    arr = _movement("2026-09-20 05:00Z", revised="2026-09-20 08:00Z")
+    arr["airport"] = {"iata": "HER"}
+
+    provider, _ = provider_returning(
+        httpx.Response(200, json=[_record("EnRoute", departure=dep, arrival=arr)])
+    )
+    flight = (await provider.fetch("BZ736", AUG_14))[0]
+
+    assert flight.actual_departure is not None
+    assert flight.actual_arrival is None, "a predicted landing was read as real"
+
+
+async def test_a_runway_time_is_always_a_fact() -> None:
+    """Wheels up and wheels down are measurements whatever the status says."""
+    dep = _movement("2026-09-20 02:25Z", runway="2026-09-20 05:26Z")
+    arr = _movement("2026-09-20 05:00Z")
+    arr["airport"] = {"iata": "HER"}
+
+    provider, _ = provider_returning(
+        httpx.Response(200, json=[_record("Unknown", departure=dep, arrival=arr)])
+    )
+    flight = (await provider.fetch("BZ736", AUG_14))[0]
+
+    assert flight.actual_departure is not None
