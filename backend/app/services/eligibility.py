@@ -258,7 +258,10 @@ def _log_rules(result: engine.EligibilityResult) -> None:
     for outcome in result.outcomes:
         award = f"  {outcome.award}" if outcome.award else ""
         flow.cont(
-            f"{outcome.regulation:<7} {outcome.verdict.value:<13}"
+            # Width 16, not 13: LIKELY_ELIGIBLE is fifteen characters and the
+            # column has to hold the longest verdict, not the longest one that
+            # existed when it was written.
+            f"{outcome.regulation:<7} {outcome.verdict.value:<16}"
             f"applies={'yes' if outcome.applies else 'no ':<4}{award}"
         )
         flow.wrapped(outcome.reason)

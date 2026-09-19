@@ -49,6 +49,11 @@ class ChainProvider:
         self._providers = tuple(providers)
         self.name = "chain(" + " → ".join(p.name for p in self._providers) + ")"
 
+    @property
+    def providers(self) -> tuple[FlightDataProvider, ...]:
+        """The members, in the order they are asked."""
+        return self._providers
+
     async def fetch(
         self, flight_number: str, flight_date: date
     ) -> Sequence[RawFlight]:

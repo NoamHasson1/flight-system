@@ -69,8 +69,17 @@ _SECRET: dict[str, set[str]] = {
     "passengers": {"national_id"},
 }
 
-# Columns that are large and say nothing at a glance.
-_NOISY = {"flight_snapshot", "result_detail", "provider_payload", "stored_path"}
+# Columns that are large and say nothing at a glance. "flights" is here for a
+# sharper reason than the rest: the nightly archive writes fifteen hundred rows
+# in one run, and printing each one's payload buries every other line in the
+# trace under a megabyte of JSON.
+_NOISY = {
+    "flight_snapshot",
+    "result_detail",
+    "provider_payload",
+    "stored_path",
+    "flights",
+}
 
 
 def _log_writes(factory: sessionmaker[Session]) -> None:

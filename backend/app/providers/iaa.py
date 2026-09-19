@@ -78,7 +78,7 @@ DEFAULT_TIMEOUT: Final = httpx.Timeout(connect=5.0, read=15.0, write=5.0, pool=5
 # One airline's flights across the board's whole window. Comfortably above the
 # busiest carrier at TLV, so a truncated page can never silently drop the
 # flight being asked about.
-_PAGE_SIZE: Final = 1000
+_PAGE_SIZE: Final = 32000
 
 # The board's status vocabulary, mapped onto ours.
 #
@@ -177,14 +177,36 @@ class IsraelAirportsProvider:
         flow.line("← board", "no such flight")
         return ()
 
+    async def snapshot(self) -> Sequence[RawFlight]:
+        """Every flight currently on the board, as one list.
+
+        For the archive rather than for a check. The board publishes a rolling
+        few days and then forgets; this is how those days stop being rolling.
+        """
+        records = await self._query({})
+        flights: list[RawFlight] = []
+        for record in records:
+            airline = str(record.get("CHOPER") or "").strip().upper()
+            digits = str(record.get("CHFLTN") or "").strip()
+            local = _local_date(record)
+            if not airline or not digits.isdigit() or local is None:
+                continue
+            # Stripped of padding so the stored number matches what a customer
+            # types. "016" is how the board writes it; nobody writes it that
+            # way on a claim form.
+            number = f"{airline}{int(digits)}"
+            flights.append(_to_raw_flight(record, number, local, self.name))
+        return flights
+
     # --- HTTP ---
 
     async def _query(self, filters: Mapping[str, str]) -> list[dict[str, Any]]:
         params = {
             "resource_id": self._resource_id,
-            "filters": json.dumps(dict(filters)),
             "limit": str(_PAGE_SIZE),
         }
+        if filters:
+            params["filters"] = json.dumps(dict(filters))
         try:
             if self._client is not None:
                 response = await self._client.get(self._base_url, params=params)

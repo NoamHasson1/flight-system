@@ -88,6 +88,63 @@ there" — and the chain stops. A source that *raises* has not answered, and the
 chain moves on; if every source raised, it raises too. Turning "we could not
 look" into "no such flight" would tell somebody with a valid claim to go away.
 
+## The archive, and why it runs every night
+
+```bash
+cd backend && uv run python -m app.tasks.archive_board
+```
+
+Israel lets a passenger claim for **four years**. The UK allows **six**. Every
+commercial feed we can buy reaches back **one** — AeroDataBox tops out at 365
+days on its most expensive plan — and the Ben Gurion board publishes a rolling
+**five days** before dropping the oldest.
+
+No subscription closes that gap. Nobody sells 2023.
+
+Writing it down does. The board publishes today's truth today; this job saves
+it. Run daily it cannot miss a flight — five days of window against one day of
+interval leaves four days of slack, so the machine can be off for most of a
+week without leaving a hole. Run it for four years and the archive covers the
+entire Israeli claim window, from the authoritative source, owned outright.
+
+One run archives about 1,500 flight-days and costs nothing.
+
+Schedule it with `launchd` on macOS or `cron` on a server:
+
+```
+15 4 * * *  cd /path/to/backend && uv run python -m app.tasks.archive_board
+```
+
+It writes to `flight_lookups`, the same table the cache reads, because it is
+the same fact: *what did this source say about this flight*. A flight archived
+tonight answers a customer's question next year with no API call, and without
+the board still holding it.
+
+## Not paying twice for one answer
+
+`FLIGHT_CACHE=true` (the default) makes each source answer from
+`flight_lookups` when it already knows.
+
+This product has a shape that punishes metered data: one cancelled flight
+carries 180 passengers, and a cancellation is exactly what people tell each
+other about. Without this, one answer is bought once per passenger.
+
+The whole correctness of it is one line:
+
+| Status | | Kept |
+|---|---|---|
+| `LANDED` `CANCELLED` `DIVERTED` | it has happened | forever |
+| `SCHEDULED` `EN_ROUTE` `UNKNOWN` | it is a prediction | `FLIGHT_CACHE_TTL_MINUTES` (15) |
+
+Serving a stored `SCHEDULED` as though it were fact is how a flight that went
+on to be six hours late gets reported as punctual — a wrong "no" on a real
+claim. A settled row is also never overwritten: a source with a rolling window
+must not be able to replace a complete answer with a thinner one once it starts
+forgetting.
+
+The cache wraps each source *inside* the chain rather than around it, so a
+cached miss on the paid feed still lets the free board be asked.
+
 ## Opening it on another machine
 
 The dev server binds to every interface and the app reaches the API through its

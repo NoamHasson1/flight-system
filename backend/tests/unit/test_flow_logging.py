@@ -5,6 +5,7 @@ leak something, because nobody reviews it and everybody reads it.
 """
 
 import logging
+import pathlib
 
 import pytest
 
@@ -147,3 +148,23 @@ def test_delays_read_the_way_people_say_them(
 ) -> None:
     """2.0499999 hours is a number. "2h 03m" is a delay."""
     assert flow.hours(value) == expected
+
+
+def test_the_verdict_column_fits_the_longest_verdict() -> None:
+    """The trace is read by eye, in columns, and a verdict that overflows runs
+    straight into the next field -- "LIKELY_ELIGIBLEapplies=yes".
+
+    Pinned to the enum rather than to a number, so adding a longer verdict
+    fails here instead of quietly ruining the alignment.
+    """
+    from app.domain.models import Verdict
+
+    longest = max(len(v.value) for v in Verdict)
+    source = (
+        pathlib.Path(__file__).resolve().parents[2]
+        / "app"
+        / "services"
+        / "eligibility.py"
+    ).read_text()
+    assert "outcome.verdict.value:<16" in source
+    assert longest < 16, f"{longest}-character verdict needs a wider column"

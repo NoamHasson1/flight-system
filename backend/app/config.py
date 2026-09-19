@@ -53,6 +53,16 @@ class Settings(BaseSettings):
     )
     aerodatabox_api_key: str = ""
 
+    # Reuse a source's answer instead of buying it twice.
+    #
+    # A settled flight -- landed, cancelled, diverted -- is kept forever,
+    # because it cannot change. Anything still in motion is kept for
+    # `flight_cache_ttl_minutes` only: serving a stored "SCHEDULED" as though
+    # it were fact is how a flight that went on to be six hours late gets
+    # reported as punctual.
+    flight_cache: bool = True
+    flight_cache_ttl_minutes: int = 15
+
     # --- the frontend ---
     # Explicit origins, never "*". A wildcard with credentials is both refused
     # by browsers and a bad habit to start.

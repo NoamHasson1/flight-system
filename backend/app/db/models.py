@@ -24,12 +24,14 @@ from typing import Any
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     Date,
     ForeignKey,
     Index,
     Integer,
     String,
     Text,
+    UniqueConstraint,
     Uuid,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -347,3 +349,78 @@ class Document(Base):
 
     def __repr__(self) -> str:
         return f"<Document {self.kind} {self.original_filename}>"
+
+
+class FlightLookup(Base):
+    """One source's answer about one flight number on one date, kept.
+
+    TWO JOBS, ONE TABLE, and they are the same job seen from either end.
+
+    As a CACHE it stops us paying twice for one fact. A cancelled flight has a
+    hundred and eighty passengers, and if any of them tell each other about us,
+    they check the same number and the same date within a day of each other.
+    Without this, that is a hundred and eighty identical purchases of one
+    answer.
+
+    As an ARCHIVE it outlives the source. The Ben Gurion board publishes a
+    rolling five days and the commercial feed reaches back a year at most --
+    while a passenger can claim for four years in Israel and six in the UK. No
+    subscription closes that gap, at any price. Recording what we see, on the
+    day we see it, is the only thing that does: a row written today still
+    answers a question asked in 2030.
+
+    Keyed by (provider, flight_number, flight_date) rather than by flight,
+    because that is the question asked. One number on one date can legitimately
+    be several flights -- a daily rotation crossing midnight, a route flown
+    twice -- and the answer to "what flew as BA242 that day" is the whole list,
+    including when the list is empty.
+    """
+
+    __tablename__ = "flight_lookups"
+    __table_args__ = (
+        UniqueConstraint(
+            "provider",
+            "flight_number",
+            "flight_date",
+            name="uq_flight_lookups_question",
+        ),
+        # The lookup every read does.
+        Index("ix_flight_lookups_question", "flight_number", "flight_date"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+
+    # Which source said so. Kept in the key, not just as a note: two sources
+    # genuinely disagree about the same flight -- the board has cancellations
+    # the feed drops, the feed has landing times the board never learns -- and
+    # merging them into one row would lose whichever was written second.
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    flight_number: Mapped[str] = mapped_column(String(10), nullable=False)
+    flight_date: Mapped[date] = mapped_column(Date, nullable=False)
+
+    observed_at: Mapped[datetime] = mapped_column(
+        UtcDateTime, default=utc_now, nullable=False, index=True
+    )
+
+    # True when every flight in the payload has finished: landed, cancelled or
+    # diverted. Those cannot change again, so the row is good forever. A
+    # scheduled or airborne flight is a prediction wearing the same shape, and
+    # serving yesterday's prediction as today's fact is how a delayed flight
+    # gets recorded as punctual.
+    is_final: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    # The provider's answer as RawFlight records, not as vendor JSON. Vendor
+    # JSON would tie every future read to a schema we do not control and cannot
+    # re-parse once the adapter has moved on; RawFlight is our own shape and
+    # the thing the rest of the system actually consumes.
+    #
+    # An empty list is a real answer: "that flight is not in our data".
+    flights: Mapped[list[Any]] = mapped_column(JSON, nullable=False, default=list)
+
+    def __repr__(self) -> str:
+        return (
+            f"<FlightLookup {self.provider} {self.flight_number} "
+            f"{self.flight_date} final={self.is_final}>"
+        )

@@ -8,6 +8,7 @@ provider and an in-memory database without a single patch.
 from __future__ import annotations
 
 from collections.abc import Iterator
+from datetime import timedelta
 from pathlib import Path
 from functools import lru_cache
 from typing import Annotated
@@ -23,6 +24,7 @@ from app.db.session import create_db_engine, create_session_factory
 from app.email.base import EmailSender
 from app.email.registry import build_email_sender
 from app.providers.base import FlightDataProvider
+from app.providers.cache import wrap_with_cache
 from app.storage.files import FileStorage, LocalFileStorage
 from app.providers.registry import build_provider
 
@@ -83,13 +85,26 @@ def _provider(name: str, api_key: str) -> FlightDataProvider:
 
 def get_flight_provider(
     settings: Annotated[Settings, Depends(get_settings_dependency)],
+    factory: Annotated[sessionmaker[Session], Depends(get_session_factory)],
 ) -> FlightDataProvider:
     """Built once per configuration and reused.
 
     The fake loads its scenario file on construction and the real adapter holds
     connection settings; rebuilding either on every request is waste.
+
+    The cache wraps each source SEPARATELY, inside the chain rather than around
+    it. Two reasons. A cached miss on the paid feed still lets the free one be
+    asked, which is the whole point of having a chain. And the stored rows are
+    keyed by which source said so -- which is what lets the nightly archive,
+    written by the board under its own name, answer a question months later
+    through the same table.
     """
-    return _provider(settings.flight_provider, settings.aerodatabox_api_key)
+    inner = _provider(settings.flight_provider, settings.aerodatabox_api_key)
+    if not settings.flight_cache:
+        return inner
+    return wrap_with_cache(
+        inner, factory, ttl=timedelta(minutes=settings.flight_cache_ttl_minutes)
+    )
 
 
 @lru_cache
