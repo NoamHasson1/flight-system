@@ -19,6 +19,7 @@ by the time they see it.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from enum import StrEnum
@@ -54,14 +55,20 @@ class FlightOption:
     key: str
     route: str
     scheduled_departure: datetime | None
+    # Set when the options span more than one date. A daily rotation leaves at
+    # the same clock time every day, so the time alone would print the same
+    # words on every button and the customer would be choosing blind.
+    show_date: bool = False
 
     @property
     def label(self) -> str:
-        when = (
-            self.scheduled_departure.strftime("%H:%M UTC")
-            if self.scheduled_departure
-            else "time unknown"
-        )
+        if self.scheduled_departure is None:
+            when = "time unknown"
+        else:
+            at = self.scheduled_departure
+            clock = at.strftime("%H:%M UTC")
+            # Built by hand rather than with %-d, which is not portable.
+            when = f"{at:%a} {at.day} {at:%b}, {clock}" if self.show_date else clock
         return f"{self.route}, departing {when}"
 
 
@@ -164,12 +171,7 @@ async def check(
     if len(records) > 1:
         # Never guess. Picking the first would tell everyone on the other
         # flight a confident answer about a journey they did not take.
-        options = tuple(
-            FlightOption(
-                key=_option_key(r), route=r.route, scheduled_departure=r.scheduled_departure
-            )
-            for r in records
-        )
+        options = _build_options(records)
         flow.line("DECISION", f"AMBIGUOUS — {len(options)} matches, asking which")
         for option in options:
             flow.cont(option.label)
@@ -266,6 +268,25 @@ def _log_rules(result: engine.EligibilityResult) -> None:
             flow.cont(f"also payable: {others}")
     else:
         flow.line("DECISION", result.verdict.value)
+
+
+def _build_options(records: Sequence[RawFlight]) -> tuple[FlightOption, ...]:
+    """Label the matches so a human can tell them apart.
+
+    Whether a date belongs on a label is a property of the whole set, not of
+    any one option, so it is decided here rather than inside the label.
+    """
+    dates = {r.scheduled_departure.date() if r.scheduled_departure else None for r in records}
+    show_date = len(dates) > 1
+    return tuple(
+        FlightOption(
+            key=_option_key(r),
+            route=r.route,
+            scheduled_departure=r.scheduled_departure,
+            show_date=show_date,
+        )
+        for r in records
+    )
 
 
 def _option_key(record: RawFlight) -> str:
