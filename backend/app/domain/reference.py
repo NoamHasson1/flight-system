@@ -52,6 +52,44 @@ def find_airport(iata: str) -> Airport | None:
     return _airports().get(iata.strip().upper())
 
 
+# The shortest name worth trying. Two or three letters are as likely to be a
+# code, an abbreviation or noise as a place.
+_MIN_NAME_LENGTH = 4
+
+
+def find_airport_by_name(name: str) -> Airport | None:
+    """Resolve an airport from a plain name -- ONLY when it cannot be anything
+    else.
+
+    A last resort, for records that carry a name and no code. Codeshare flight
+    numbers do this routinely: AC5520 comes back with a full departure airport
+    and an arrival of `{"name": "Newark"}`, nothing more. Refusing those means
+    refusing every codeshare, and passengers book codeshares.
+
+    Getting it wrong is expensive in a way that refusing is not. The
+    destination decides which country is involved, therefore which law applies,
+    and the distance, therefore how much is owed. So this matches only when
+    exactly ONE airport can be meant:
+
+        "Newark"    -> EWR, the only airport whose name starts that way
+        "London"    -> None. Seven of them.
+        "New York"  -> None. Two, and neither is the one a traveller means.
+
+    That last case is the argument for the whole design. A match that merely
+    looks confident would have sent a Newark passenger to a seaplane base.
+    """
+    words = tuple(name.strip().lower().split())
+    if not words or len("".join(words)) < _MIN_NAME_LENGTH:
+        return None
+
+    matches = [
+        airport
+        for airport in _airports().values()
+        if tuple(airport.name.strip().lower().split())[: len(words)] == words
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
 def find_airline(iata: str) -> Airline | None:
     """Look up an airline by IATA code, or None if we do not know it."""
     return _airlines().get(iata.strip().upper())

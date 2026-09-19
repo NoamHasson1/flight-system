@@ -8,7 +8,7 @@ tells somebody with a valid claim that their flight never existed.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import date
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -141,6 +141,93 @@ async def test_the_reported_failure_is_the_first_provider_s() -> None:
     with pytest.raises(ProviderRateLimited) as caught:
         await ChainProvider([feed, board]).fetch("BZ734", WHEN)
     assert "quota" in str(caught.value)
+
+
+# --- A record that cannot be used is not an answer ---------------------------
+
+
+def _unrouted(name: str) -> Stub:
+    """A codeshare record: departure known, destination only a name."""
+    return Stub(
+        name,
+        result=(
+            RawFlight(
+                flight_number="AC5520",
+                flight_date=WHEN,
+                status=FlightStatus.EN_ROUTE,
+                provider=name,
+                origin_iata="TLV",
+                destination_iata=None,
+            ),
+        ),
+    )
+
+
+def _impossible(name: str) -> Stub:
+    """IZ216 as the vendor actually returned it on 14 September.
+
+    Scheduled arrival a day BEFORE the scheduled departure. One of the two is
+    wrong and the record cannot say which, so a departure delay computed from
+    it is out by twenty-two hours -- in the direction that denies a real claim.
+    """
+    return Stub(
+        name,
+        result=(
+            RawFlight(
+                flight_number="IZ216",
+                flight_date=WHEN,
+                status=FlightStatus.LANDED,
+                provider=name,
+                origin_iata="ATH",
+                destination_iata="TLV",
+                scheduled_departure=datetime(2026, 9, 19, 21, 25, tzinfo=UTC),
+                scheduled_arrival=datetime(2026, 9, 19, 0, 35, tzinfo=UTC),
+            ),
+        ),
+    )
+
+
+async def test_a_codeshare_without_a_destination_falls_through() -> None:
+    """Found is not the same as usable.
+
+    Without both ends there is no country pair and no distance, so no law can
+    be tested and no amount computed. The next source may know the route.
+    """
+    thin, complete = _unrouted("aerodatabox"), _has("iaa")
+    flights = await ChainProvider([thin, complete]).fetch("AC5520", WHEN)
+
+    assert flights[0].provider == "iaa"
+    assert complete.calls == 1
+
+
+async def test_a_record_that_contradicts_itself_falls_through() -> None:
+    """The real IZ216 case."""
+    broken, good = _impossible("aerodatabox"), _has("iaa")
+    flights = await ChainProvider([broken, good]).fetch("IZ216", WHEN)
+
+    assert flights[0].provider == "iaa"
+
+
+async def test_an_unusable_record_is_still_better_than_nothing() -> None:
+    """When nobody does better, return what we have.
+
+    "We could not identify this flight -- the arrival time is not after the
+    departure time" tells a person what to look at. "No such flight" sends a
+    passenger away from a flight that plainly exists.
+    """
+    thin = _unrouted("aerodatabox")
+    empty = _empty("iaa")
+
+    flights = await ChainProvider([thin, empty]).fetch("AC5520", WHEN)
+    assert len(flights) == 1
+    assert flights[0].provider == "aerodatabox"
+
+
+async def test_a_usable_record_still_wins_immediately() -> None:
+    """The check must not cost an extra lookup on the ordinary path."""
+    good, other = _has("aerodatabox"), _has("iaa")
+    await ChainProvider([good, other]).fetch("BZ734", WHEN)
+    assert other.calls == 0
 
 
 # --- Shape -------------------------------------------------------------------

@@ -51,7 +51,7 @@ from app.db.models import FlightLookup
 from app.domain.models import FlightStatus
 from app.observability import flow
 from app.providers.base import FlightDataProvider, RawFlight
-from app.providers.chain import ChainProvider
+from app.providers.chain import ChainProvider, is_usable
 
 # A flight in one of these has happened. Nothing about it will change again.
 SETTLED: Final = frozenset(
@@ -132,7 +132,17 @@ class CachingProvider:
         self, number: str, flight_date: date, flights: Sequence[RawFlight]
     ) -> None:
         # A flight with no records is not settled -- see the module docstring.
-        is_final = bool(flights) and all(f.status in SETTLED for f in flights)
+        #
+        # Nor is one the source contradicted itself about. "Settled" means
+        # "keep this forever", and a record with a scheduled arrival before its
+        # scheduled departure is the last thing to keep forever: the vendor may
+        # well correct it tomorrow, and if we have marked it final we will
+        # never look again.
+        is_final = (
+            bool(flights)
+            and all(f.status in SETTLED for f in flights)
+            and is_usable(flights)
+        )
         payload = [encode(f) for f in flights]
 
         with self._sessions() as session:

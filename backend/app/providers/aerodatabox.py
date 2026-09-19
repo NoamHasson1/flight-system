@@ -30,6 +30,7 @@ from typing import Any, Final
 import httpx
 
 from app.domain.models import FlightStatus
+from app.domain.reference import find_airport_by_name
 from app.observability import flow
 from app.providers.base import (
     ProviderAuthError,
@@ -254,8 +255,8 @@ def _to_raw_flight(
         status=_status(item.get("status")),
         provider=provider,
         airline_iata=_code(item.get("airline"), "iata"),
-        origin_iata=_code(departure.get("airport"), "iata"),
-        destination_iata=_code(arrival.get("airport"), "iata"),
+        origin_iata=_airport(departure.get("airport")),
+        destination_iata=_airport(arrival.get("airport")),
         scheduled_departure=_time(departure, "scheduledTime"),
         actual_departure=_actual(departure),
         scheduled_arrival=_time(arrival, "scheduledTime"),
@@ -320,6 +321,40 @@ def _status(value: Any) -> FlightStatus:
     if not isinstance(value, str):
         return FlightStatus.UNKNOWN
     return _STATUS.get(value.strip().lower().replace(" ", ""), FlightStatus.UNKNOWN)
+
+
+def _airport(block: Any) -> str | None:
+    """The airport's IATA code, falling back to its name when there is no code.
+
+    Codeshare records are routinely half-populated. AC5520 -- Air Canada's
+    marketing number for a United flight -- comes back with a complete
+    departure airport and an arrival of exactly `{"name": "Newark"}`: no code,
+    no country, no coordinates.
+
+    Refusing that means refusing every codeshare, and passengers book
+    codeshares; the number on their booking IS the marketing number. So the
+    name is tried, and `find_airport_by_name` resolves it only when precisely
+    one airport can be meant. Anything ambiguous stays None and the flight goes
+    to a person, which is what would have happened anyway.
+    """
+    code = _code(block, "iata")
+    if code:
+        return code
+
+    if not isinstance(block, Mapping):
+        return None
+    name = block.get("name")
+    if not isinstance(name, str) or not name.strip():
+        return None
+
+    resolved = find_airport_by_name(name)
+    if resolved is None:
+        return None
+
+    # Said out loud, because this is the one airport code in the system that
+    # was inferred rather than read.
+    flow.line("  resolved", f"'{name}' → {resolved.iata} (no code was given)")
+    return resolved.iata
 
 
 def _code(block: Any, key: str) -> str | None:

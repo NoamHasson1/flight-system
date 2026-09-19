@@ -181,6 +181,36 @@ async def test_no_such_flight_is_remembered_but_never_settled(session_factory) -
         assert row.flights == []
 
 
+async def test_a_record_that_contradicts_itself_is_never_settled(session_factory) -> None:  # type: ignore[no-untyped-def]
+    """"Settled" means keep it forever, so it must not be said of a bad record.
+
+    The vendor really did return IZ216 with a scheduled arrival a day before
+    its scheduled departure. That is the kind of thing a vendor corrects -- and
+    if we have already written it down as final, we never look again and the
+    correction never reaches us.
+    """
+    source = Counting(
+        result=(
+            _flight(
+                FlightStatus.LANDED,
+                scheduled_departure=datetime(2026, 9, 18, 21, 25, tzinfo=UTC),
+                scheduled_arrival=datetime(2026, 9, 18, 0, 35, tzinfo=UTC),
+                actual_departure=None,
+            ),
+        )
+    )
+    provider = _cached(session_factory, source, ttl=timedelta(0))
+
+    await provider.fetch("IZ216", WHEN)
+    await provider.fetch("IZ216", WHEN)
+
+    assert source.calls == 2, "a self-contradicting record was frozen as fact"
+    with session_factory() as session:
+        row = session.scalar(select(FlightLookup))
+        assert row is not None
+        assert row.is_final is False
+
+
 # --- What is written ---------------------------------------------------------
 
 
