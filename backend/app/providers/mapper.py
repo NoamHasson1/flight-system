@@ -63,10 +63,22 @@ def to_flight_facts(raw: RawFlight) -> MappedFlight:
     destination = _airport(raw.destination_iata, "arrival", problems)
     airline_country = _airline_country(raw.airline_iata, problems)
 
-    # Scheduled times are the baseline every delay is measured against. Without
-    # them there is no question to answer, only a guess to make.
-    _require_time(raw.scheduled_departure, "scheduled departure", problems)
-    _require_time(raw.scheduled_arrival, "scheduled arrival", problems)
+    # A scheduled time is the baseline a delay is measured against, so at least
+    # one end has to be known -- with neither there is no question to answer,
+    # only a guess to make.
+    #
+    # Both are NOT required. An airport board describes the movement at its own
+    # airport and legitimately knows one end: Ben Gurion records when a flight
+    # left Ben Gurion and never learns when it reached Heraklion. That record is
+    # enough for the Israeli law, which measures the delay at departure, and it
+    # is not enough for EC261, which measures it at arrival. Which is exactly
+    # what the rules already say for themselves when the delay they need is
+    # None -- so the judgement belongs to them, not to this function.
+    if raw.scheduled_departure is None and raw.scheduled_arrival is None:
+        problems.append(
+            "the provider gave us neither a scheduled departure nor a "
+            "scheduled arrival time"
+        )
 
     if origin is not None and destination is not None and origin == destination:
         # Not impossible in the wild -- a flight that returned to stand and was
@@ -87,7 +99,6 @@ def to_flight_facts(raw: RawFlight) -> MappedFlight:
     # Everything above has been checked; these cannot be None here.
     assert origin is not None and destination is not None
     assert airline_country is not None
-    assert raw.scheduled_departure is not None and raw.scheduled_arrival is not None
 
     return FlightFacts(
         flight_number=raw.flight_number,
@@ -144,11 +155,6 @@ def _airline_country(code: str | None, problems: list[str]) -> str | None:
         problems.append(f"we do not recognise the airline {code}")
         return None
     return airline.country
-
-
-def _require_time(value: datetime | None, label: str, problems: list[str]) -> None:
-    if value is None:
-        problems.append(f"the provider did not give us a {label} time")
 
 
 def _check_ordering(raw: RawFlight, problems: list[str]) -> None:

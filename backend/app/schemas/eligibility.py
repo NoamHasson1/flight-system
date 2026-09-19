@@ -149,8 +149,8 @@ class FlightOut(BaseModel):
     destination_country: str
     distance_km: float
     status: str
-    scheduled_departure: datetime
-    scheduled_arrival: datetime
+    scheduled_departure: datetime | None
+    scheduled_arrival: datetime | None
     actual_departure: datetime | None
     actual_arrival: datetime | None
     departure_delay_hours: float | None

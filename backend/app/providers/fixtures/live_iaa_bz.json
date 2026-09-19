@@ -1,0 +1,361 @@
+{
+  "help": "https://data.gov.il/api/3/action/help_show?name=datastore_search",
+  "success": true,
+  "result": {
+    "filters": {
+      "CHOPER": "BZ"
+    },
+    "include_total": true,
+    "limit": 1000,
+    "records_format": "objects",
+    "resource_id": "e83f763b-b7d7-479e-b172-ae981ddc6de5",
+    "total_estimation_threshold": null,
+    "records": [
+      {
+        "_id": 221,
+        "CHOPER": "BZ",
+        "CHFLTN": "744",
+        "CHOPERD": "BLUE BIRD AIRWAYS",
+        "CHSTOL": "2026-09-18T19:00:00",
+        "CHPTOL": "2026-09-18T19:00:00",
+        "CHAORD": "D",
+        "CHLOC1": "HER",
+        "CHLOC1D": "HERAKLION",
+        "CHLOC1TH": "הרקליון",
+        "CHLOC1T": "HERAKLION",
+        "CHLOC1CH": "יוון",
+        "CHLOCCT": "GREECE",
+        "CHTERM": 3,
+        "CHCINT": "34-36",
+        "CHCKZN": "B",
+        "CHRMINE": "CANCELED",
+        "CHRMINH": "מבוטלת"
+      },
+      {
+        "_id": 386,
+        "CHOPER": "BZ",
+        "CHFLTN": "734",
+        "CHOPERD": "BLUE BIRD AIRWAYS",
+        "CHSTOL": "2026-09-19T08:00:00",
+        "CHPTOL": "2026-09-19T08:00:00",
+        "CHAORD": "D",
+        "CHLOC1": "HER",
+        "CHLOC1D": "HERAKLION",
+        "CHLOC1TH": "הרקליון",
+        "CHLOC1T": "HERAKLION",
+        "CHLOC1CH": "יוון",
+        "CHLOCCT": "GREECE",
+        "CHTERM": 3,
+        "CHCINT": "62-64",
+        "CHCKZN": "C",
+        "CHRMINE": "CANCELED",
+        "CHRMINH": "מבוטלת"
+      },
+      {
+        "_id": 539,
+        "CHOPER": "BZ",
+        "CHFLTN": "756",
+        "CHOPERD": "BLUE BIRD AIRWAYS",
+        "CHSTOL": "2026-09-19T15:45:00",
+        "CHPTOL": "2026-09-19T15:45:00",
+        "CHAORD": "D",
+        "CHLOC1": "HER",
+        "CHLOC1D": "HERAKLION",
+        "CHLOC1TH": "הרקליון",
+        "CHLOC1T": "HERAKLION",
+        "CHLOC1CH": "יוון",
+        "CHLOCCT": "GREECE",
+        "CHTERM": 3,
+        "CHCINT": "59-61",
+        "CHCKZN": "C",
+        "CHRMINE": "ON TIME",
+        "CHRMINH": "בזמן"
+      },
+      {
+        "_id": 756,
+        "CHOPER": "BZ",
+        "CHFLTN": "744",
+        "CHOPERD": "BLUE BIRD AIRWAYS",
+        "CHSTOL": "2026-09-20T02:25:00",
+        "CHPTOL": "2026-09-20T02:25:00",
+        "CHAORD": "D",
+        "CHLOC1": "HER",
+        "CHLOC1D": "HERAKLION",
+        "CHLOC1TH": "הרקליון",
+        "CHLOC1T": "HERAKLION",
+        "CHLOC1CH": "יוון",
+        "CHLOCCT": "GREECE",
+        "CHTERM": 3,
+        "CHCINT": "211-226",
+        "CHCKZN": "G",
+        "CHRMINE": "CANCELED",
+        "CHRMINH": "מבוטלת"
+      },
+      {
+        "_id": 1018,
+        "CHOPER": "BZ",
+        "CHFLTN": "734",
+        "CHOPERD": "BLUE BIRD AIRWAYS",
+        "CHSTOL": "2026-09-20T11:55:00",
+        "CHPTOL": "2026-09-20T11:55:00",
+        "CHAORD": "D",
+        "CHLOC1": "HER",
+        "CHLOC1D": "HERAKLION",
+        "CHLOC1TH": "הרקליון",
+        "CHLOC1T": "HERAKLION",
+        "CHLOC1CH": "יוון",
+        "CHLOCCT": "GREECE",
+        "CHTERM": 3,
+        "CHCINT": "56-58",
+        "CHCKZN": "C",
+        "CHRMINE": "ON TIME",
+        "CHRMINH": "בזמן"
+      },
+      {
+        "_id": 1110,
+        "CHOPER": "BZ",
+        "CHFLTN": "756",
+        "CHOPERD": "BLUE BIRD AIRWAYS",
+        "CHSTOL": "2026-09-21T23:30:00",
+        "CHPTOL": "2026-09-21T23:30:00",
+        "CHAORD": "D",
+        "CHLOC1": "HER",
+        "CHLOC1D": "HERAKLION",
+        "CHLOC1TH": "הרקליון",
+        "CHLOC1T": "HERAKLION",
+        "CHLOC1CH": "יוון",
+        "CHLOCCT": "GREECE",
+        "CHTERM": 3,
+        "CHCINT": "18-24",
+        "CHCKZN": "A",
+        "CHRMINE": "ON TIME",
+        "CHRMINH": "בזמן"
+      },
+      {
+        "_id": 1326,
+        "CHOPER": "BZ",
+        "CHFLTN": "734",
+        "CHOPERD": "BLUE BIRD AIRWAYS",
+        "CHSTOL": "2026-09-22T07:40:00",
+        "CHPTOL": "2026-09-22T07:40:00",
+        "CHAORD": "D",
+        "CHLOC1": "HER",
+        "CHLOC1D": "HERAKLION",
+        "CHLOC1TH": "הרקליון",
+        "CHLOC1T": "HERAKLION",
+        "CHLOC1CH": "יוון",
+        "CHLOCCT": "GREECE",
+        "CHTERM": 3,
+        "CHCINT": "38-40",
+        "CHCKZN": "B",
+        "CHRMINE": "ON TIME",
+        "CHRMINH": "בזמן"
+      },
+      {
+        "_id": 1373,
+        "CHOPER": "BZ",
+        "CHFLTN": "756",
+        "CHOPERD": "BLUE BIRD AIRWAYS",
+        "CHSTOL": "2026-09-22T09:25:00",
+        "CHPTOL": "2026-09-22T09:25:00",
+        "CHAORD": "D",
+        "CHLOC1": "HER",
+        "CHLOC1D": "HERAKLION",
+        "CHLOC1TH": "הרקליון",
+        "CHLOC1T": "HERAKLION",
+        "CHLOC1CH": "יוון",
+        "CHLOCCT": "GREECE",
+        "CHTERM": 3,
+        "CHCINT": "36-38",
+        "CHCKZN": "B",
+        "CHRMINE": "ON TIME",
+        "CHRMINH": "בזמן"
+      },
+      {
+        "_id": 1490,
+        "CHOPER": "BZ",
+        "CHFLTN": "744",
+        "CHOPERD": "BLUE BIRD AIRWAYS",
+        "CHSTOL": "2026-09-22T12:55:00",
+        "CHPTOL": "2026-09-22T12:55:00",
+        "CHAORD": "D",
+        "CHLOC1": "HER",
+        "CHLOC1D": "HERAKLION",
+        "CHLOC1TH": "הרקליון",
+        "CHLOC1T": "HERAKLION",
+        "CHLOC1CH": "יוון",
+        "CHLOCCT": "GREECE",
+        "CHTERM": 3,
+        "CHCINT": "34-36",
+        "CHCKZN": "B",
+        "CHRMINE": "ON TIME",
+        "CHRMINH": "בזמן"
+      }
+    ],
+    "fields": [
+      {
+        "id": "_id",
+        "type": "int"
+      },
+      {
+        "id": "CHOPER",
+        "type": "text",
+        "info": {
+          "label": "",
+          "notes": "OperatorCodeIATA\r\nקוד חברת טיסה IATA",
+          "type_override": ""
+        }
+      },
+      {
+        "id": "CHFLTN",
+        "type": "text",
+        "info": {
+          "label": "",
+          "notes": "FlightNum מספר טיסה",
+          "type_override": "text"
+        }
+      },
+      {
+        "id": "CHOPERD",
+        "type": "text",
+        "info": {
+          "label": "",
+          "notes": "OperatorCodeIATADescription שם חברת טיסה",
+          "type_override": ""
+        }
+      },
+      {
+        "id": "CHSTOL",
+        "type": "text",
+        "info": {
+          "label": "",
+          "notes": "ScheduledTimeLocal זמן מתוכנן שעון ישראל",
+          "type_override": ""
+        }
+      },
+      {
+        "id": "CHPTOL",
+        "type": "text",
+        "info": {
+          "label": "",
+          "notes": "AnticipatedTimeLocal  זמן משוער שעון ישראל",
+          "type_override": ""
+        }
+      },
+      {
+        "id": "CHAORD",
+        "type": "text",
+        "info": {
+          "label": "",
+          "notes": "ArrivalOrDeparture המראה או נחיתה",
+          "type_override": ""
+        }
+      },
+      {
+        "id": "CHLOC1",
+        "type": "text",
+        "info": {
+          "label": "",
+          "notes": "Location1CodeIATA קוד מוצא/יעד",
+          "type_override": ""
+        }
+      },
+      {
+        "id": "CHLOC1D",
+        "type": "text",
+        "info": {
+          "label": "",
+          "notes": "Location1Description מוצא/יעד",
+          "type_override": ""
+        }
+      },
+      {
+        "id": "CHLOC1TH",
+        "type": "text",
+        "info": {
+          "label": "",
+          "notes": "Location1City עיר יעד/מוצא ",
+          "type_override": ""
+        }
+      },
+      {
+        "id": "CHLOC1T",
+        "type": "text",
+        "info": {
+          "label": "",
+          "notes": "Location1CityHebrew עיר יעד/מוצא בעברית",
+          "type_override": ""
+        }
+      },
+      {
+        "id": "CHLOC1CH",
+        "type": "text",
+        "info": {
+          "label": "",
+          "notes": "Location1CountryHebrew ארץ מוצא/יעד עברית ",
+          "type_override": ""
+        }
+      },
+      {
+        "id": "CHLOCCT",
+        "type": "text",
+        "info": {
+          "label": "",
+          "notes": "Location1Country ארץ מוצא/יעד ",
+          "type_override": ""
+        }
+      },
+      {
+        "id": "CHTERM",
+        "type": "numeric",
+        "info": {
+          "label": "",
+          "notes": "Terminal טרמינל",
+          "type_override": ""
+        }
+      },
+      {
+        "id": "CHCINT",
+        "type": "text",
+        "info": {
+          "label": "",
+          "notes": "CounterFromTo מספרי דלפקים",
+          "type_override": ""
+        }
+      },
+      {
+        "id": "CHCKZN",
+        "type": "text",
+        "info": {
+          "label": "",
+          "notes": "CheckInZoneName דלפק צ'ק אין",
+          "type_override": ""
+        }
+      },
+      {
+        "id": "CHRMINE",
+        "type": "text",
+        "info": {
+          "label": "",
+          "notes": "Status סטטוס טיסה",
+          "type_override": ""
+        }
+      },
+      {
+        "id": "CHRMINH",
+        "type": "text",
+        "info": {
+          "label": "",
+          "notes": "StatusHebrew סטטוס טיסה עברית",
+          "type_override": ""
+        }
+      }
+    ],
+    "_links": {
+      "start": "/api/3/action/datastore_search?resource_id=e83f763b-b7d7-479e-b172-ae981ddc6de5&filters=%7B%22CHOPER%22%3A+%22BZ%22%7D&limit=1000",
+      "next": "/api/3/action/datastore_search?resource_id=e83f763b-b7d7-479e-b172-ae981ddc6de5&filters=%7B%22CHOPER%22%3A+%22BZ%22%7D&limit=1000&offset=1000"
+    },
+    "total": 9,
+    "total_was_estimated": false
+  }
+}

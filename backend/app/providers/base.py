@@ -153,6 +153,17 @@ class ProviderAuthError(FlightDataError):
     """
 
 
+class ProviderCoverageGap(FlightDataError):
+    """The provider answered, and its data does not reach that far.
+
+    Distinct from an empty result, and the distinction is the whole point. An
+    empty result means "we looked at the days we hold and the flight is not
+    among them" -- an answer. This means "those days are not ours to look at",
+    which must never be dressed up as a no. A national airport board publishing
+    a rolling five-day window is the ordinary case.
+    """
+
+
 class ProviderResponseInvalid(FlightDataError):
     """The provider answered, but not in a shape we recognise.
 

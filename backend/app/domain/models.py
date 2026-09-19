@@ -129,16 +129,28 @@ class FlightFacts:
     destination_country: str
     distance_km: float
 
-    scheduled_departure: datetime
-    scheduled_arrival: datetime
+    # Optional, and required to be passed explicitly (no default), because
+    # sources differ in which end of the journey they describe. A national
+    # airport board publishes the movement AT that airport: a departure row
+    # knows when the aircraft left and nothing about the landing. Demanding
+    # both would reject a complete, authoritative record for being complete
+    # about only the half it is responsible for.
+    #
+    # A missing time is never guessed. It makes the delay that depends on it
+    # None, and a rule that needs that delay returns NEEDS_REVIEW.
+    scheduled_departure: datetime | None
+    scheduled_arrival: datetime | None
     status: FlightStatus
     actual_departure: datetime | None = None
     actual_arrival: datetime | None = None
 
     def __post_init__(self) -> None:
-        for name in ("scheduled_departure", "scheduled_arrival"):
-            _require_aware(name, getattr(self, name))
-        for name in ("actual_departure", "actual_arrival"):
+        for name in (
+            "scheduled_departure",
+            "scheduled_arrival",
+            "actual_departure",
+            "actual_arrival",
+        ):
             value = getattr(self, name)
             if value is not None:
                 _require_aware(name, value)
@@ -172,7 +184,7 @@ class FlightFacts:
 
         This is what EC261 and UK261 measure.
         """
-        if self.actual_arrival is None:
+        if self.actual_arrival is None or self.scheduled_arrival is None:
             return None
         return self.actual_arrival - self.scheduled_arrival
 
@@ -183,7 +195,7 @@ class FlightFacts:
         This is what the Israeli Aviation Services Law measures -- a different
         number from arrival delay, and not interchangeable with it.
         """
-        if self.actual_departure is None:
+        if self.actual_departure is None or self.scheduled_departure is None:
             return None
         return self.actual_departure - self.scheduled_departure
 

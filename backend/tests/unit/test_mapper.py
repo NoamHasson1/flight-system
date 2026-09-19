@@ -137,17 +137,42 @@ def test_a_missing_code_is_reported_by_name(field: str, expected: str) -> None:
     assert expected in result.reason
 
 
-@pytest.mark.parametrize(
-    "field", ["scheduled_departure", "scheduled_arrival"]
-)
-def test_missing_scheduled_times_are_a_failure(field: str) -> None:
-    """Scheduled times are the baseline every delay is measured against.
+def test_no_scheduled_time_at_all_is_a_failure() -> None:
+    """A scheduled time is the baseline every delay is measured against.
 
-    Without them there is no question to answer, only a guess to make.
+    With neither end there is no question to answer, only a guess to make.
     """
-    result = to_flight_facts(raw(**{field: None}))
+    result = to_flight_facts(raw(scheduled_departure=None, scheduled_arrival=None))
     assert isinstance(result, MappingFailure)
     assert "time" in result.reason
+
+
+@pytest.mark.parametrize(
+    ("missing", "measurable", "unmeasurable"),
+    [
+        ("scheduled_arrival", "departure_delay_hours", "arrival_delay_hours"),
+        ("scheduled_departure", "arrival_delay_hours", "departure_delay_hours"),
+    ],
+)
+def test_one_end_of_the_journey_is_enough_to_be_mapped(
+    missing: str, measurable: str, unmeasurable: str
+) -> None:
+    """A source that knows one end is not a broken source.
+
+    An airport board publishes the movement at its own airport: Ben Gurion
+    records when a flight left Ben Gurion and never learns when it reached
+    Heraklion. Rejecting that record would throw away an authoritative fact
+    about a real flight -- and it is the fact the Israeli law measures.
+
+    The half we do have stays measurable; the half we do not stays None, and
+    the rule that needs it says NEEDS_REVIEW in its own words rather than
+    having this layer refuse the flight on its behalf.
+    """
+    result = to_flight_facts(raw(**{missing: None}))
+
+    assert not isinstance(result, MappingFailure), result
+    assert getattr(result, measurable) is not None
+    assert getattr(result, unmeasurable) is None
 
 
 def test_every_problem_is_reported_at_once() -> None:

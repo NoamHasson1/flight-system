@@ -58,6 +58,36 @@ failures you cannot summon from a real API on demand.
 
 ---
 
+## Where flight data comes from
+
+Two sources, asked in order, set by `FLIGHT_PROVIDER`:
+
+| | |
+|---|---|
+| `aerodatabox` | Global commercial feed. Both ends of the journey, which is what EC261 and UK261 need. Keyed, metered. |
+| `iaa` | The Ben Gurion board, published by the state on data.gov.il. Free, no key, authoritative for Tel Aviv. One end of the journey only. |
+| `fake` | Scripted scenarios. No key, no network. |
+
+Join them with `+` to ask in order: `FLIGHT_PROVIDER=aerodatabox+iaa`.
+
+Neither source is sufficient alone, and they fail in opposite directions. A full
+day of TLV departures from the commercial feed returned 162 flights and **zero
+cancellations** — not a quiet day, a feed that drops them; charter carriers go
+missing entirely. The board has every one of them, and knows only the movement
+at Ben Gurion: a departure row records when the aircraft left and never learns
+when it landed. So the board settles an Israeli-law question on its own, where
+the threshold is measured at departure, and usually cannot settle an EC261 one.
+
+Order is a trade. `aerodatabox+iaa` spends a unit on every check and gets both
+ends when they exist. `iaa+aerodatabox` is free for anything touching Israel,
+at the cost that an EU-law claim on an Israeli departure may go to review for
+want of a landing time.
+
+A source that returns nothing has answered — "we hold those days and it is not
+there" — and the chain stops. A source that *raises* has not answered, and the
+chain moves on; if every source raised, it raises too. Turning "we could not
+look" into "no such flight" would tell somebody with a valid claim to go away.
+
 ## Opening it on another machine
 
 The dev server binds to every interface and the app reaches the API through its

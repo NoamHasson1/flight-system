@@ -368,8 +368,9 @@ def test_a_missing_api_key_fails_at_construction() -> None:
 # --- The registry ------------------------------------------------------------
 
 
-def test_the_registry_lists_both_providers() -> None:
-    assert AVAILABLE == ("aerodatabox", "fake")
+def test_the_registry_lists_every_provider() -> None:
+    """Sorted, so adding one is a one-line diff rather than a reshuffle."""
+    assert AVAILABLE == ("aerodatabox", "fake", "iaa")
 
 
 def test_the_registry_builds_the_fake_without_a_key() -> None:

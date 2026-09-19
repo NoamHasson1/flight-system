@@ -267,8 +267,8 @@ def _flight_from_snapshot(snapshot: dict[str, object]):  # type: ignore[no-untyp
         destination_country=str(snapshot["destination_country"]),
         distance_km=float(snapshot["distance_km"]),  # type: ignore[arg-type]
         status=str(snapshot["status"]),
-        scheduled_departure=str(snapshot["scheduled_departure"]),  # type: ignore[arg-type]
-        scheduled_arrival=str(snapshot["scheduled_arrival"]),  # type: ignore[arg-type]
+        scheduled_departure=snapshot.get("scheduled_departure"),  # type: ignore[arg-type]
+        scheduled_arrival=snapshot.get("scheduled_arrival"),  # type: ignore[arg-type]
         actual_departure=snapshot.get("actual_departure"),  # type: ignore[arg-type]
         actual_arrival=snapshot.get("actual_arrival"),  # type: ignore[arg-type]
         departure_delay_hours=snapshot.get("departure_delay_hours"),  # type: ignore[arg-type]

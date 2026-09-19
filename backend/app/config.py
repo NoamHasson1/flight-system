@@ -21,7 +21,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.email.registry import AVAILABLE as EMAIL_SENDERS
 from app.email.registry import CONSOLE
-from app.providers.registry import AVAILABLE, FAKE
+from app.providers.registry import AVAILABLE, CHAIN_SEPARATOR, FAKE, IAA
 
 
 class Settings(BaseSettings):
@@ -113,11 +113,16 @@ class Settings(BaseSettings):
         customer sees as NEEDS_REVIEW -- a silent degradation nobody notices
         for days.
         """
-        if value.strip().lower() not in AVAILABLE:
+        wanted = value.strip().lower()
+        parts = [p.strip() for p in wanted.split(CHAIN_SEPARATOR) if p.strip()]
+        unknown = [p for p in parts if p not in AVAILABLE]
+        if not parts or unknown:
             raise ValueError(
-                f"unknown flight_provider {value!r}; available: {', '.join(AVAILABLE)}"
+                f"unknown flight_provider {value!r}; available: "
+                f"{', '.join(AVAILABLE)}, or several joined by "
+                f"{CHAIN_SEPARATOR!r} such as 'aerodatabox{CHAIN_SEPARATOR}iaa'"
             )
-        return value.strip().lower()
+        return CHAIN_SEPARATOR.join(parts)
 
     @field_validator("email_sender")
     @classmethod
@@ -161,7 +166,13 @@ class Settings(BaseSettings):
 
     @property
     def provider_needs_a_key(self) -> bool:
-        return self.flight_provider != FAKE
+        """True when any source in play bills for a key.
+
+        A chain can mix a keyed source with a free one, so this asks whether
+        ANY member needs a key -- one that does makes the key required.
+        """
+        parts = self.flight_provider.split(CHAIN_SEPARATOR)
+        return any(part not in (FAKE, IAA) for part in parts)
 
     def describe(self) -> dict[str, object]:
         """Settings that are safe to log or expose.
