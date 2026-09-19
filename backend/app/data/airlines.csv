@@ -12,6 +12,7 @@ iata,name,country
 LY,El Al,IL
 6H,Israir,IL
 IZ,Arkia,IL
+5C,C.A.L. Cargo Airlines,IL
 # --- United Kingdom ---
 BA,British Airways,GB
 VS,Virgin Atlantic,GB
@@ -21,6 +22,7 @@ BY,TUI Airways,GB
 W9,Wizz Air UK,GB
 RK,Ryanair UK,GB
 ZB,Scoot UK,GB
+LM,Loganair,GB
 # --- Ireland ---
 FR,Ryanair,IE
 EI,Aer Lingus,IE
@@ -30,6 +32,9 @@ LH,Lufthansa,DE
 EW,Eurowings,DE
 DE,Condor,DE
 X3,TUI fly Deutschland,DE
+3S,AeroLogic,DE
+QY,EAT Leipzig,DE
+VL,Lufthansa City Airlines,DE
 # --- France ---
 AF,Air France,FR
 TO,Transavia France,FR
@@ -42,6 +47,7 @@ IB,Iberia,ES
 VY,Vueling,ES
 UX,Air Europa,ES
 NT,Binter Canarias,ES
+AP,AlbaStar,ES
 # --- Italy ---
 AZ,ITA Airways,IT
 NO,Neos,IT
@@ -52,11 +58,15 @@ S4,Azores Airlines,PT
 A3,Aegean Airlines,GR
 OA,Olympic Air,GR
 CY,Cyprus Airways,CY
+BZ,Blue Bird Airways,GR
+GQ,Sky Express,GR
+U8,TUS Airways,CY
 # --- Austria, Belgium, Luxembourg ---
 OS,Austrian Airlines,AT
 EJU,easyJet Europe,AT
 SN,Brussels Airlines,BE
 LG,Luxair,LU
+3V,ASL Airlines Belgium,BE
 # --- Nordics & Baltics (EEA) ---
 AY,Finnair,FI
 SK,SAS,SE
@@ -71,6 +81,9 @@ FB,Bulgaria Air,BG
 OU,Croatia Airlines,HR
 W6,Wizz Air,HU
 KM,KM Malta Airlines,MT
+E4,Enter Air,PL
+QS,SmartWings,CZ
+W4,Wizz Air Malta,MT
 # --- Europe, outside the EU/EEA ---
 LX,Swiss International Air Lines,CH
 WK,Edelweiss Air,CH
@@ -80,6 +93,13 @@ PC,Pegasus Airlines,TR
 XQ,SunExpress,TR
 SU,Aeroflot,RU
 PS,Ukraine International,UA
+A4,Azimuth,RU
+B2,Belavia,BY
+WZ,Red Wings,RU
+5F,FlyOne,MD
+H4,HiSky,MD
+F5,Aerotranscargo,MD
+3F,FlyOne Armenia,AM
 # --- Middle East ---
 MS,EgyptAir,EG
 RJ,Royal Jordanian,JO
@@ -92,6 +112,11 @@ WY,Oman Air,OM
 SV,Saudia,SA
 KU,Kuwait Airways,KW
 ME,Middle East Airlines,LB
+J2,AZAL Azerbaijan Airlines,AZ
+7L,Silk Way West,AZ
+RX,Riyadh Air,SA
+HH,Taban Air,IR
+HY,Uzbekistan Airways,UZ
 # --- North America ---
 AA,American Airlines,US
 DL,Delta Air Lines,US
@@ -103,6 +128,9 @@ NK,Spirit Airlines,US
 F9,Frontier Airlines,US
 AC,Air Canada,CA
 WS,WestJet,CA
+3E,Air Choice One,US
+5Y,Atlas Air,US
+K4,Kalitta Air,US
 # --- Asia ---
 SQ,Singapore Airlines,SG
 CX,Cathay Pacific,HK
@@ -123,12 +151,25 @@ VN,Vietnam Airlines,VN
 BR,EVA Air,TW
 CI,China Airlines,TW
 KC,Air Astana,KZ
+JD,Beijing Capital Airlines,CN
+HU,Hainan Airlines,CN
+ZH,Shenzhen Airlines,CN
+GS,Tianjin Airlines,CN
+MF,Xiamen Airlines,CN
+BG,Biman Bangladesh,BD
+PK,Pakistan International,PK
+UL,SriLankan Airlines,LK
+BI,Royal Brunei,BN
+4V,Fly Gangwon,KR
 # --- Africa ---
 ET,Ethiopian Airlines,ET
 KQ,Kenya Airways,KE
 SA,South African Airways,ZA
 AT,Royal Air Maroc,MA
 TU,Tunisair,TN
+AH,Air Algerie,DZ
+HM,Air Seychelles,SC
+WB,RwandAir,RW
 # --- Oceania ---
 QF,Qantas,AU
 VA,Virgin Australia,AU
@@ -141,3 +182,5 @@ AV,Avianca,CO
 CM,Copa Airlines,PA
 G3,Gol,BR
 AD,Azul,BR
+JJ,LATAM Brasil,BR
+4L,Lineas Aereas Suramericanas,CO
