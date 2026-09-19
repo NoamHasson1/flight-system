@@ -452,3 +452,58 @@ async def test_the_real_response_survives_the_mapper() -> None:
     # tests were built around.
     assert facts.departure_delay_hours == pytest.approx(2.05, abs=0.01)
     assert facts.arrival_delay_hours == pytest.approx(1.33, abs=0.01)
+
+
+# --- Two different things arrive as 429 --------------------------------------
+
+
+_THROTTLED = httpx.Response(
+    429,
+    json={
+        "message": "You have exceeded the rate limit per second for your "
+        "plan, PRO, by the API provider"
+    },
+)
+_OUT_OF_QUOTA = httpx.Response(
+    429, json={"message": "You have exceeded the MONTHLY quota for Requests"}
+)
+
+
+async def test_a_per_second_throttle_is_retried() -> None:
+    """The normal shape of a good day here.
+
+    Several passengers off one cancelled flight check it within the same
+    second. RapidAPI answers 429 "rate limit per second", which clears almost
+    immediately -- so refusing outright would turn a busy minute into a
+    screenful of "we could not check your flight" for people who are owed
+    money.
+    """
+    provider, seen = provider_returning(
+        _THROTTLED, httpx.Response(200, json=fixture("arrived_delayed"))
+    )
+    flights = await provider.fetch("BA165", AUG_14)
+
+    assert len(seen) == 2, "a temporary throttle was treated as permanent"
+    assert len(flights) == 1
+
+
+async def test_an_exhausted_monthly_quota_is_not_retried() -> None:
+    """The other 429. Retrying spends what little is left and still fails; it
+    is a billing problem and has to read as one."""
+    provider, seen = provider_returning(_OUT_OF_QUOTA)
+
+    with pytest.raises(ProviderRateLimited, match="quota exhausted"):
+        await provider.fetch("BA165", AUG_14)
+
+    assert len(seen) == 1, "quota exhaustion must not be retried"
+
+
+async def test_unrelenting_throttling_still_reads_as_throttling() -> None:
+    """Not as an outage: the fix is to slow down or raise the plan, and
+    "unavailable" sends whoever reads it looking at the wrong thing."""
+    provider, seen = provider_returning(_THROTTLED)
+
+    with pytest.raises(ProviderRateLimited, match="throttled"):
+        await provider.fetch("BA165", AUG_14)
+
+    assert len(seen) == 3, "the retries were skipped"

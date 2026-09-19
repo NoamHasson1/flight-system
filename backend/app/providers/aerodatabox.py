@@ -180,6 +180,24 @@ class AeroDataBoxProvider:
                     "to the AeroDataBox API, even when the key itself is valid."
                 )
             if response.status_code == 429:
+                # TWO DIFFERENT THINGS ARRIVE AS 429, and treating them alike
+                # is expensive in one direction and useless in the other.
+                #
+                # A per-second burst limit is temporary: several passengers off
+                # the same cancelled flight check it within a second of each
+                # other, which is the normal shape of a good day here. Waiting
+                # a moment fixes it, and refusing instead turns a busy minute
+                # into a screenful of "we could not check your flight".
+                #
+                # A monthly quota is not temporary. Retrying spends the little
+                # that is left and still fails, and the operator needs to know
+                # it is a billing problem rather than a blip.
+                if _is_burst_limit(response):
+                    last_error = ProviderRateLimited(
+                        "aerodatabox: too many requests per second"
+                    )
+                    await self._pause_before_retry(attempt)
+                    continue
                 raise ProviderRateLimited(
                     "aerodatabox: quota exhausted (429). Retrying will not help "
                     "until the quota resets."
@@ -203,6 +221,15 @@ class AeroDataBoxProvider:
                 raise ProviderResponseInvalid(
                     "aerodatabox: response body was not valid JSON"
                 ) from exc
+
+        if isinstance(last_error, ProviderRateLimited):
+            # Throttled on every attempt. Report it as throttling rather than
+            # as an outage: the fix is to slow down or raise the plan, and
+            # "unavailable" sends whoever reads it looking at the wrong thing.
+            raise ProviderRateLimited(
+                f"aerodatabox: throttled on all {self._max_attempts} attempts "
+                f"({last_error})"
+            ) from last_error
 
         raise ProviderUnavailable(
             f"aerodatabox: gave up after {self._max_attempts} attempts "
@@ -321,6 +348,22 @@ def _status(value: Any) -> FlightStatus:
     if not isinstance(value, str):
         return FlightStatus.UNKNOWN
     return _STATUS.get(value.strip().lower().replace(" ", ""), FlightStatus.UNKNOWN)
+
+
+def _is_burst_limit(response: httpx.Response) -> bool:
+    """Whether a 429 is a per-second throttle rather than the monthly quota.
+
+    RapidAPI does not distinguish them by status or header, only in the message
+    body: "You have exceeded the rate limit per second for your plan, PRO".
+    Matching on that text is unlovely and it is what the vendor gives us; the
+    fallback when the wording changes is to treat it as the quota, which is the
+    safe direction -- it fails loudly instead of retrying into a wall.
+    """
+    try:
+        body = response.text.lower()
+    except Exception:  # pragma: no cover -- a body that will not decode
+        return False
+    return "per second" in body or "rate limit per second" in body
 
 
 def _airport(block: Any) -> str | None:
