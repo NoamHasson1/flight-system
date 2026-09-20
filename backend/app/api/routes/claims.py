@@ -27,7 +27,7 @@ from app.api.deps import (
 )
 from app.config import Settings
 from app.email.base import EmailSender
-from app.services.notifications import send_claim_confirmation
+from app.services.notifications import notify_ops_claim, send_claim_confirmation
 from app.db import claims as repo
 from app.db.models import Claim, DocumentKind
 from app.db.repositories import get_check
@@ -254,14 +254,19 @@ def submit_claim(
     # again. The claim is the valuable thing; the email is a courtesy, and a
     # courtesy must never break the thing it is reporting on.
     background.add_task(
-        _confirm, claim.id, sender, settings.public_base_url, settings.database_url
+        _confirm, claim.id, sender, settings.public_base_url, settings.database_url,
+        settings.ops_email,
     )
 
     return _to_out(claim)
 
 
 def _confirm(
-    claim_id: UUID, sender: EmailSender, base_url: str, database_url: str
+    claim_id: UUID,
+    sender: EmailSender,
+    base_url: str,
+    database_url: str,
+    ops_email: str = "",
 ) -> None:
     """Send the confirmation, in its own session.
 
@@ -277,6 +282,8 @@ def _confirm(
             claim = repo.get_claim(session, claim_id)
             if claim is not None:
                 send_claim_confirmation(sender, claim, base_url=base_url)
+                if ops_email:
+                    notify_ops_claim(sender, claim, to=ops_email, base_url=base_url)
     except Exception:  # noqa: BLE001
         # Nothing above this can act on it, and the customer already has their
         # reference. Logged by the sender; swallowed here so a mail failure

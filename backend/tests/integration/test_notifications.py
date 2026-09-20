@@ -22,7 +22,12 @@ from app.db.session import (
 from app.email.base import EmailMessage, EmailSender
 from app.providers.registry import build_provider
 from app.services.eligibility import check as run_check
-from app.services.notifications import send_check_result, send_claim_confirmation
+from app.services.notifications import (
+    notify_ops_check,
+    notify_ops_claim,
+    send_check_result,
+    send_claim_confirmation,
+)
 
 AUG_14 = date(2026, 8, 14)
 
@@ -285,3 +290,90 @@ def test_a_check_without_an_email_gets_none(client: TestClient) -> None:
     )
 
     assert sender.sent == []
+
+
+# --- The company's own copy --------------------------------------------------
+#
+# A different reader from the customer: whoever runs this, deciding what to do
+# today, working from an inbox rather than a database. The person who chases an
+# airline is not the person who writes SQL.
+
+
+async def test_the_subject_line_carries_the_whole_story(session: Session) -> None:
+    """A mailbox is read as a list of subjects, sorted and searched by them.
+
+    "New claim" tells nobody anything. The verdict, the amount, the flight and
+    the name mean the inbox is usable without opening a single message.
+    """
+    sender = Recorder()
+    claim = await a_claim(session)
+
+    notify_ops_check(sender, claim.check, to="ops@example.com", base_url="http://x")
+
+    subject = sender.sent[0].subject
+    assert "ELIGIBLE" in subject
+    assert "BA165" in subject
+    assert "£" in subject or "€" in subject, "the amount is what makes it scannable"
+
+
+async def test_a_claim_carries_everything_needed_to_act(session: Session) -> None:
+    """Self-contained on purpose: nobody should have to open the system to
+    understand what arrived."""
+    sender = Recorder()
+    claim = await a_claim(session)
+
+    notify_ops_claim(sender, claim, to="ops@example.com", base_url="http://x")
+
+    body = sender.sent[0].text
+    assert claim.reference in body
+    assert claim.contact_email in body
+    assert "Passengers" in body
+    assert "Expenses" in body
+
+
+async def test_identity_numbers_never_reach_the_inbox(session: Session) -> None:
+    """THE test in this section.
+
+    They are encrypted at rest for a reason, and an inbox is the opposite of
+    that: unencrypted, forwarded, backed up by a mail provider, searchable
+    forever. One line copying them out would undo the whole of that work.
+
+    The passenger count makes it obvious the numbers were collected; the
+    numbers themselves stay where they are protected.
+    """
+    sender = Recorder()
+    claim = await a_claim(session)
+    claim.passengers[0].national_id = "312345678"
+    session.flush()
+
+    notify_ops_claim(sender, claim, to="ops@example.com", base_url="http://x")
+
+    message = sender.sent[0]
+    assert "312345678" not in message.text
+    assert "312345678" not in message.html
+    assert "Passengers (1)" in message.text, "the count should still be visible"
+
+
+async def test_no_company_address_means_no_email(session: Session) -> None:
+    """Empty is a deliberate off switch, right for a laptop and wrong for a
+    deployment -- and it must not become a send to the empty string."""
+    sender = Recorder()
+    claim = await a_claim(session)
+
+    assert notify_ops_check(sender, claim.check, to="", base_url="http://x") is False
+    assert notify_ops_check(sender, claim.check, to=" ", base_url="http://x") is False
+    assert sender.sent == []
+
+
+async def test_a_flight_we_could_not_identify_is_still_reported(
+    session: Session,
+) -> None:
+    """A check that found nothing is still the company's business -- and is
+    where a missing airline or a broken source shows up first."""
+    sender = Recorder()
+    claim = await a_claim(session, "ZZ999")
+
+    assert notify_ops_check(
+        sender, claim.check, to="ops@example.com", base_url="http://x"
+    )
+    assert sender.sent[0].subject

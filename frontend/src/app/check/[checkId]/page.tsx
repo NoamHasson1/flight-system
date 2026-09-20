@@ -177,7 +177,7 @@ export default async function CheckResult({ params }: Params) {
         <Lead>{copy.lead}</Lead>
         <Body>{copy.body}</Body>
         {check.flight ? <FlightCard check={check} /> : null}
-        <Actions primary={strings.result.askHuman} />
+        <Actions primary={strings.result.askHuman} href={`/claim/${checkId}`} />
         <Caveat />
       </Shell>
     );
@@ -206,7 +206,7 @@ export default async function CheckResult({ params }: Params) {
         </p>
       </div>
 
-      <Actions primary={strings.result.askHuman} />
+      <Actions primary={strings.result.askHuman} href={`/claim/${checkId}`} />
     </Shell>
   );
 }
@@ -328,10 +328,6 @@ function Actions({ primary, href }: { primary: string | null; href?: string }) {
         <Link href={href} className={`${s.cta} px-7 py-4 text-subhead no-underline`} style={{ fontWeight: 700 }}>
           {primary}
         </Link>
-      ) : primary ? (
-        <span className={`${s.cta} px-7 py-4 text-subhead`} style={{ fontWeight: 700 }}>
-          {primary}
-        </span>
       ) : null}
       <Link
         href="/"

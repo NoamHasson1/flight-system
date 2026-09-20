@@ -24,7 +24,7 @@ from app.api.deps import (
 from app.config import Settings
 from app.email.base import EmailSender
 from app.observability import flow
-from app.services.notifications import send_check_result
+from app.services.notifications import notify_ops_check, send_check_result
 from app.db.repositories import get_check, record_check
 from app.providers.base import FlightDataProvider
 from app.schemas.eligibility import (
@@ -96,20 +96,32 @@ async def check_eligibility(
     # last thing anybody wants to see.
     flow.close_block()
 
-    # Only when an address was given. The form does not require one, so an
-    # address here means somebody typed it deliberately -- and a result email
-    # nobody asked for is spam however useful we think it is.
-    if payload.contact_email:
+    # One task covers both audiences, because both depend on the same row
+    # having been committed.
+    #
+    # The customer is written to only when they gave an address -- and they are
+    # no longer asked for one up front, so most checks have none. A result
+    # email nobody asked for is spam however useful we think it is.
+    #
+    # The company is written to either way, when configured: a check nobody
+    # left their details on is still the company's business.
+    wants_copy = settings.ops_email.strip() and settings.ops_notify_checks
+    if payload.contact_email or wants_copy:
         background.add_task(
             _email_result, row.id, sender, settings.public_base_url,
             settings.database_url,
+            settings.ops_email if wants_copy else "",
         )
 
     return _to_response(outcome, row.id)
 
 
 def _email_result(
-    check_id: UUID, sender: EmailSender, base_url: str, database_url: str
+    check_id: UUID,
+    sender: EmailSender,
+    base_url: str,
+    database_url: str,
+    ops_email: str,
 ) -> None:
     """Send the result, in its own session -- the request's is already closed."""
     from app.db.session import create_db_engine, create_session_factory, session_scope
@@ -120,6 +132,11 @@ def _email_result(
             row = get_check(session, check_id)
             if row is not None:
                 send_check_result(sender, row, base_url=base_url)
+                # The company's copy goes out whether or not the customer left
+                # an address -- most will not, now that they are only asked
+                # once there is something to claim.
+                if ops_email:
+                    notify_ops_check(sender, row, to=ops_email, base_url=base_url)
     except Exception:  # noqa: BLE001
         logging.getLogger("flight_system.email").exception(
             "result email failed for check %s", check_id

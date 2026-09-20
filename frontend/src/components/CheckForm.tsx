@@ -24,7 +24,6 @@ export function CheckForm() {
   const router = useRouter();
   const [flightNumber, setFlightNumber] = useState("");
   const [flightDate, setFlightDate] = useState("");
-  const [email, setEmail] = useState("");
   const [state, setState] = useState<State>({ phase: "idle" });
   /**
    * Validation appears only after a field has been left or a submit attempted.
@@ -42,13 +41,6 @@ export function CheckForm() {
     : !FLIGHT_NUMBER.test(cleaned)
       ? strings.errors.flightNumberFormat
       : null;
-  // Deliberately loose. Address validation is a famous rabbit hole, the
-  // backend validates it properly, and the cost of being wrong here is
-  // rejecting a real address -- which is worse than accepting a typo.
-  const emailError =
-    email.trim() && !/^\S+@\S+\.\S+$/.test(email.trim())
-      ? strings.errors.emailFormat
-      : null;
   const dateError = !flightDate
     ? strings.errors.dateRequired
     : flightDate > today
@@ -59,7 +51,7 @@ export function CheckForm() {
 
   async function run(optionKey?: string) {
     setTouched({ flightNumber: true, flightDate: true });
-    if (numberError || dateError || emailError) {
+    if (numberError || dateError) {
       numberRef.current?.focus();
       return;
     }
@@ -69,7 +61,6 @@ export function CheckForm() {
     const result = await checkEligibility({
       flight_number: cleaned,
       flight_date: flightDate,
-      contact_email: email.trim() || null,
       option_key: optionKey ?? null,
     });
 
@@ -169,24 +160,6 @@ export function CheckForm() {
             </Field>
           </div>
 
-          <div className="mt-4">
-          <Field
-            label={strings.form.emailLabel}
-            error={touched.email ? emailError : null}
-          >
-            <input
-              name="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onBlur={() => setTouched((t) => ({ ...t, email: true }))}
-              placeholder={strings.form.emailPlaceholder}
-              autoComplete="email"
-              aria-invalid={touched.email && !!emailError}
-              className={`${s.field} mt-2 w-full px-4 py-3.5 text-body`}
-            />
-          </Field>
-          </div>
 
           <button
             type="submit"

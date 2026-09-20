@@ -95,6 +95,23 @@ class Settings(BaseSettings):
     email_sender: str = CONSOLE
     email_from: str = "Skyclaim <noreply@example.com>"
 
+    # Where the company hears about its own business.
+    #
+    # Every check and every claim is copied here, so the people who chase
+    # airlines can work from an inbox rather than from a database -- the person
+    # who writes a claim letter is not the person who writes SQL.
+    #
+    # Empty switches it off entirely, which is right for a laptop and wrong for
+    # a deployment.
+    ops_email: str = ""
+
+    # Whether every CHECK is copied, or only claims.
+    #
+    # On, because early on every check is worth seeing and the volume is a
+    # handful a day. Turn it off when that stops being true: an inbox nobody
+    # reads is worse than no inbox, and the claims are the part that is work.
+    ops_notify_checks: bool = True
+
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_username: str = ""

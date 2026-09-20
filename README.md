@@ -58,6 +58,44 @@ failures you cannot summon from a real API on demand.
 
 ---
 
+## What the company sees
+
+`OPS_EMAIL` copies every check and every claim to a company inbox, so whoever
+chases airlines works from a mailbox rather than a database — the person who
+writes a claim letter is not the person who writes SQL.
+
+```
+[Skyclaim] CLAIM ₪1,530.00 · BZ734 2026-09-19 · Noam Hasson
+
+Reference       FS-2026-WB3BHK
+Claim for       ₪1,530.00 under ISRAEL
+Flight          BZ734 · 2026-09-19 · TLV → HER
+Verdict         LIKELY_ELIGIBLE
+Contact         Noam Hasson, noam@example.com, +972501234567
+Passengers (2)  Noam Hasson, Small Hasson (minor)
+Booking         XJ4K2P
+Notice          on the day of the flight
+Airline said    They said a technical fault with the aircraft
+Expenses (2)    Hotel — €120.00; Transport — €38.50
+Documents (0)   none uploaded
+```
+
+**The subject line is the index.** Verdict, amount, flight, name — in that
+order, because a mailbox is read as a list of subjects and sorted and searched
+by them. "New claim" tells nobody anything.
+
+**The body is self-contained.** Nobody should have to open the system to
+understand what arrived.
+
+**Identity numbers are never included.** They are encrypted at rest for a
+reason, and an inbox is the opposite of that: unencrypted, forwarded, backed up
+by a mail provider, searchable forever. The passenger count shows they were
+collected; the numbers stay where they are protected.
+
+`OPS_NOTIFY_CHECKS=false` keeps the claims and drops the checks, for when the
+volume makes a per-check email into noise. An inbox nobody reads is worse than
+no inbox.
+
 ## Identity numbers
 
 `passengers.national_id` is encrypted at rest. Set a key before storing one:

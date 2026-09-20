@@ -33,6 +33,10 @@ _LEAKY = (
     "CORS_ORIGINS",
     "LOG_LEVEL",
     "ENCRYPTION_KEYS",
+    # A developer with a company inbox configured would otherwise see every
+    # email-counting test fail, with an extra message nobody put there.
+    "OPS_EMAIL",
+    "OPS_NOTIFY_CHECKS",
 )
 
 # A fixed key for the whole suite.

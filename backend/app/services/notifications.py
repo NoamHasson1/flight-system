@@ -15,7 +15,12 @@ import logging
 
 from app.db.models import Claim, EligibilityCheck
 from app.email.base import EmailSender
-from app.email.messages import check_result, claim_submitted
+from app.email.messages import (
+    check_result,
+    claim_submitted,
+    ops_check_recorded,
+    ops_claim_submitted,
+)
 from app.db.types import utc_now
 
 logger = logging.getLogger("flight_system.email")
@@ -119,3 +124,101 @@ _SYMBOLS = {"EUR": "€", "GBP": "£", "ILS": "₪"}
 
 def _symbol(currency: str | None) -> str:
     return _SYMBOLS.get(currency or "", f"{currency} " if currency else "")
+
+
+# --- What the company hears --------------------------------------------------
+
+
+def notify_ops_check(
+    sender: EmailSender,
+    check: EligibilityCheck,
+    *,
+    to: str,
+    base_url: str,
+) -> bool:
+    """Copy a completed check to the company inbox.
+
+    Deliberately fire-and-forget and deliberately unrecorded: unlike the
+    customer's confirmation, a duplicate here costs nothing worse than a
+    duplicate line in a mailbox, and adding a column to track it would be
+    bookkeeping for a problem nobody has.
+    """
+    if not to.strip():
+        return False
+
+    snapshot = check.flight_snapshot or {}
+    origin, destination = snapshot.get("origin_iata"), snapshot.get("destination_iata")
+    route = f"{origin} → {destination}" if origin and destination else None
+
+    message = ops_check_recorded(
+        to=to.strip(),
+        flight_number=check.flight_number,
+        flight_date=check.flight_date.isoformat(),
+        route=route,
+        verdict=check.verdict,
+        status=check.status,
+        amount=_money(check),
+        regulation=check.best_regulation,
+        reason=check.message,
+        check_url=f"{base_url.rstrip('/')}/check/{check.id}",
+    )
+    return sender.send(message)
+
+
+def notify_ops_claim(
+    sender: EmailSender,
+    claim: Claim,
+    *,
+    to: str,
+    base_url: str,
+) -> bool:
+    """Copy a submitted claim to the company inbox.
+
+    This is the message that is actually work. It carries everything needed to
+    act -- who, which flight, how much, what they spent, what the airline told
+    them -- so that chasing an airline never requires opening the system.
+
+    Identity numbers are NOT included. They are encrypted at rest for a reason,
+    and an inbox is the opposite of that: unencrypted, forwarded, backed up by
+    a mail provider, searchable forever. The passenger count makes it obvious
+    they were collected; the numbers stay where they are protected.
+    """
+    if not to.strip():
+        return False
+
+    check = claim.check
+    snapshot = check.flight_snapshot or {}
+    origin, destination = snapshot.get("origin_iata"), snapshot.get("destination_iata")
+    route = f"{origin} → {destination}" if origin and destination else None
+
+    message = ops_claim_submitted(
+        to=to.strip(),
+        reference=claim.reference,
+        contact_name=claim.contact_name,
+        contact_email=claim.contact_email,
+        contact_phone=claim.contact_phone,
+        flight_number=check.flight_number,
+        flight_date=check.flight_date.isoformat(),
+        route=route,
+        verdict=check.verdict,
+        amount=_money(check),
+        regulation=check.best_regulation,
+        passengers=[(p.full_name, p.is_minor) for p in claim.passengers],
+        expenses=[
+            (e.category.replace("_", " ").title(),
+             f"{_symbol(e.currency)}{e.amount:,.2f}")
+            for e in claim.expenses
+        ],
+        documents=[d.original_filename for d in claim.documents],
+        booking_reference=claim.booking_reference,
+        airline_reason=claim.airline_reason,
+        cancellation_notice=claim.cancellation_notice,
+        claim_url=f"{base_url.rstrip('/')}/claim/{check.id}",
+    )
+    return sender.send(message)
+
+
+def _money(check: EligibilityCheck) -> str | None:
+    if check.best_amount is None:
+        return None
+    return f"{_symbol(check.best_currency)}{check.best_amount:,.2f}"
