@@ -32,6 +32,7 @@ dependencies = [
     # step 18: multipart/form-data, which is how a browser uploads a receipt.
     "python-multipart>=0.0.9",
     "cryptography>=50.0.1",
+    "psycopg[binary]>=3.3.6",
 ]
 
 [dependency-groups]

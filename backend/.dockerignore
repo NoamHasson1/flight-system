@@ -1,0 +1,29 @@
+# Everything that must not reach an image.
+#
+# .env first and for the obvious reason: it holds the flight-API key, the admin
+# key and the encryption key. A secret baked into an image is a secret in every
+# registry, every layer cache and every machine that ever pulls it.
+.env
+.env.*
+!.env.example
+
+# The database, its write-ahead log, its backups, and uploaded documents. Real
+# customer data does not belong in a build context, let alone an image.
+*.db
+*.db-wal
+*.db-shm
+backups/
+storage/
+
+# Rebuilt inside the image; copying them in wastes the layer cache and can ship
+# a virtualenv built for the wrong architecture.
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Not needed to run the application.
+tests/
+deploy/

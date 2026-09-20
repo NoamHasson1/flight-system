@@ -1,0 +1,93 @@
+# Local Postgres, so the move off SQLite is tested rather than hoped for.
+#
+# The differences that matter are not in the SQL this application writes --
+# SQLAlchemy handles that -- they are in the places where SQLite is lenient and
+# PostgreSQL is not: declared column widths, timezone handling, and types it
+# does not have at all. Every one of those is a bug that cannot be found on a
+# laptop running SQLite.
+#
+#   docker compose up -d postgres          just the database, for local dev
+#   docker compose up -d                   the whole stack, as deployed
+#   docker compose run --rm migrate        apply migrations
+#
+# Port 5433, not 5432, so it cannot collide with a Postgres already installed.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: flight
+      POSTGRES_PASSWORD: flight
+      POSTGRES_DB: flight_system
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flight -d flight_system"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # Migrations are a SEPARATE step, not something the backend does on startup.
+  #
+  # A container that migrates as it boots will run several migrations at once
+  # the moment anything scales past one instance, and a half-applied schema is
+  # worse than a late deploy. Run this, wait for it, then start the rest --
+  # which is exactly what a release command does on a managed host.
+  migrate:
+    build: ./backend
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://flight:flight@postgres:5432/flight_system
+      ENCRYPTION_KEYS: ${ENCRYPTION_KEYS:?set ENCRYPTION_KEYS before running}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: ["tools"]
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://flight:flight@postgres:5432/flight_system
+      ENVIRONMENT: ${ENVIRONMENT:-staging}
+      ENCRYPTION_KEYS: ${ENCRYPTION_KEYS:?set ENCRYPTION_KEYS before running}
+      FLIGHT_PROVIDER: ${FLIGHT_PROVIDER:-iaa+aerodatabox}
+      AERODATABOX_API_KEY: ${AERODATABOX_API_KEY:-}
+      OPS_EMAIL: ${OPS_EMAIL:-}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    environment:
+      # The one variable the frontend needs. It is read when a request
+      # arrives, not baked into the image, so the same build runs anywhere.
+      BACKEND_ORIGIN: http://backend:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+  # Every fifteen minutes, keeping the Ben Gurion board after it forgets. The
+  # board sheds the past continuously, and what is not captured cannot be
+  # bought back from anyone.
+  archive:
+    build: ./backend
+    command:
+      - sh
+      - -c
+      - "while true; do python -m app.tasks.archive_board; sleep 900; done"
+    environment:
+      DATABASE_URL: postgresql+psycopg://flight:flight@postgres:5432/flight_system
+      ENCRYPTION_KEYS: ${ENCRYPTION_KEYS:?set ENCRYPTION_KEYS before running}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

@@ -58,6 +58,40 @@ failures you cannot summon from a real API on demand.
 
 ---
 
+## Running it as it deploys
+
+```bash
+export ENCRYPTION_KEYS=<your key>
+docker compose run --rm migrate     # schema first, as a separate step
+docker compose up -d                # postgres, backend, frontend, archive
+```
+
+`http://localhost:3000`. Four services, the same images a host would run.
+
+**Migrations are their own step, never something the backend does on startup.**
+A container that migrates as it boots runs several at once the moment anything
+scales past one instance, and a half-applied schema is worse than a late
+deploy.
+
+**PostgreSQL, not SQLite, past one writer.** A web service plus the archive job
+plus somebody in a database browser is three, and SQLite gives
+`database is locked`. The migrations and the custom column types are tested
+against a real PostgreSQL:
+
+```bash
+docker compose up -d postgres
+TEST_DATABASE_URL=postgresql+psycopg://flight:flight@localhost:5433/flight_system \
+  uv run pytest tests/integration/test_migrations.py
+```
+
+That is not ceremony. SQLite does not enforce declared column widths and has
+no native `uuid` or `timestamptz`, so it accepts schemas PostgreSQL refuses —
+and both differences have already caught a real bug here.
+
+**One image runs everywhere.** The frontend takes `BACKEND_ORIGIN` at request
+time, not build time, so staging and production differ by a variable rather
+than a rebuild.
+
 ## What the company sees
 
 `OPS_EMAIL` copies every check and every claim to a company inbox, so whoever

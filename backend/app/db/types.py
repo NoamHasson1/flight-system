@@ -66,7 +66,13 @@ class UtcDateTime(TypeDecorator[datetime]):
     database is UTC by construction.
     """
 
-    impl = DateTime
+    # timezone=True so PostgreSQL uses `timestamptz` rather than a naive
+    # `timestamp`. The conversion below makes the Python side correct either
+    # way, but a naive column is a trap for everything that is not this
+    # application: somebody querying with psql sees a time with no zone, and
+    # any other writer can put local time in it. On SQLite it changes nothing,
+    # because SQLite has no timestamp type to change.
+    impl = DateTime(timezone=True)
     cache_ok = True
 
     def process_bind_param(

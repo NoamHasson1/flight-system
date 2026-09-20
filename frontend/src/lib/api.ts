@@ -54,31 +54,32 @@ export type ApiResult<T> =
 /**
  * What to put in front of every path.
  *
- * In the browser: nothing. Requests go to the page's own origin and the dev
- * server proxies `/api/*` to the backend (see next.config.ts). Whatever address
- * the page was opened on -- localhost, a LAN IP, a tunnel -- the API is reached
- * at that same address, so the app works from another machine with no
+ * In the browser: nothing. Requests go to the page's own origin and this app
+ * proxies `/api/*` onward (see src/app/api/[...path]/route.ts). Whatever
+ * address the page was opened on -- localhost, a LAN IP, a domain -- the API
+ * is reached at that same address, so it works from another machine with no
  * configuration and no CORS.
  *
  * On the server, where the result screens are rendered: an absolute URL,
- * because fetch on the server has no page origin to be relative to. It talks to
- * the backend over loopback, which never leaves the machine.
+ * because fetch on the server has no page origin to be relative to. It is
+ * BACKEND_ORIGIN, the same variable the proxy uses -- inside a container
+ * 127.0.0.1 is the container itself, and defaulting to it makes every
+ * server-rendered page report that the flight database is unreachable while
+ * the very same request works from the browser.
  *
- * NEXT_PUBLIC_API_URL still wins if it is set, for pointing a local frontend at
- * a deployed backend.
+ * Read per call rather than once at module load, so a value set at deploy time
+ * is honoured rather than whatever was present when the module first ran.
+ *
+ * NEXT_PUBLIC_API_URL still wins where it is set, for pointing a local
+ * frontend at a deployed backend.
  */
-const BASE_URL = (
-  process.env.NEXT_PUBLIC_API_URL ??
-  (typeof window === "undefined" ? "http://127.0.0.1:8010" : "")
-).replace(/\/$/, "");
+function baseUrl(): string {
+  const explicit = process.env.NEXT_PUBLIC_API_URL;
+  if (explicit) return explicit.replace(/\/$/, "");
+  if (typeof window !== "undefined") return "";
+  return (process.env.BACKEND_ORIGIN ?? "http://127.0.0.1:8010").replace(/\/$/, "");
+}
 
-/**
- * How long to wait before giving up.
- *
- * Long enough for a slow upstream lookup, short enough that nobody is left
- * staring at a spinner wondering whether the page is broken. Without an
- * explicit signal, fetch waits on the browser's default, which can be minutes.
- */
 const TIMEOUT_MS = 20_000;
 
 export async function checkEligibility(
@@ -146,7 +147,7 @@ async function request<T>(
   let response: Response;
 
   try {
-    response = await fetch(`${BASE_URL}${path}`, {
+    response = await fetch(`${baseUrl()}${path}`, {
       ...init,
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
