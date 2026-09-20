@@ -19,6 +19,7 @@ from __future__ import annotations
 import pytest
 
 from app.config import Settings, get_settings
+from app.db.types import configure_cipher
 
 # Variables pydantic-settings would otherwise pick up straight from the
 # environment, .env aside -- a shell that exported one would defeat the point.
@@ -31,7 +32,16 @@ _LEAKY = (
     "ADMIN_API_KEY",
     "CORS_ORIGINS",
     "LOG_LEVEL",
+    "ENCRYPTION_KEYS",
 )
+
+# A fixed key for the whole suite.
+#
+# Fixed rather than generated per run so that a ciphertext captured in a
+# failure message can still be decrypted while debugging it, and so nothing
+# depends on key generation working. It is in the repository on purpose and
+# protects nothing: the only data it ever touches is invented.
+TEST_ENCRYPTION_KEY = "0O9XEQS9wAUbHEXvN3ynIAHzHcv5SCE_FUdc-sSGYRQ="
 
 
 @pytest.fixture(autouse=True)
@@ -40,6 +50,12 @@ def _isolate_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(Settings.model_config, "env_file", None)
     for name in _LEAKY:
         monkeypatch.delenv(name, raising=False)
+    # Identity numbers are encrypted at rest, and the column type refuses to
+    # read or write one without a key. Tests that store a passenger need one;
+    # giving it to every test is simpler than remembering which do.
+    monkeypatch.setenv("ENCRYPTION_KEYS", TEST_ENCRYPTION_KEY)
+    configure_cipher(TEST_ENCRYPTION_KEY)
+
     # get_settings is lru_cached; a value cached from a previous test's
     # environment would outlive the monkeypatch.
     get_settings.cache_clear()

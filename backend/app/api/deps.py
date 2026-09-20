@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import Settings, get_settings
 from app.db.session import create_db_engine, create_session_factory
+from app.db.types import configure_cipher
 from app.email.base import EmailSender
 from app.email.registry import build_email_sender
 from app.providers.base import FlightDataProvider
@@ -175,5 +176,10 @@ def require_admin(
 
 
 def build_engine_and_factory(settings: Settings) -> tuple[Engine, sessionmaker[Session]]:
+    # The encryption key is handed over here because this is the one function
+    # every entry point already calls -- the API's lifespan, the archive job,
+    # the enrichment job. Anywhere a session can be opened, the key is in place
+    # before the first query; there is no path to the database that misses it.
+    configure_cipher(settings.encryption_keys)
     engine = create_db_engine(settings.database_url)
     return engine, create_session_factory(engine)

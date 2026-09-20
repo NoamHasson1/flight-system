@@ -58,6 +58,46 @@ failures you cannot summon from a real API on demand.
 
 ---
 
+## Identity numbers
+
+`passengers.national_id` is encrypted at rest. Set a key before storing one:
+
+```bash
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# then: ENCRYPTION_KEYS=<that key>
+```
+
+The encryption lives in the column type, beside `Money` and `UtcDateTime`, so
+nothing above the database layer changes — a route reads `passenger.national_id`
+and gets the number, while the file holds ciphertext and never held anything
+else. Verified end to end: submit a claim with `987654321` and that string
+appears nowhere in the database file or the request trace.
+
+Four decisions worth knowing:
+
+- **No key means refusing to write.** Not falling back to plaintext — a
+  fallback is how sensitive data reaches production unencrypted and nobody
+  notices for a year. Production refuses to start without a key at all.
+- **Authenticated, not merely encrypted.** A tampered value fails loudly
+  instead of decrypting to a different number, which would be copied onto a
+  claim letter and sent to an airline.
+- **The column can no longer be searched or indexed.** Affordable only because
+  nothing ever does: the number is written once with a claim and read back with
+  it. Looking somebody up by it would need a blind index instead.
+- **Losing the key loses the numbers.** That is the design working. Back the
+  key up somewhere the database is not.
+
+To rotate, put the new key first and keep the old one: writes use the new key,
+reads accept both, re-encrypt at leisure, then drop the old one.
+
+```
+ENCRYPTION_KEYS=<new>,<old>
+```
+
+Still outstanding: a **retention policy**. A claim settled in 2027 has no
+business still holding an identity number in 2031, and encryption is not an
+answer to keeping data longer than there is a reason to.
+
 ## Where flight data comes from
 
 Two sources, asked in order, set by `FLIGHT_PROVIDER`:

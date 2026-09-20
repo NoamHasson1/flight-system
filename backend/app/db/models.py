@@ -38,7 +38,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from enum import StrEnum
 
-from app.db.types import MoneyAmount, UtcDateTime, utc_now
+from app.db.types import EncryptedText, MoneyAmount, UtcDateTime, utc_now
 
 
 class Base(DeclarativeBase):
@@ -254,11 +254,18 @@ class Passenger(Base):
     )
 
     full_name: Mapped[str] = mapped_column(String(200), nullable=False)
-    # A national identity number. This is sensitive personal data under both the
-    # GDPR and Israeli privacy law: it should be encrypted at rest and covered
-    # by a retention policy before any real customer uses this system. Recorded
-    # here as a known gap rather than left to be discovered later.
-    national_id: Mapped[str | None] = mapped_column(String(40))
+    # A national identity number: sensitive personal data under both the GDPR
+    # and Israeli privacy law, and the one field here that is worth stealing.
+    #
+    # Encrypted at rest by the column type, so the database file holds
+    # ciphertext and has never held anything else. Code above this layer reads
+    # and writes the number itself and does not know the difference -- which is
+    # the point, because anything that has to be remembered eventually is not.
+    #
+    # Still outstanding: a retention policy. A claim that settled in 2027 has
+    # no business still holding an ID number in 2031, and encryption is not an
+    # answer to keeping data longer than there is a reason to.
+    national_id: Mapped[str | None] = mapped_column(EncryptedText)
     is_minor: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(

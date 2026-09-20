@@ -25,6 +25,25 @@ from sqlalchemy import engine_from_config, pool
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+# Load .env before anything reads the environment.
+#
+# The application gets this for free through pydantic-settings; alembic runs
+# outside it and would otherwise see an empty environment. That matters more
+# than convenience now that a migration can need ENCRYPTION_KEYS: without this
+# line, `alembic upgrade head` fails on a correctly configured machine and the
+# error points at the key rather than at the loading of it.
+#
+# Real environment variables still win, so a deployment that sets them
+# properly is unaffected.
+_dotenv = Path(__file__).resolve().parents[1] / ".env"
+if _dotenv.is_file():
+    for _line in _dotenv.read_text().splitlines():
+        _line = _line.strip()
+        if not _line or _line.startswith("#") or "=" not in _line:
+            continue
+        _name, _, _value = _line.partition("=")
+        os.environ.setdefault(_name.strip(), _value.strip())
+
 from app.db.models import Base  # noqa: E402
 from app.db.session import DEFAULT_DATABASE_URL  # noqa: E402
 

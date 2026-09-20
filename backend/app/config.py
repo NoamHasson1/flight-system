@@ -16,7 +16,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.email.registry import AVAILABLE as EMAIL_SENDERS
@@ -38,6 +38,16 @@ class Settings(BaseSettings):
         default="development",
         description="development | staging | production",
     )
+
+    # --- secrets ---
+    # Encrypts passengers' national identity numbers at rest. Comma-separated
+    # to allow rotation: the first key encrypts, every key can decrypt.
+    #
+    # Empty is allowed so the system runs before anybody has collected an
+    # identity document -- but the first attempt to store one then fails
+    # loudly rather than writing plaintext, and production refuses to start
+    # without it.
+    encryption_keys: str = ""
 
     # --- storage ---
     database_url: str = "sqlite:///./flight_system.db"
@@ -133,6 +143,22 @@ class Settings(BaseSettings):
                 f"{CHAIN_SEPARATOR!r} such as 'aerodatabox{CHAIN_SEPARATOR}iaa'"
             )
         return CHAIN_SEPARATOR.join(parts)
+
+    @model_validator(mode="after")
+    def _production_has_a_key(self) -> "Settings":
+        """Refuse to start a production deployment with no encryption key.
+
+        The alternative is a service that runs perfectly until the first
+        customer types their identity number, and fails then -- in front of
+        them, at the worst moment, for a reason nobody on the deploy remembers
+        choosing.
+        """
+        if self.environment == "production" and not self.encryption_keys.strip():
+            raise ValueError(
+                "ENCRYPTION_KEYS must be set in production: identity numbers "
+                "are encrypted at rest and cannot be stored without it."
+            )
+        return self
 
     @field_validator("email_sender")
     @classmethod
