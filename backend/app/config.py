@@ -162,18 +162,32 @@ class Settings(BaseSettings):
         return CHAIN_SEPARATOR.join(parts)
 
     @model_validator(mode="after")
-    def _production_has_a_key(self) -> "Settings":
-        """Refuse to start a production deployment with no encryption key.
+    def _deployments_have_a_key(self) -> "Settings":
+        """Refuse to start ANY deployment with no encryption key.
 
-        The alternative is a service that runs perfectly until the first
-        customer types their identity number, and fails then -- in front of
-        them, at the worst moment, for a reason nobody on the deploy remembers
-        choosing.
+        The alternative is a service that runs perfectly until the first person
+        types their identity number, and fails then -- in front of them, at the
+        worst moment, for a reason nobody on the deploy remembers choosing.
+
+        This originally said `production` only, and that was wrong in exactly
+        the way the paragraph above describes. A staging deployment shown to
+        real people is a deployment: the first claim anybody filed on it
+        returned 500 at the passenger step, while every other page worked, and
+        the error the customer saw blamed the flight database. Narrowing a
+        guard to production is how it fails to guard the thing you actually
+        showed somebody.
+
+        Only development and test may run without a key, because nobody types
+        a real identity number into either.
         """
-        if self.environment == "production" and not self.encryption_keys.strip():
+        deployed = self.environment not in ("development", "test")
+        if deployed and not self.encryption_keys.strip():
             raise ValueError(
-                "ENCRYPTION_KEYS must be set in production: identity numbers "
-                "are encrypted at rest and cannot be stored without it."
+                f"ENCRYPTION_KEYS must be set when environment is "
+                f"{self.environment!r}: identity numbers are encrypted at rest "
+                f"and cannot be stored without it. Generate one with\n"
+                f'  python -c "from cryptography.fernet import Fernet; '
+                f'print(Fernet.generate_key().decode())"'
             )
         return self
 

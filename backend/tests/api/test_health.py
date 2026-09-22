@@ -218,3 +218,53 @@ def test_uploads_land_in_the_configured_directory(tmp_path) -> None:  # type: ig
 
     assert response.status_code == 201
     assert len(list(uploads.rglob("*.pdf"))) == 1
+
+
+def test_readiness_fails_without_the_encryption_key(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """The sharpest entry on that list, and the reason it is there.
+
+    Without this key EVERY OTHER PAGE WORKS. The failure arrives at the
+    passenger step of a claim, as a 500 -- the last screen before somebody has
+    finished, and the one where they have already typed their identity number
+    in. Nothing else degrades, so nothing else warns.
+
+    It happened: the guard in Settings was narrowed to production, a staging
+    deployment was shown to people, and the first claim filed on it returned
+    500 while the front page, the check and the result screen were all fine.
+    """
+    from app.db.types import configure_cipher
+    from tests.conftest import TEST_ENCRYPTION_KEY
+
+    configure_cipher("")
+    try:
+        app = create_app(
+            Settings(
+                environment="development",  # so Settings itself will start
+                database_url=f"sqlite:///{tmp_path / 'x.db'}",
+                encryption_keys="",
+            )
+        )
+        with TestClient(app) as client:
+            body = client.get("/health/ready").json()
+        assert body["status"] == "degraded"
+        assert "unusable" in body["checks"]["secrets"]
+    finally:
+        configure_cipher(TEST_ENCRYPTION_KEY)
+
+
+def test_a_deployment_refuses_to_start_without_the_key() -> None:
+    """Better than any health check: the process does not come up at all.
+
+    Only development and test may run without one, because nobody types a real
+    identity number into either.
+    """
+    import pytest
+
+    from app.config import Settings
+
+    for environment in ("staging", "production"):
+        with pytest.raises(Exception, match="ENCRYPTION_KEYS"):
+            Settings(environment=environment, encryption_keys="", _env_file=None)
+
+    for environment in ("development", "test"):
+        Settings(environment=environment, encryption_keys="", _env_file=None)

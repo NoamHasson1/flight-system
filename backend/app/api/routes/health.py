@@ -25,6 +25,7 @@ from sqlalchemy import Engine, text
 
 from app.api.deps import get_engine, get_settings_dependency
 from app.config import Settings
+from app.db.types import SecretsUnavailable, _cipher
 
 router = APIRouter(tags=["health"])
 
@@ -84,6 +85,21 @@ def readiness(
         )
     else:
         checks["email"] = f"{settings.email_sender}: ok"
+
+    # The key that encrypts identity numbers. Worth failing readiness over for
+    # the sharpest reason on this list: without it EVERY OTHER PAGE WORKS, and
+    # the failure arrives at the passenger step of a claim as a 500 -- the last
+    # screen before somebody has finished, and the one where they have already
+    # typed their identity number in.
+    #
+    # Settings refuses to start a deployment without one, so this should be
+    # unreachable in practice. It is here because that guard was once narrowed
+    # to production and this exact thing happened on staging.
+    try:
+        _cipher()
+        checks["secrets"] = "ok"
+    except SecretsUnavailable as exc:
+        checks["secrets"] = f"unusable: {exc}"
 
     ready = all(value.endswith("ok") for value in checks.values())
     if not ready:
