@@ -2,6 +2,24 @@
 #
 #   Render → New → Blueprint → pick this repository
 #
+# CURRENTLY ON FREE PLANS, TO SHOW PEOPLE. Read this before relying on it.
+#
+#   The database is DELETED AFTER 30 DAYS. That is Render's free tier, not a
+#   setting, and it is why the archive stays on the laptop for now: the only
+#   copy of data nobody sells back does not belong somewhere with an expiry
+#   date. What lives here is a demonstration, and losing it costs nothing.
+#
+#   The web services SLEEP after about 15 minutes idle, and the next visitor
+#   waits roughly a minute for them to wake. Load the page yourself a minute
+#   before showing anybody.
+#
+#   The cron jobs are NOT here. Render has no free plan for them, and they are
+#   the part that must never miss a tick -- so the archive keeps running on the
+#   laptop until there is a reason to pay. See backend/deploy/crontab.txt.
+#
+# To go to production: change every `plan: free` to `starter` (and the database
+# to `basic-256mb`), then uncomment the cron jobs at the bottom of this file.
+#
 # Two secrets are deliberately NOT here -- ENCRYPTION_KEYS and
 # AERODATABOX_API_KEY are marked `sync: false`, so Render asks for them once
 # and stores them itself. A secret committed to a repository is a secret in
@@ -11,56 +29,55 @@ databases:
   - name: flight-db
     databaseName: flight_system
     user: flight
-    # NOT the free plan. Render deletes a free database after 30 days, and this
-    # one holds the archive -- the only copy of flight data that no vendor will
-    # sell back. A few dollars a month against data that cannot be recreated is
-    # not a decision worth thinking about.
-    plan: basic-256mb
+    # Free while this is a demonstration, and therefore deleted after 30 days.
+    # Nothing irreplaceable may live here until this says basic-256mb.
+    plan: free
 
 services:
-  # --- the archive ---------------------------------------------------------
-  #
-  # Deployed FIRST and deployable alone: it is the only part of this system
-  # where being down destroys something. The website being offline costs a
-  # visitor; the archive being offline costs a day of Ben Gurion that nobody
-  # sells back. A laptop running this lost 40% of three days to sleep.
-  - type: cron
-    name: flight-archive
-    runtime: docker
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
-    schedule: "*/15 * * * *"
-    dockerCommand: python -m app.tasks.archive_board
-    plan: starter
-    envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: flight-db
-          property: connectionString
-      - key: ENCRYPTION_KEYS
-        sync: false
+  # # --- the archive ---------------------------------------------------------
+  # #
+  # # Deployed FIRST and deployable alone: it is the only part of this system
+  # # where being down destroys something. The website being offline costs a
+  # # visitor; the archive being offline costs a day of Ben Gurion that nobody
+  # # sells back. A laptop running this lost 40% of three days to sleep.
+  # - type: cron
+  #   name: flight-archive
+  #   runtime: docker
+  #   dockerfilePath: ./backend/Dockerfile
+  #   dockerContext: ./backend
+  #   schedule: "*/15 * * * *"
+  #   dockerCommand: python -m app.tasks.archive_board
+  #   plan: starter
+  #   envVars:
+  #     - key: DATABASE_URL
+  #       fromDatabase:
+  #         name: flight-db
+  #         property: connectionString
+  #     - key: ENCRYPTION_KEYS
+  #       sync: false
 
-  # Once a day, buying the far end of disrupted flights while the paid feed
-  # still sells it: it keeps about a year, and a passenger has four.
-  - type: cron
-    name: flight-enrich
-    runtime: docker
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
-    schedule: "30 3 * * *"
-    dockerCommand: python -m app.tasks.enrich --min-delay 1
-    plan: starter
-    envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: flight-db
-          property: connectionString
-      - key: ENCRYPTION_KEYS
-        sync: false
-      - key: FLIGHT_PROVIDER
-        value: aerodatabox
-      - key: AERODATABOX_API_KEY
-        sync: false
+  # # Once a day, buying the far end of disrupted flights while the paid feed
+  # # still sells it: it keeps about a year, and a passenger has four.
+  # - type: cron
+  #   name: flight-enrich
+  #   runtime: docker
+  #   dockerfilePath: ./backend/Dockerfile
+  #   dockerContext: ./backend
+  #   schedule: "30 3 * * *"
+  #   dockerCommand: python -m app.tasks.enrich --min-delay 1
+  #   plan: starter
+  #   envVars:
+  #     - key: DATABASE_URL
+  #       fromDatabase:
+  #         name: flight-db
+  #         property: connectionString
+  #     - key: ENCRYPTION_KEYS
+  #       sync: false
+  #     - key: FLIGHT_PROVIDER
+  #       value: aerodatabox
+  #     - key: AERODATABOX_API_KEY
+  #       sync: false
+
 
   # --- the application -----------------------------------------------------
 
@@ -69,7 +86,7 @@ services:
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
-    plan: starter
+    plan: free
     healthCheckPath: /health
     # Migrations run as a release step, before the new version serves traffic
     # and never as part of starting up -- a container that migrates on boot
@@ -80,8 +97,13 @@ services:
         fromDatabase:
           name: flight-db
           property: connectionString
+      # staging, not production, while this is free: production refuses to
+      # start without an encryption key, which is right for a real deployment
+      # and wrong for a demonstration somebody is trying to show a friend.
+      # It also keeps the request trace on, which is what makes a demo
+      # debuggable.
       - key: ENVIRONMENT
-        value: production
+        value: staging
       - key: ENCRYPTION_KEYS
         sync: false
       - key: AERODATABOX_API_KEY
@@ -105,7 +127,7 @@ services:
     runtime: docker
     dockerfilePath: ./frontend/Dockerfile
     dockerContext: ./frontend
-    plan: starter
+    plan: free
     envVars:
       # Read when a request arrives, not baked into the image, so the same
       # build runs in staging and production.
