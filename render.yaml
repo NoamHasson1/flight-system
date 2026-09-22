@@ -140,8 +140,20 @@ services:
     envVars:
       # Read when a request arrives, not baked into the image, so the same
       # build runs in staging and production.
+      #
+      # `host`, not `hostport`. Two reasons, and either one alone breaks it:
+      #
+      #   hostport renders as "name:10000" with no scheme, which is not a URL
+      #   fetch will accept, so every call fails before leaving the container.
+      #
+      #   And free services have no private network -- they are reachable only
+      #   at their public address, on 443. An internal host:port would be the
+      #   right answer on a paid plan and is not available here.
+      #
+      # The scheme is added by the proxy, which treats a bare hostname as
+      # https. See src/app/api/[...path]/route.ts.
       - key: BACKEND_ORIGIN
         fromService:
           name: flight-backend
           type: web
-          property: hostport
+          property: host

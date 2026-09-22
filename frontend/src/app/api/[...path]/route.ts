@@ -26,9 +26,22 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 
-const BACKEND = (
-  process.env.BACKEND_ORIGIN ?? "http://127.0.0.1:8010"
-).replace(/\/$/, "");
+/**
+ * Where the backend is.
+ *
+ * A bare hostname is treated as https, because that is what a managed host
+ * hands over: Render's `fromService: property: host` renders "name.onrender.com"
+ * with no scheme, and fetch rejects that outright -- every call failing inside
+ * the container, before a packet leaves it, which looks exactly like the
+ * backend being down.
+ */
+const BACKEND = (() => {
+  const configured = (process.env.BACKEND_ORIGIN ?? "http://127.0.0.1:8010").trim();
+  const withScheme = /^https?:\/\//.test(configured)
+    ? configured
+    : `https://${configured}`;
+  return withScheme.replace(/\/$/, "");
+})();
 
 /**
  * Headers that describe the CONNECTION rather than the message, and would be
