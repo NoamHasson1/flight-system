@@ -7,11 +7,14 @@ give up or submit it twice. The claim is the valuable thing; the email is a
 courtesy.
 """
 
+import json
 import smtplib
 from unittest.mock import patch
 
+import httpx
 import pytest
 
+from app.email.resend import ResendEmailSender
 from app.email.base import EmailError, EmailMessage, EmailSender
 from app.email.console import ConsoleEmailSender
 from app.email.messages import check_result, claim_submitted
@@ -128,8 +131,8 @@ def test_a_failure_is_logged_with_the_recipient(caplog: pytest.LogCaptureFixture
 # --- The registry -----------------------------------------------------------
 
 
-def test_the_registry_lists_both_senders() -> None:
-    assert AVAILABLE == ("console", "smtp")
+def test_the_registry_lists_every_sender() -> None:
+    assert AVAILABLE == ("console", "smtp", "resend")
 
 
 def test_an_unknown_sender_raises_value_error() -> None:
@@ -241,3 +244,88 @@ def test_the_html_is_a_complete_document() -> None:
     assert html.startswith("<!doctype html>")
     assert "<style>" not in html  # stripped by most clients
     assert 'role="presentation"' in html  # tables are layout, not data
+
+
+# --- Resend, for hosts that close the SMTP ports -----------------------------
+
+
+def test_resend_sends_over_https() -> None:
+    """The reason this adapter exists.
+
+    Render, Fly and most managed hosts shut ports 25, 465 and 587 -- a rented
+    container that can open an SMTP connection is a spam relay waiting to be
+    found. The symptom is exact and unhelpful: "[Errno 101] Network is
+    unreachable", with correct credentials and correct settings.
+
+    Port 443 is open.
+    """
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"id": "re_123"})
+
+    sender = ResendEmailSender(
+        "re_test_key", "Skyclaim <ops@example.com>",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    assert sender.send(_message()) is True
+
+    request = seen[0]
+    assert str(request.url).startswith("https://")
+    assert request.headers["Authorization"] == "Bearer re_test_key"
+    body = json.loads(request.content)
+    assert body["to"] == ["noam@example.com"]
+    assert body["text"] and body["html"], "both parts, or it scores as spam"
+
+
+def test_resend_reports_a_refusal_in_the_provider_s_own_words() -> None:
+    """The two refusals that actually happen -- an unverified sending domain,
+    and a free account that may only write to its owner -- are explained
+    clearly by Resend and not at all by a status code.
+
+    Swallowing that makes "why did that one customer not get their
+    confirmation" unanswerable.
+    """
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            403,
+            json={"message": "You can only send testing emails to your own "
+                             "email address"},
+        )
+
+    sender = ResendEmailSender(
+        "re_test_key", "onboarding@resend.dev",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    assert sender.send(_message()) is False
+
+
+def test_resend_never_raises() -> None:
+    """A failed email must not fail the thing it reported on. Somebody who
+    files a claim and sees an error assumes it did not go through."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("no route to host")
+
+    sender = ResendEmailSender(
+        "re_test_key", "ops@example.com",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    assert sender.send(_message()) is False
+
+
+def test_resend_refuses_to_be_built_without_a_key() -> None:
+    """At construction, not at the first send: a missing key that only
+    surfaces when somebody files a claim is one nobody notices until it has
+    already cost something."""
+    with pytest.raises(ValueError, match="no API key"):
+        ResendEmailSender("", "ops@example.com")
+
+
+def _message() -> EmailMessage:
+    return EmailMessage(
+        to="noam@example.com",
+        subject="[Skyclaim] Noam Hasson · ELIGIBLE",
+        text="plain",
+        html="<p>rich</p>",
+    )

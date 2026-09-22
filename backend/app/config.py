@@ -20,7 +20,7 @@ from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.email.registry import AVAILABLE as EMAIL_SENDERS
-from app.email.registry import CONSOLE
+from app.email.registry import CONSOLE, RESEND
 from app.providers.registry import AVAILABLE, CHAIN_SEPARATOR, FAKE, IAA
 
 
@@ -111,6 +111,12 @@ class Settings(BaseSettings):
     # handful a day. Turn it off when that stops being true: an inbox nobody
     # reads is worse than no inbox, and the claims are the part that is work.
     ops_notify_checks: bool = True
+
+    # Resend, for hosts that close the SMTP ports -- which is most of them.
+    # Render, Fly and the rest shut 25, 465 and 587, because a rented container
+    # that can open an SMTP connection is a spam relay waiting to be found.
+    # Port 443 is open, so mail goes over an HTTP API instead.
+    resend_api_key: str = ""
 
     smtp_host: str = ""
     smtp_port: int = 587
@@ -222,6 +228,10 @@ class Settings(BaseSettings):
         do not want accumulating in a production log aggregator.
         """
         return self.log_flow and not self.is_production
+
+    @property
+    def email_needs_a_key(self) -> bool:
+        return self.email_sender == RESEND
 
     @property
     def email_needs_a_server(self) -> bool:

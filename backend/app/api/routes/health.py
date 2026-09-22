@@ -76,7 +76,9 @@ def readiness(
     else:
         checks["flight_provider"] = f"{settings.flight_provider}: ok"
 
-    if settings.email_needs_a_server and not settings.smtp_host:
+    if settings.email_needs_a_key and not settings.resend_api_key.strip():
+        checks["email"] = "resend selected but RESEND_API_KEY is not set"
+    elif settings.email_needs_a_server and not settings.smtp_host:
         # Worth failing readiness over, for the same reason as a missing API
         # key: nothing errors, nothing alerts, and every customer quietly stops
         # receiving the confirmation that tells them their claim exists.
