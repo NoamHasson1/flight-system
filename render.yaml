@@ -88,10 +88,19 @@ services:
     dockerContext: ./backend
     plan: free
     healthCheckPath: /health
-    # Migrations run as a release step, before the new version serves traffic
-    # and never as part of starting up -- a container that migrates on boot
-    # runs several at once the moment there is more than one instance.
-    preDeployCommand: alembic upgrade head
+    # A pre-deploy command would go here, and cannot: the free tier does not
+    # support one. So the schema is applied by hand, once, against the
+    # database's external connection string:
+    #
+    #   DATABASE_URL='<external URL from the Render dashboard>' \
+    #     uv run alembic upgrade head
+    #
+    # Migrating on startup instead would be the easy way out and is the wrong
+    # habit to build: a container that migrates as it boots runs several at
+    # once the moment there is more than one instance, and a half-applied
+    # schema is worse than a late deploy. Restore this line with the paid plan:
+    #
+    #   preDeployCommand: alembic upgrade head
     envVars:
       - key: DATABASE_URL
         fromDatabase:
