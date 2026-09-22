@@ -1,0 +1,116 @@
+# Everything this system runs, declared rather than clicked.
+#
+#   Render → New → Blueprint → pick this repository
+#
+# Two secrets are deliberately NOT here -- ENCRYPTION_KEYS and
+# AERODATABOX_API_KEY are marked `sync: false`, so Render asks for them once
+# and stores them itself. A secret committed to a repository is a secret in
+# every clone of it, forever, and this repository is public.
+
+databases:
+  - name: flight-db
+    databaseName: flight_system
+    user: flight
+    # NOT the free plan. Render deletes a free database after 30 days, and this
+    # one holds the archive -- the only copy of flight data that no vendor will
+    # sell back. A few dollars a month against data that cannot be recreated is
+    # not a decision worth thinking about.
+    plan: basic-256mb
+
+services:
+  # --- the archive ---------------------------------------------------------
+  #
+  # Deployed FIRST and deployable alone: it is the only part of this system
+  # where being down destroys something. The website being offline costs a
+  # visitor; the archive being offline costs a day of Ben Gurion that nobody
+  # sells back. A laptop running this lost 40% of three days to sleep.
+  - type: cron
+    name: flight-archive
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    schedule: "*/15 * * * *"
+    dockerCommand: python -m app.tasks.archive_board
+    plan: starter
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: flight-db
+          property: connectionString
+      - key: ENCRYPTION_KEYS
+        sync: false
+
+  # Once a day, buying the far end of disrupted flights while the paid feed
+  # still sells it: it keeps about a year, and a passenger has four.
+  - type: cron
+    name: flight-enrich
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    schedule: "30 3 * * *"
+    dockerCommand: python -m app.tasks.enrich --min-delay 1
+    plan: starter
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: flight-db
+          property: connectionString
+      - key: ENCRYPTION_KEYS
+        sync: false
+      - key: FLIGHT_PROVIDER
+        value: aerodatabox
+      - key: AERODATABOX_API_KEY
+        sync: false
+
+  # --- the application -----------------------------------------------------
+
+  - type: web
+    name: flight-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: starter
+    healthCheckPath: /health
+    # Migrations run as a release step, before the new version serves traffic
+    # and never as part of starting up -- a container that migrates on boot
+    # runs several at once the moment there is more than one instance.
+    preDeployCommand: alembic upgrade head
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: flight-db
+          property: connectionString
+      - key: ENVIRONMENT
+        value: production
+      - key: ENCRYPTION_KEYS
+        sync: false
+      - key: AERODATABOX_API_KEY
+        sync: false
+      - key: FLIGHT_PROVIDER
+        value: iaa+aerodatabox
+      - key: OPS_EMAIL
+        sync: false
+      - key: PUBLIC_BASE_URL
+        fromService:
+          name: flight-frontend
+          type: web
+          property: host
+      # The admin API lists every customer's name and email, so it stays shut
+      # until somebody deliberately sets a key.
+      - key: ADMIN_API_KEY
+        sync: false
+
+  - type: web
+    name: flight-frontend
+    runtime: docker
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
+    plan: starter
+    envVars:
+      # Read when a request arrives, not baked into the image, so the same
+      # build runs in staging and production.
+      - key: BACKEND_ORIGIN
+        fromService:
+          name: flight-backend
+          type: web
+          property: hostport

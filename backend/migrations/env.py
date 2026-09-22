@@ -45,7 +45,10 @@ if _dotenv.is_file():
         os.environ.setdefault(_name.strip(), _value.strip())
 
 from app.db.models import Base  # noqa: E402
-from app.db.session import DEFAULT_DATABASE_URL  # noqa: E402
+from app.db.session import (  # noqa: E402
+    DEFAULT_DATABASE_URL,
+    normalise_database_url,
+)
 
 config = context.config
 
@@ -75,7 +78,7 @@ def database_url() -> str:
     without this the tests would silently migrate the real database instead.
     Otherwise the environment, and only then the default.
     """
-    return (
+    return normalise_database_url(
         config.get_main_option("sqlalchemy.url")
         or os.environ.get("DATABASE_URL")
         or DEFAULT_DATABASE_URL

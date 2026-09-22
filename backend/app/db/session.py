@@ -19,6 +19,24 @@ from app.observability import flow
 DEFAULT_DATABASE_URL = "sqlite:///./flight_system.db"
 
 
+def normalise_database_url(url: str) -> str:
+    """Accept the URL a managed host hands out, not only the one we would write.
+
+    Render, Heroku, Fly and most others set DATABASE_URL to `postgres://...`,
+    a scheme SQLAlchemy 2.0 removed, or to `postgresql://...`, which selects
+    psycopg2 -- a driver this project does not install. Either one fails at
+    startup with an error about dialects that says nothing about the actual
+    problem, which is that nobody gets to choose the format of that variable.
+
+    So it is corrected here, once, rather than by remembering to paste a
+    hand-edited URL into a dashboard.
+    """
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg://" + url[len(prefix):]
+    return url
+
+
 def create_db_engine(url: str = DEFAULT_DATABASE_URL, *, echo: bool = False) -> Engine:
     """Build an engine with SQLite's defaults corrected.
 
@@ -26,6 +44,7 @@ def create_db_engine(url: str = DEFAULT_DATABASE_URL, *, echo: bool = False) -> 
     which silently turns every relationship into a suggestion. The claims tables
     in step 15 depend on them, so they are switched on for every connection.
     """
+    url = normalise_database_url(url)
     connect_args = {"check_same_thread": False} if url.startswith("sqlite") else {}
     engine = create_engine(url, echo=echo, future=True, connect_args=connect_args)
 
