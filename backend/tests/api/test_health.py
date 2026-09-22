@@ -268,3 +268,34 @@ def test_a_deployment_refuses_to_start_without_the_key() -> None:
 
     for environment in ("development", "test"):
         Settings(environment=environment, encryption_keys="", _env_file=None)
+
+
+def test_readiness_asks_each_sender_for_what_it_actually_needs(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """A correctly configured Resend deployment must not report itself broken.
+
+    The check asked whether the sender was "not the console", which was true
+    while there were two senders and wrong the moment a third arrived that
+    speaks HTTP and has no server to name. It demanded SMTP_HOST of a sender
+    that will never have one.
+
+    Asking what something is NOT stops being true as soon as the set grows.
+    """
+    from app.config import Settings
+    from app.main import create_app
+
+    app = create_app(
+        Settings(
+            environment="staging",
+            database_url=f"sqlite:///{tmp_path / 'ready.db'}",
+            encryption_keys="0O9XEQS9wAUbHEXvN3ynIAHzHcv5SCE_FUdc-sSGYRQ=",
+            email_sender="resend",
+            resend_api_key="re_test",
+            email_from="Skyclaim <onboarding@resend.dev>",
+            flight_provider="fake",
+        )
+    )
+    with TestClient(app) as client:
+        body = client.get("/health/ready").json()
+
+    assert body["checks"]["email"] == "resend: ok", body["checks"]["email"]
+    assert "SMTP_HOST" not in body["checks"]["email"]

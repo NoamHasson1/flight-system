@@ -20,7 +20,7 @@ from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.email.registry import AVAILABLE as EMAIL_SENDERS
-from app.email.registry import CONSOLE, RESEND
+from app.email.registry import CONSOLE, RESEND, SMTP
 from app.providers.registry import AVAILABLE, CHAIN_SEPARATOR, FAKE, IAA
 
 
@@ -235,7 +235,18 @@ class Settings(BaseSettings):
 
     @property
     def email_needs_a_server(self) -> bool:
-        return self.email_sender != CONSOLE
+        """SMTP specifically, not "anything that is not the console".
+
+        It said `!= CONSOLE`, which was true while there were only two
+        senders, and became wrong the moment a third arrived that speaks HTTP
+        and has no server to name. A correctly configured Resend deployment
+        reported itself degraded for want of SMTP_HOST -- a setting it will
+        never have.
+
+        The lesson is the shape of the test: asking what something is NOT
+        stops being true the moment the set grows.
+        """
+        return self.email_sender == SMTP
 
     @property
     def admin_api_enabled(self) -> bool:
