@@ -24,7 +24,11 @@ from app.api.deps import (
 from app.config import Settings
 from app.email.base import EmailSender
 from app.observability import flow
-from app.services.notifications import notify_ops_check, send_check_result
+from app.services.notifications import (
+    notify_ops_check,
+    ops_wants_this_check,
+    send_check_result,
+)
 from app.db.repositories import get_check, record_check
 from app.providers.base import FlightDataProvider
 from app.schemas.eligibility import (
@@ -103,9 +107,15 @@ async def check_eligibility(
     # no longer asked for one up front, so most checks have none. A result
     # email nobody asked for is spam however useful we think it is.
     #
-    # The company is written to either way, when configured: a check nobody
-    # left their details on is still the company's business.
-    wants_copy = settings.ops_email.strip() and settings.ops_notify_checks
+    # The company is written to when this check is the END of the customer's
+    # journey -- a "no", or a failure of ours. An eligible customer is on their
+    # way to the claim form, and that produces one message containing
+    # everything this one would have said. One person, one row in the inbox.
+    wants_copy = bool(
+        settings.ops_email.strip()
+        and settings.ops_notify_checks
+        and ops_wants_this_check(row.verdict)
+    )
     if payload.contact_email or wants_copy:
         background.add_task(
             _email_result, row.id, sender, settings.public_base_url,
@@ -134,7 +144,9 @@ def _email_result(
                 send_check_result(sender, row, base_url=base_url)
                 # The company's copy goes out whether or not the customer left
                 # an address -- most will not, now that they are only asked
-                # once there is something to claim.
+                # once there is something to claim. `notify_ops_check` applies
+                # the one-email-per-customer rule itself, so passing a row it
+                # does not want is harmless.
                 if ops_email:
                     notify_ops_check(sender, row, to=ops_email, base_url=base_url)
     except Exception:  # noqa: BLE001

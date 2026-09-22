@@ -12,6 +12,7 @@ address is not an error, it is a customer who did not ask to be emailed.
 from __future__ import annotations
 
 import logging
+from uuid import UUID
 
 from app.db.models import Claim, EligibilityCheck
 from app.email.base import EmailSender
@@ -129,6 +130,52 @@ def _symbol(currency: str | None) -> str:
 # --- What the company hears --------------------------------------------------
 
 
+# The verdicts whose journey ENDS at the result screen. These get the company's
+# copy immediately, because nothing else is coming.
+#
+# The other two -- ELIGIBLE and LIKELY_ELIGIBLE -- are silent here. Their
+# customer is on their way to the claim form, and that form produces a message
+# containing everything this one would have said and much more. Sending both
+# means two inbox rows for one person, and an inbox where a row is not a person
+# is an inbox nobody can work from.
+_ENDS_HERE = frozenset({"NOT_ELIGIBLE", "NEEDS_REVIEW"})
+
+# Six hex characters of the check's UUID. Long enough that a collision needs
+# sixteen million checks, short enough to read down a phone screen and to
+# survive the subject-line truncation every mail client does.
+_REFERENCE_LENGTH = 6
+
+
+def ops_reference(check_id: UUID) -> str:
+    """The short handle for a check, as it appears in the subject line.
+
+    Derived rather than stored: the UUID is already the identity, and a second
+    identifier would be a second thing to keep in step. Taken from the front of
+    the UUID because that is what somebody reading a URL will recognise.
+    """
+    return str(check_id).replace("-", "")[:_REFERENCE_LENGTH].upper()
+
+
+def ops_wants_this_check(verdict: str | None) -> bool:
+    """Whether a finished check is worth the company's inbox on its own.
+
+    ONE EMAIL PER CUSTOMER is the rule, and the last step of their journey is
+    where it belongs -- so an eligible customer is heard from once, when they
+    submit, not twice.
+
+    NEEDS_REVIEW is in the set for a different reason than NOT_ELIGIBLE. It is
+    not the customer's answer, it is OUR failure: an airline missing from
+    airlines.csv, an airport we do not recognise, a status nobody has seen.
+    Waiting for a submission that may never come would make us blind to our own
+    data gaps -- and that email is exactly how forty-three missing carriers were
+    found. It is the cheapest monitoring in this system.
+
+    A verdict of None means the check never decided at all, which is the same
+    kind of failure and is treated the same way.
+    """
+    return verdict is None or verdict in _ENDS_HERE
+
+
 def notify_ops_check(
     sender: EmailSender,
     check: EligibilityCheck,
@@ -136,14 +183,28 @@ def notify_ops_check(
     to: str,
     base_url: str,
 ) -> bool:
-    """Copy a completed check to the company inbox.
+    """Copy a completed check to the company inbox, if it is one we want.
 
     Deliberately fire-and-forget and deliberately unrecorded: unlike the
     customer's confirmation, a duplicate here costs nothing worse than a
     duplicate line in a mailbox, and adding a column to track it would be
     bookkeeping for a problem nobody has.
+
+    The filter lives here rather than at the call site so that every caller --
+    the route today, a replay or a backfill tomorrow -- gets the same answer to
+    "should this have been sent?".
     """
     if not to.strip():
+        return False
+
+    if not ops_wants_this_check(check.verdict):
+        # Not silence for its own sake: this customer is mid-journey, and the
+        # claim they are about to submit carries everything this would have.
+        logger.info(
+            "check %s is %s; the company hears about it when they submit",
+            check.id,
+            check.verdict,
+        )
         return False
 
     snapshot = check.flight_snapshot or {}
@@ -161,6 +222,7 @@ def notify_ops_check(
         regulation=check.best_regulation,
         reason=check.message,
         contact_name=check.contact_name,
+        reference=ops_reference(check.id),
         check_url=f"{base_url.rstrip('/')}/check/{check.id}",
     )
     return sender.send(message)

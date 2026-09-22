@@ -5,12 +5,14 @@ rules: who gets an email, who does not, and what happens when the mail server
 is down.
 """
 
+from collections.abc import Iterator
 from datetime import date
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.config import Settings
 from app.db.claims import add_passenger, create_claim, submit_claim
 from app.db.repositories import record_check
 from app.db.session import (
@@ -25,6 +27,7 @@ from app.services.eligibility import check as run_check
 from app.services.notifications import (
     notify_ops_check,
     notify_ops_claim,
+    ops_reference,
     send_check_result,
     send_claim_confirmation,
 )
@@ -304,11 +307,14 @@ async def test_the_subject_line_carries_the_whole_story(session: Session) -> Non
 
     "New claim" tells nobody anything. The verdict, the amount, the flight and
     the name mean the inbox is usable without opening a single message.
+
+    Asked of the CLAIM, because that is where an eligible customer's one email
+    now comes from -- the check that preceded it is deliberately silent.
     """
     sender = Recorder()
     claim = await a_claim(session)
 
-    notify_ops_check(sender, claim.check, to="ops@example.com", base_url="http://x")
+    notify_ops_claim(sender, claim, to="ops@example.com", base_url="http://x")
 
     subject = sender.sent[0].subject
     assert "ELIGIBLE" in subject
@@ -405,15 +411,18 @@ async def test_a_check_with_no_name_leads_with_the_flight(session: Session) -> N
 
     It says the flight rather than inventing an "Unknown", which would sort
     every anonymous check into one indistinguishable pile.
+
+    LY325 rather than BA165: an anonymous check only reaches the inbox when it
+    is the end of the journey, and BA165 qualifies.
     """
     sender = Recorder()
-    claim = await a_claim(session)
+    claim = await a_claim(session, "LY325")
     claim.check.contact_name = None
 
     notify_ops_check(sender, claim.check, to="ops@example.com", base_url="http://x")
 
     subject = sender.sent[0].subject
-    assert "BA165" in subject
+    assert "LY325" in subject
     assert "Unknown" not in subject and "Anonymous" not in subject
 
 
@@ -431,3 +440,207 @@ async def test_a_flight_that_does_not_qualify_is_four_lines(session: Session) ->
     body = sender.sent[0].text
     assert "NOT ELIGIBLE" in sender.sent[0].subject
     assert len([line for line in body.splitlines() if line.strip()]) <= 6, body
+
+
+# --- One email per customer --------------------------------------------------
+#
+# The rule: a person produces ONE row in the company's inbox, at the END of
+# their journey. A "no" ends it at the result screen, so that is where their
+# email comes from. A "yes" does not -- they are on their way to the claim
+# form, which produces a message containing everything this one would have
+# said. Sending both would mean two rows for one person, and an inbox where a
+# row is not a person is an inbox nobody can work from.
+#
+# These are written against the OBSERVABLE behaviour -- what arrives and what
+# does not -- rather than against the predicate, because the predicate is an
+# implementation detail and "how many emails did that customer generate" is
+# the thing that was actually asked for.
+
+
+@pytest.mark.parametrize(
+    ("number", "verdict"),
+    [("LY325", "NOT_ELIGIBLE"), ("ZZ999", "NEEDS_REVIEW")],
+)
+async def test_an_ending_verdict_is_emailed_immediately(
+    session: Session, number: str, verdict: str
+) -> None:
+    """Nothing else is coming, so this is the message.
+
+    NEEDS_REVIEW is here for a different reason than NOT_ELIGIBLE: it is not
+    the customer's answer but OUR failure -- a carrier missing from
+    airlines.csv, an airport we do not recognise. Waiting for a submission that
+    may never come would make us blind to our own data gaps, and this email is
+    exactly how forty-three missing carriers were found.
+    """
+    sender = Recorder()
+    claim = await a_claim(session, number)
+    assert claim.check.verdict == verdict, "the fixture no longer tests what it says"
+
+    assert notify_ops_check(
+        sender, claim.check, to="ops@example.com", base_url="http://x"
+    )
+    assert len(sender.sent) == 1
+
+
+@pytest.mark.parametrize("number", ["BA165", "LH687"])
+async def test_a_qualifying_check_is_silent(session: Session, number: str) -> None:
+    """ELIGIBLE and LIKELY_ELIGIBLE both wait.
+
+    Not silence for its own sake: this customer is mid-journey, and the claim
+    they are about to submit carries everything this would have carried.
+    """
+    sender = Recorder()
+    claim = await a_claim(session, number)
+
+    assert notify_ops_check(
+        sender, claim.check, to="ops@example.com", base_url="http://x"
+    ) is False
+    assert sender.sent == []
+
+
+async def test_an_undecided_check_is_still_reported(session: Session) -> None:
+    """A check that never reached a verdict is a failure of ours, not an
+    answer, and is treated like NEEDS_REVIEW.
+
+    Staying quiet about it would mean a provider could break completely and
+    the inbox would simply go calm -- which reads exactly like a quiet day.
+    """
+    sender = Recorder()
+    claim = await a_claim(session, "XX999")
+    assert claim.check.verdict is None
+
+    assert notify_ops_check(
+        sender, claim.check, to="ops@example.com", base_url="http://x"
+    )
+    assert len(sender.sent) == 1
+
+
+async def test_a_claim_produces_exactly_one_email_end_to_end(
+    session: Session,
+) -> None:
+    """THE test in this section.
+
+    The whole journey of somebody who qualifies: they check, they are told
+    yes, they fill the form in, they submit. The company hears about them once.
+
+    Before this rule they were heard about twice -- a check email and a claim
+    email, two rows in the inbox for one person, and no way for whoever works
+    that inbox to tell that they were the same person.
+    """
+    sender = Recorder()
+    claim = await a_claim(session, "LH687")
+
+    # What the customer's journey actually triggers, in order.
+    notify_ops_check(sender, claim.check, to="ops@example.com", base_url="http://x")
+    submit_claim(session, claim)
+    notify_ops_claim(sender, claim, to="ops@example.com", base_url="http://x")
+
+    assert len(sender.sent) == 1, [m.subject for m in sender.sent]
+    assert claim.contact_name in sender.sent[0].subject
+
+
+async def test_two_identical_anonymous_checks_do_not_collide(
+    session: Session,
+) -> None:
+    """A mail client threads on the subject, so an identical one HIDES a message.
+
+    Two people checking the same flight on the same day is not hypothetical --
+    it is what a cancellation looks like. It happened here within a minute of
+    the feature going live: two checks of BZ734 collapsed into one row and the
+    inbox showed three emails where four had been sent.
+
+    The assertion is DISTINCTNESS rather than "the subject contains the
+    reference", because distinctness is the property that keeps a message
+    visible; how it is achieved is not the point.
+    """
+    sender = Recorder()
+    first = await a_claim(session, "LY325")
+    second = await a_claim(session, "LY325")
+    for claim in (first, second):
+        claim.check.contact_name = None
+    session.flush()
+
+    for claim in (first, second):
+        notify_ops_check(sender, claim.check, to="ops@example.com", base_url="http://x")
+
+    subjects = [message.subject for message in sender.sent]
+    assert len(subjects) == 2
+    assert subjects[0] != subjects[1], subjects
+
+
+async def test_the_reference_in_the_subject_finds_the_row(session: Session) -> None:
+    """The reference is a search key, not decoration.
+
+    Somebody forwards an ops email and asks "which check was this?". Pasting
+    the token into the admin API or the database has to answer that, which
+    means it must be derived from the id rather than invented.
+    """
+    sender = Recorder()
+    claim = await a_claim(session, "LY325")
+
+    notify_ops_check(sender, claim.check, to="ops@example.com", base_url="http://x")
+
+    reference = ops_reference(claim.check.id)
+    assert reference in sender.sent[0].subject
+    assert reference in sender.sent[0].text
+    assert str(claim.check.id).replace("-", "").upper().startswith(reference)
+
+
+# --- The same rule, over HTTP ------------------------------------------------
+#
+# The service-level tests above prove the decision. These prove the ROUTE asks
+# for it -- that the rule is not sitting in a function nobody calls.
+
+
+@pytest.fixture
+def ops_client(app, settings: Settings) -> Iterator[TestClient]:  # type: ignore[no-untyped-def]
+    """A client whose settings name a company inbox, as a deployment does.
+
+    Copied from the shared settings rather than built fresh, so the background
+    task -- which opens its own engine from `database_url` -- reaches the same
+    database the request wrote to. A second URL here produces "no such table",
+    which is a fixture bug wearing the costume of a real one.
+    """
+    from app.api.deps import get_settings_dependency
+
+    configured = settings.model_copy(update={"ops_email": "ops@example.com"})
+    app.dependency_overrides[get_settings_dependency] = lambda: configured
+    with TestClient(app) as test_client:
+        create_all(app.state.engine)
+        yield test_client
+
+
+def test_over_http_a_qualifying_check_tells_the_company_nothing(
+    ops_client: TestClient,
+) -> None:
+    """The customer is on their way to the claim form; one email will follow."""
+    from app.api.deps import get_email_sender
+
+    sender = Recorder()
+    ops_client.app.dependency_overrides[get_email_sender] = lambda: sender  # type: ignore[attr-defined]
+
+    response = ops_client.post(
+        "/api/v1/eligibility/check",
+        json={"flight_number": "BA165", "flight_date": "2026-08-14"},
+    )
+
+    assert response.json()["verdict"] == "ELIGIBLE"
+    assert sender.sent == [], [m.subject for m in sender.sent]
+
+
+def test_over_http_a_rejection_reaches_the_company(ops_client: TestClient) -> None:
+    """Their journey ends at the result screen, so this is their one email."""
+    from app.api.deps import get_email_sender
+
+    sender = Recorder()
+    ops_client.app.dependency_overrides[get_email_sender] = lambda: sender  # type: ignore[attr-defined]
+
+    response = ops_client.post(
+        "/api/v1/eligibility/check",
+        json={"flight_number": "LY325", "flight_date": "2026-08-14"},
+    )
+
+    assert response.json()["verdict"] == "NOT_ELIGIBLE"
+    assert len(sender.sent) == 1
+    assert sender.sent[0].to == "ops@example.com"
+    assert "LY325" in sender.sent[0].subject

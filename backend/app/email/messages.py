@@ -310,19 +310,37 @@ def _plain(html: str) -> str:
 # must not have to open the system to do so.
 
 
-def _ops_subject(name: str | None, verdict: str, flight: str, day: str) -> str:
-    """Name first, then what happened, then which flight.
+def _ops_subject(
+    name: str | None, verdict: str, flight: str, day: str, ref: str | None = None
+) -> str:
+    """Name first, then what happened, then which flight, then a reference.
 
     The name is missing for a bare eligibility check: the first screen asks for
     a flight number and a date and nothing else, deliberately, because a field
     between somebody and their answer costs more than it collects. So those
     subjects lead with the flight instead -- and say so, rather than inventing
     an "Unknown" that would sort into a pile of its own.
+
+    WHY THE REFERENCE IS NOT OPTIONAL DECORATION
+    --------------------------------------------
+    Without it, two anonymous people checking the same flight on the same day
+    produce a BYTE-IDENTICAL subject, and Gmail threads on the subject. The
+    second one is not shown as a new message; it is folded inside the first,
+    where nobody looks.
+
+    That is not hypothetical. It happened here within a minute: two checks of
+    BZ734 on 19 September collapsed into one row, and the inbox showed three
+    emails where four had been sent.
+
+    A name is discriminator enough for a claim, which is why one is only passed
+    for a check. The reference doubles as a search key -- paste it into Gmail
+    or into the admin API and you get that exact record.
     """
     who = (name or "").strip()
     lead = who if who else f"{flight} {day}"
     tail = f" · {flight} {day}" if who else ""
-    return f"[{BRAND}] {lead} · {verdict}{tail}"
+    mark = f" · {ref}" if ref else ""
+    return f"[{BRAND}] {lead} · {verdict}{tail}{mark}"
 
 
 def ops_check_recorded(
@@ -337,16 +355,23 @@ def ops_check_recorded(
     regulation: str | None,
     reason: str | None,
     contact_name: str | None = None,
+    reference: str | None = None,
     check_url: str,
 ) -> EmailMessage:
-    """Somebody checked a flight and did not go further.
+    """Somebody checked a flight and this is where their journey ended.
 
     Short on purpose. Nobody has left their details at this point, so there is
     nothing to act on -- this is the record that somebody asked, and the place
     a wrong answer would first be noticed.
+
+    Only sent for the answers that end the journey. An eligible customer gets
+    no message here; theirs arrives once, complete, when they submit. See
+    `ops_wants_this_check`.
     """
     headline = _verdict_headline(verdict, status, amount, regulation)
-    subject = _ops_subject(contact_name, headline, flight_number, flight_date)
+    subject = _ops_subject(
+        contact_name, headline, flight_number, flight_date, reference
+    )
 
     rows: list[tuple[str, str]] = [
         ("Flight", f"{flight_number} · {flight_date}"),
@@ -357,6 +382,10 @@ def ops_check_recorded(
         rows.insert(0, ("Customer", contact_name))
     if reason:
         rows.append(("Why", reason))
+    # Last, because it is the one line nobody reads until they need it -- and
+    # then it is the only line that matters.
+    if reference:
+        rows.append(("Reference", reference))
 
     body = (
         f'<table role="presentation" cellpadding="0" cellspacing="0" '
