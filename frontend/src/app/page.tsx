@@ -14,7 +14,31 @@ import { strings } from "@/lib/strings";
  * A server component: nothing above the form needs JavaScript, so nothing
  * above the form waits for it.
  */
+/**
+ * Wake the backend while the visitor is still typing.
+ *
+ * On a free host a service sleeps after a quarter of an hour and takes most of
+ * a minute to start. Without this, the page loads instantly -- the frontend is
+ * awake, it just served it -- and then the first check waits on a backend that
+ * has not started, which reads as the product being broken rather than asleep.
+ *
+ * Fired and forgotten as the page renders, so by the time somebody has typed a
+ * flight number and a date the backend is up. It is not awaited and its
+ * failure is ignored: this is a nudge, not a dependency, and the page must
+ * render whether or not it lands.
+ */
+function wakeTheBackend(): void {
+  const backend = process.env.BACKEND_ORIGIN;
+  if (!backend) return;
+  const origin = /^https?:\/\//.test(backend) ? backend : `https://${backend}`;
+  void fetch(`${origin.replace(/\/$/, "")}/health`, { cache: "no-store" }).catch(
+    () => {},
+  );
+}
+
 export default function Home() {
+  wakeTheBackend();
+
   return (
     <>
       <Nav />

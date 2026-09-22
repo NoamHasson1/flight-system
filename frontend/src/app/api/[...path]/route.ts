@@ -75,7 +75,7 @@ async function proxy(request: NextRequest, path: string[]): Promise<Response> {
 
   let upstream: Response;
   try {
-    upstream = await fetch(target, {
+    upstream = await reachBackend(target, {
       method: request.method,
       headers,
       body,
@@ -102,6 +102,41 @@ async function proxy(request: NextRequest, path: string[]): Promise<Response> {
   out.delete("transfer-encoding");
 
   return new NextResponse(upstream.body, { status: upstream.status, headers: out });
+}
+
+/**
+ * A backend that is asleep is not a backend that is down.
+ *
+ * On a free host a service stops after a quarter of an hour of quiet and takes
+ * the better part of a minute to start again. The frontend wakes on the page
+ * load; the backend is still asleep when the visitor presses the button
+ * fifteen seconds later, and the first request dies while it boots.
+ *
+ * The customer sees "we could not reach the flight database" -- true, unhelpful
+ * and, a minute later, no longer true. So a connection failure or a gateway
+ * error is retried once, patiently, which is long enough to cover a cold start
+ * and short enough that a genuinely dead backend still fails rather than
+ * hanging.
+ *
+ * A retry is safe here because it only happens when the first attempt never
+ * reached the backend at all: a connection that failed, or a gateway saying it
+ * could not deliver. Nothing was processed, so nothing is repeated.
+ */
+const COLD_START_PATIENCE_MS = 75_000;
+
+async function reachBackend(url: string, init: RequestInit): Promise<Response> {
+  const attempt = () =>
+    fetch(url, { ...init, signal: AbortSignal.timeout(COLD_START_PATIENCE_MS) });
+
+  try {
+    const first = await attempt();
+    if (first.status !== 502 && first.status !== 503 && first.status !== 504) {
+      return first;
+    }
+  } catch {
+    // Fall through: it never arrived, so it cannot have been acted on.
+  }
+  return attempt();
 }
 
 type Context = { params: Promise<{ path: string[] }> };
