@@ -327,8 +327,12 @@ async def test_a_claim_carries_everything_needed_to_act(session: Session) -> Non
     body = sender.sent[0].text
     assert claim.reference in body
     assert claim.contact_email in body
-    assert "Passengers" in body
-    assert "Expenses" in body
+    # Grouped the way it will be used, not as one run-on list: somebody is
+    # about to write to an airline from this and needs to find one fact fast.
+    assert "WHO TO REPLY TO" in body
+    assert "THE CLAIM" in body
+    assert "PASSENGERS" in body
+    assert "OUT OF POCKET" in body
 
 
 async def test_identity_numbers_never_reach_the_inbox(session: Session) -> None:
@@ -351,7 +355,7 @@ async def test_identity_numbers_never_reach_the_inbox(session: Session) -> None:
     message = sender.sent[0]
     assert "312345678" not in message.text
     assert "312345678" not in message.html
-    assert "Passengers (1)" in message.text, "the count should still be visible"
+    assert "PASSENGERS (1)" in message.text, "the count should still be visible"
 
 
 async def test_no_company_address_means_no_email(session: Session) -> None:
@@ -377,3 +381,53 @@ async def test_a_flight_we_could_not_identify_is_still_reported(
         sender, claim.check, to="ops@example.com", base_url="http://x"
     )
     assert sender.sent[0].subject
+
+
+async def test_the_subject_leads_with_the_customer_s_name(session: Session) -> None:
+    """Because that is what anybody searches a mailbox for.
+
+    Somebody rings up and gives their name; you type it into the search box
+    and their claim is there. A subject that leads with a flight number is
+    searchable only by people who already know the flight number.
+    """
+    sender = Recorder()
+    claim = await a_claim(session)
+
+    notify_ops_claim(sender, claim, to="ops@example.com", base_url="http://x")
+
+    subject = sender.sent[0].subject
+    assert subject.index("Noam Hasson") < subject.index("BA165"), subject
+
+
+async def test_a_check_with_no_name_leads_with_the_flight(session: Session) -> None:
+    """The first screen asks for a flight number and a date and nothing else,
+    so most checks have no name attached.
+
+    It says the flight rather than inventing an "Unknown", which would sort
+    every anonymous check into one indistinguishable pile.
+    """
+    sender = Recorder()
+    claim = await a_claim(session)
+    claim.check.contact_name = None
+
+    notify_ops_check(sender, claim.check, to="ops@example.com", base_url="http://x")
+
+    subject = sender.sent[0].subject
+    assert "BA165" in subject
+    assert "Unknown" not in subject and "Anonymous" not in subject
+
+
+async def test_a_flight_that_does_not_qualify_is_four_lines(session: Session) -> None:
+    """There is nothing to do about it, so there is nothing to read.
+
+    Length is how an inbox stops being read. A claim earns a long message; a
+    check that came to nothing earns who, which flight, and why not.
+    """
+    sender = Recorder()
+    claim = await a_claim(session, "LY325")
+
+    notify_ops_check(sender, claim.check, to="ops@example.com", base_url="http://x")
+
+    body = sender.sent[0].text
+    assert "NOT ELIGIBLE" in sender.sent[0].subject
+    assert len([line for line in body.splitlines() if line.strip()]) <= 6, body

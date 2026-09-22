@@ -298,15 +298,31 @@ def _plain(html: str) -> str:
 # doing it from an inbox rather than from a database, because the person who
 # chases an airline is not the person who writes SQL.
 #
-# Two rules follow from that.
+# THE SUBJECT LINE IS THE INDEX, and it leads with the person's NAME. A
+# mailbox is read as a list of subjects, sorted and searched by them, and the
+# thing anybody searches for is a name: somebody rings up, and you find them.
+# "New claim" tells nobody anything; "Noam Hasson - ELIGIBLE ILS1,530" is the
+# whole story before the message is opened.
 #
-# THE SUBJECT LINE IS THE INDEX. It carries the verdict, the amount, the flight
-# and the name, in that order, because a mailbox is read as a list of subjects
-# and sorted and searched by them. "New claim" tells nobody anything.
-#
-# THE BODY IS SELF-CONTAINED. Everything needed to act is in the message:
-# passengers, expenses, what the airline said, the reference to quote. Nobody
-# should have to open the system to understand what arrived.
+# THE BODY IS AS LONG AS THERE IS SOMETHING TO DO. A flight that does not
+# qualify needs four lines: who, which flight, and why not. A claim needs
+# everything, because somebody is about to write to an airline from it and
+# must not have to open the system to do so.
+
+
+def _ops_subject(name: str | None, verdict: str, flight: str, day: str) -> str:
+    """Name first, then what happened, then which flight.
+
+    The name is missing for a bare eligibility check: the first screen asks for
+    a flight number and a date and nothing else, deliberately, because a field
+    between somebody and their answer costs more than it collects. So those
+    subjects lead with the flight instead -- and say so, rather than inventing
+    an "Unknown" that would sort into a pile of its own.
+    """
+    who = (name or "").strip()
+    lead = who if who else f"{flight} {day}"
+    tail = f" · {flight} {day}" if who else ""
+    return f"[{BRAND}] {lead} · {verdict}{tail}"
 
 
 def ops_check_recorded(
@@ -320,36 +336,42 @@ def ops_check_recorded(
     amount: str | None,
     regulation: str | None,
     reason: str | None,
+    contact_name: str | None = None,
     check_url: str,
 ) -> EmailMessage:
-    """Somebody checked a flight. One line of history, filed."""
-    headline = _verdict_headline(verdict, status, amount, regulation)
-    subject = f"[{BRAND}] {headline} · {flight_number} {flight_date}"
+    """Somebody checked a flight and did not go further.
 
-    rows = [
-        _row("Flight", f"{flight_number} &middot; {flight_date}"),
-        _row("Route", route or "not identified"),
-        _row("Result", headline),
+    Short on purpose. Nobody has left their details at this point, so there is
+    nothing to act on -- this is the record that somebody asked, and the place
+    a wrong answer would first be noticed.
+    """
+    headline = _verdict_headline(verdict, status, amount, regulation)
+    subject = _ops_subject(contact_name, headline, flight_number, flight_date)
+
+    rows: list[tuple[str, str]] = [
+        ("Flight", f"{flight_number} · {flight_date}"),
+        ("Route", route or "not identified"),
+        ("Result", headline),
     ]
+    if contact_name:
+        rows.insert(0, ("Customer", contact_name))
     if reason:
-        rows.append(_row("Why", reason))
+        rows.append(("Why", reason))
 
     body = (
         f'<table role="presentation" cellpadding="0" cellspacing="0" '
-        f'style="width:100%;margin:0 0 8px">{"".join(rows)}</table>'
+        f'style="width:100%;margin:0 0 8px">'
+        f'{"".join(_row(label, value) for label, value in rows)}</table>'
         f'<p style="margin:20px 0 0;color:{_SLATE};font-size:13px;line-height:1.6">'
-        f"No action needed unless the result looks wrong. Nobody has left "
-        f"their details at this point &mdash; they are only asked for those if "
-        f"they go on to claim.</p>"
+        f"Nothing to do unless this looks wrong. They have not left their "
+        f"details &mdash; those are only asked for if they go on to claim.</p>"
     )
-    html = _shell(title=headline, body=body, action=(check_url, "Open this check"))
-    return EmailMessage(to=to, subject=subject, html=html, text=_plain(_as_text(
-        [("Flight", f"{flight_number} · {flight_date}"),
-         ("Route", route or "not identified"),
-         ("Result", headline)]
-        + ([("Why", reason)] if reason else []),
-        footer=f"Open this check: {check_url}",
-    )))
+    return EmailMessage(
+        to=to,
+        subject=subject,
+        html=_shell(title=headline, body=body, action=(check_url, "Open this check")),
+        text=_plain(_as_text(rows, footer=f"Open this check: {check_url}")),
+    )
 
 
 def ops_claim_submitted(
@@ -373,7 +395,12 @@ def ops_claim_submitted(
     cancellation_notice: str | None,
     claim_url: str,
 ) -> EmailMessage:
-    """Somebody finished a claim. This one is work to be done.
+    """Somebody finished. This one is work to be done.
+
+    Everything needed to act on it is in the message, grouped the way it will
+    be used: who to reply to, what is being claimed, who was on the aircraft,
+    what it cost them, and what the airline said. Somebody is about to write to
+    an airline from this and must not have to open the system first.
 
     Identity numbers are deliberately absent. They are encrypted at rest for a
     reason, and copying them into an inbox -- unencrypted, forwarded, backed up
@@ -381,78 +408,99 @@ def ops_claim_submitted(
     count is here so it is obvious they were collected; the numbers stay in the
     system.
     """
-    money = f" {amount}" if amount else ""
-    subject = (
-        f"[{BRAND}] CLAIM{money} &middot; {flight_number} {flight_date} "
-        f"&middot; {contact_name}"
-    ).replace("&middot;", "·")
+    owed = _verdict_headline(verdict, "DECIDED", amount, regulation)
+    subject = _ops_subject(contact_name, owed, flight_number, flight_date)
 
-    people = "<br>".join(
-        f"{name}{' (minor)' if minor else ''}" for name, minor in passengers
-    ) or "none listed"
-    costs = "<br>".join(f"{what} &mdash; {how_much}" for what, how_much in expenses)
-    docs = "<br>".join(documents)
-
-    rows = [
-        _row("Reference", f"<strong>{reference}</strong>"),
-        _row("Claim for", f"{amount or 'amount not established'}"
-             + (f" under {regulation}" if regulation else "")),
-        _row("Flight", f"{flight_number} &middot; {flight_date}"
-             + (f" &middot; {route}" if route else "")),
-        _row("Verdict", verdict or "not decided"),
-        _row("Contact", f"{contact_name}<br>{contact_email}"
-             + (f"<br>{contact_phone}" if contact_phone else "")),
-        _row(f"Passengers ({len(passengers)})", people),
+    groups: list[tuple[str, list[tuple[str, str]]]] = [
+        (
+            "Who to reply to",
+            [
+                ("Name", contact_name),
+                ("Email", contact_email),
+                *([("Phone", contact_phone)] if contact_phone else []),
+                ("Reference", reference),
+            ],
+        ),
+        (
+            "The claim",
+            [
+                ("Owed", f"{amount or 'amount not established'}"
+                 + (f" under {regulation}" if regulation else "")),
+                ("Flight", f"{flight_number} · {flight_date}"
+                 + (f" · {route}" if route else "")),
+                ("Verdict", verdict or "not decided"),
+                *([("Booking", booking_reference)] if booking_reference else []),
+            ],
+        ),
+        (
+            f"Passengers ({len(passengers)})",
+            [
+                (name, "minor" if minor else "adult")
+                for name, minor in passengers
+            ] or [("none listed", "")],
+        ),
+        (
+            f"Out of pocket ({len(expenses)})",
+            list(expenses) or [("none claimed", "")],
+        ),
+        (
+            f"Documents ({len(documents)})",
+            [(name, "") for name in documents] or [("none uploaded", "")],
+        ),
     ]
-    if booking_reference:
-        rows.append(_row("Booking", booking_reference))
-    if cancellation_notice:
-        rows.append(_row("Notice", _NOTICE_WORDS.get(
-            cancellation_notice, cancellation_notice)))
-    if airline_reason:
-        rows.append(_row("Airline said", airline_reason))
-    rows.append(_row(f"Expenses ({len(expenses)})", costs or "none claimed"))
-    rows.append(_row(f"Documents ({len(documents)})", docs or "none uploaded"))
 
-    body = (
-        f'<table role="presentation" cellpadding="0" cellspacing="0" '
-        f'style="width:100%;margin:0 0 8px">{"".join(rows)}</table>'
-    )
-    html = _shell(
-        title=f"New claim &middot; {amount or 'amount to confirm'}",
-        body=body,
-        action=(claim_url, "Open this claim"),
-    )
-
-    text_rows: list[tuple[str, str]] = [
-        ("Reference", reference),
-        ("Claim for", (amount or "amount not established")
-         + (f" under {regulation}" if regulation else "")),
-        ("Flight", f"{flight_number} · {flight_date}" + (f" · {route}" if route else "")),
-        ("Verdict", verdict or "not decided"),
-        ("Contact", f"{contact_name}, {contact_email}"
-         + (f", {contact_phone}" if contact_phone else "")),
-        (f"Passengers ({len(passengers)})",
-         ", ".join(f"{n}{' (minor)' if m else ''}" for n, m in passengers) or "none"),
+    # Only worth a heading when there is something under it.
+    answers = [
+        *([("Airline said", airline_reason)] if airline_reason else []),
+        *([("Told about the cancellation",
+            _NOTICE_WORDS.get(cancellation_notice or "", cancellation_notice or ""))]
+          if cancellation_notice else []),
     ]
-    if booking_reference:
-        text_rows.append(("Booking", booking_reference))
-    if cancellation_notice:
-        text_rows.append(("Notice", _NOTICE_WORDS.get(
-            cancellation_notice, cancellation_notice)))
-    if airline_reason:
-        text_rows.append(("Airline said", airline_reason))
-    text_rows.append((f"Expenses ({len(expenses)})",
-                      "; ".join(f"{w} — {h}" for w, h in expenses) or "none claimed"))
-    text_rows.append((f"Documents ({len(documents)})",
-                      "; ".join(documents) or "none uploaded"))
+    if answers:
+        groups.append(("What they told us", answers))
 
     return EmailMessage(
         to=to,
         subject=subject,
-        html=html,
-        text=_plain(_as_text(text_rows, footer=f"Open this claim: {claim_url}")),
+        html=_shell(
+            title=f"{contact_name} &middot; {amount or 'amount to confirm'}",
+            body="".join(_group_html(heading, rows) for heading, rows in groups),
+            action=(claim_url, "Open this claim"),
+        ),
+        text=_plain(_group_text(groups, footer=f"Open this claim: {claim_url}")),
     )
+
+
+def _group_html(heading: str, rows: Sequence[tuple[str, str]]) -> str:
+    return (
+        f'<p style="margin:24px 0 6px;color:{_SLATE};font-size:12px;'
+        f'font-weight:700;letter-spacing:.06em;text-transform:uppercase">'
+        f"{heading}</p>"
+        f'<table role="presentation" cellpadding="0" cellspacing="0" '
+        f'style="width:100%">'
+        f'{"".join(_row(label, value) for label, value in rows)}</table>'
+    )
+
+
+def _group_text(
+    groups: Sequence[tuple[str, Sequence[tuple[str, str]]]], *, footer: str
+) -> str:
+    """The same message for a client that will not render HTML.
+
+    Aligned in columns rather than run together: this is read to find one fact
+    quickly, and a wall of "label: value, label: value" is read by nobody.
+    """
+    width = max(
+        (len(label) for _, rows in groups for label, _ in rows), default=0
+    )
+    out: list[str] = []
+    for heading, rows in groups:
+        out.append(heading.upper())
+        out.extend(
+            f"  {label.ljust(width)}  {value}".rstrip() for label, value in rows
+        )
+        out.append("")
+    return "\n".join(out) + f"\n{footer}\n"
 
 
 # Plain words, because "ONE_TO_TWO_WEEKS" is a database value and this is read
@@ -470,20 +518,20 @@ _NOTICE_WORDS = {
 def _verdict_headline(
     verdict: str | None, status: str, amount: str | None, regulation: str | None
 ) -> str:
-    """The subject line's first words, which is what gets read and sorted."""
+    """What happened, in the words the subject line uses."""
     if status == "NOT_FOUND":
-        return "Flight not found"
+        return "FLIGHT NOT FOUND"
     if status == "AMBIGUOUS":
-        return "Several flights matched"
+        return "SEVERAL FLIGHTS MATCHED"
     if verdict == "ELIGIBLE":
         return f"ELIGIBLE {amount}" + (f" ({regulation})" if regulation else "")
     if verdict == "LIKELY_ELIGIBLE":
-        return f"Likely {amount}" + (f" ({regulation})" if regulation else "")
+        return f"LIKELY {amount}" + (f" ({regulation})" if regulation else "")
     if verdict == "NEEDS_REVIEW":
-        return "Needs a person"
+        return "NEEDS A PERSON"
     if verdict == "NOT_ELIGIBLE":
-        return "Not eligible"
-    return "Checked"
+        return "NOT ELIGIBLE"
+    return "CHECKED"
 
 
 def _as_text(rows: Sequence[tuple[str, str]], *, footer: str) -> str:

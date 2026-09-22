@@ -95,31 +95,68 @@ than a rebuild.
 ## What the company sees
 
 `OPS_EMAIL` copies every check and every claim to a company inbox, so whoever
-chases airlines works from a mailbox rather than a database — the person who
-writes a claim letter is not the person who writes SQL.
+chases airlines works from a mailbox rather than a database.
+
+**The subject leads with the customer's name**, because that is what anybody
+searches a mailbox for — somebody rings up, gives their name, and their claim
+is there:
 
 ```
-[Skyclaim] CLAIM ₪1,530.00 · BZ734 2026-09-19 · Noam Hasson
-
-Reference       FS-2026-WB3BHK
-Claim for       ₪1,530.00 under ISRAEL
-Flight          BZ734 · 2026-09-19 · TLV → HER
-Verdict         LIKELY_ELIGIBLE
-Contact         Noam Hasson, noam@example.com, +972501234567
-Passengers (2)  Noam Hasson, Small Hasson (minor)
-Booking         XJ4K2P
-Notice          on the day of the flight
-Airline said    They said a technical fault with the aircraft
-Expenses (2)    Hotel — €120.00; Transport — €38.50
-Documents (0)   none uploaded
+[Skyclaim] Noam Hasson · LIKELY ₪1,530.00 (ISRAEL) · A45024 2026-09-19
 ```
 
-**The subject line is the index.** Verdict, amount, flight, name — in that
-order, because a mailbox is read as a list of subjects and sorted and searched
-by them. "New claim" tells nobody anything.
+A bare check has no name — the first screen asks for a flight number and a date
+and nothing else — so those lead with the flight instead, rather than inventing
+an "Unknown" that would sort every anonymous check into one pile:
 
-**The body is self-contained.** Nobody should have to open the system to
-understand what arrived.
+```
+[Skyclaim] LY315 2026-09-17 · NOT ELIGIBLE
+```
+
+**The body is as long as there is something to do.** A flight that does not
+qualify gets four lines:
+
+```
+Flight  LY315 · 2026-09-17
+Route   TLV → LHR
+Result  NOT ELIGIBLE
+Why     It departed 0h 23m late, below the 8h 00m threshold.
+```
+
+A claim gets everything, grouped the way it will be used — somebody is about to
+write to an airline from this and must not have to open the system first:
+
+```
+WHO TO REPLY TO
+  Name                         Noam Hasson
+  Email                        noam@example.com
+  Phone                        +972 50 123 4567
+  Reference                    FS-2026-PUUZ2P
+
+THE CLAIM
+  Owed                         ₪1,530.00 under ISRAEL
+  Flight                       A45024 · 2026-09-19 · TLV → AER
+  Booking                      XJ4K2P
+
+PASSENGERS (2)
+  Noam Hasson                  adult
+  Yael Hasson                  minor
+
+OUT OF POCKET (2)
+  Hotel                        €120.00
+  Taxi                         €38.50
+
+DOCUMENTS (2)
+  boarding-pass.pdf
+  hotel-receipt.jpg
+
+WHAT THEY TOLD US
+  Airline said                 They said a technical fault with the aircraft
+  Told about the cancellation  on the day of the flight
+```
+
+`ON_THE_DAY` is translated, because a database value has no business in front
+of the person deciding whether an airline's exemption holds.
 
 **Identity numbers are never included.** They are encrypted at rest for a
 reason, and an inbox is the opposite of that: unencrypted, forwarded, backed up
@@ -127,8 +164,7 @@ by a mail provider, searchable forever. The passenger count shows they were
 collected; the numbers stay where they are protected.
 
 `OPS_NOTIFY_CHECKS=false` keeps the claims and drops the checks, for when the
-volume makes a per-check email into noise. An inbox nobody reads is worse than
-no inbox.
+volume makes a per-check email into noise.
 
 ## Identity numbers
 

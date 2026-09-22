@@ -160,6 +160,7 @@ def notify_ops_check(
         amount=_money(check),
         regulation=check.best_regulation,
         reason=check.message,
+        contact_name=check.contact_name,
         check_url=f"{base_url.rstrip('/')}/check/{check.id}",
     )
     return sender.send(message)
