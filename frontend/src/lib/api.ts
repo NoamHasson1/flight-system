@@ -15,6 +15,7 @@
  */
 
 import type { components } from "./api-types";
+import { resolveBackendOrigin } from "./backend-origin";
 
 export type EligibilityRequest = components["schemas"]["EligibilityRequest"];
 export type EligibilityResponse = components["schemas"]["EligibilityResponse"];
@@ -77,13 +78,9 @@ function baseUrl(): string {
   const explicit = process.env.NEXT_PUBLIC_API_URL;
   if (explicit) return explicit.replace(/\/$/, "");
   if (typeof window !== "undefined") return "";
-  // A bare hostname means https, for the same reason as the proxy: a managed
-  // host hands over "name.onrender.com" with no scheme, and fetch rejects it.
-  const configured = (process.env.BACKEND_ORIGIN ?? "http://127.0.0.1:8010").trim();
-  const withScheme = /^https?:\/\//.test(configured)
-    ? configured
-    : `https://${configured}`;
-  return withScheme.replace(/\/$/, "");
+  // Same rule as the proxy, from the same place -- when this logic lived in
+  // both files they drifted, and a scheme-less hostname shipped twice.
+  return resolveBackendOrigin(process.env.BACKEND_ORIGIN);
 }
 
 /**

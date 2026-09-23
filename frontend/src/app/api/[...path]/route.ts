@@ -26,22 +26,17 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 
+import { resolveBackendOrigin } from "@/lib/backend-origin";
+
 /**
  * Where the backend is.
  *
- * A bare hostname is treated as https, because that is what a managed host
- * hands over: Render's `fromService: property: host` renders "name.onrender.com"
- * with no scheme, and fetch rejects that outright -- every call failing inside
- * the container, before a packet leaves it, which looks exactly like the
- * backend being down.
+ * The rule for turning whatever Render put in the environment into a URL
+ * fetch will accept lives in one place -- see src/lib/backend-origin.ts. It
+ * has to cope with a value that CHANGES WHEN THE PLAN CHANGES: a paid service
+ * is named privately, a free one publicly, and neither carries a scheme.
  */
-const BACKEND = (() => {
-  const configured = (process.env.BACKEND_ORIGIN ?? "http://127.0.0.1:8010").trim();
-  const withScheme = /^https?:\/\//.test(configured)
-    ? configured
-    : `https://${configured}`;
-  return withScheme.replace(/\/$/, "");
-})();
+const BACKEND = resolveBackendOrigin(process.env.BACKEND_ORIGIN);
 
 /**
  * Headers that describe the CONNECTION rather than the message, and would be

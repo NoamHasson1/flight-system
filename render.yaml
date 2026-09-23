@@ -157,19 +157,24 @@ services:
       # Read when a request arrives, not baked into the image, so the same
       # build runs in staging and production.
       #
-      # `host`, not `hostport`. Two reasons, and either one alone breaks it:
+      # `hostport`, which is the right answer on a paid plan and was not
+      # available on free. It renders as "flight-backend-vzuh:8000" -- the
+      # PRIVATE address, so a request from the frontend to the backend never
+      # leaves Render: no public round trip, no TLS handshake, no edge.
       #
-      #   hostport renders as "name:10000" with no scheme, which is not a URL
-      #   fetch will accept, so every call fails before leaving the container.
+      # THIS LINE ONCE SAID `host`, AND UPGRADING THE PLAN TOOK THE SITE DOWN.
+      # Not because anybody edited it. `host` renders the PUBLIC name on free
+      # and the PRIVATE one on paid, so the value changed underneath a
+      # comment that said free services have no private network -- true when
+      # written, false the moment it was paid for. The frontend then prefixed
+      # https:// to an internal name and every check returned 502 in 0.3s.
       #
-      #   And free services have no private network -- they are reachable only
-      #   at their public address, on 443. An internal host:port would be the
-      #   right answer on a paid plan and is not available here.
-      #
-      # The scheme is added by the proxy, which treats a bare hostname as
-      # https. See src/app/api/[...path]/route.ts.
+      # Neither form carries a scheme, so the scheme is chosen in code: a dot
+      # in the hostname means public and https, no dot means private and
+      # http. See src/lib/backend-origin.ts, which is tested against every
+      # shape this variable is known to take.
       - key: BACKEND_ORIGIN
         fromService:
           name: flight-backend
           type: web
-          property: host
+          property: hostport
