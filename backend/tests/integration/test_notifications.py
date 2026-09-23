@@ -644,3 +644,182 @@ def test_over_http_a_rejection_reaches_the_company(ops_client: TestClient) -> No
     assert len(sender.sent) == 1
     assert sender.sent[0].to == "ops@example.com"
     assert "LY325" in sender.sent[0].subject
+
+
+# --- The documents that travel with a claim ----------------------------------
+#
+# "IMG_5992.jpg" in a list tells somebody chasing an airline nothing at all.
+# The photograph of the receipt IS the evidence, and the person who has to act
+# on it works from an inbox.
+#
+# It is also the only durable copy. Uploads live on the container's own disk,
+# which on a managed host does not survive a deploy -- so a link would rot
+# quietly while an attachment keeps working.
+
+
+class _Storage:
+    """In-memory FileStorage. Satisfies the protocol the notifier needs."""
+
+    def __init__(self, files: dict[str, bytes] | None = None) -> None:
+        self.files = files or {}
+
+    def save(self, content: bytes, *, content_type: str):  # type: ignore[no-untyped-def]
+        raise NotImplementedError
+
+    def open(self, path: str) -> bytes:
+        return self.files[path]
+
+    def delete(self, path: str) -> None:
+        self.files.pop(path, None)
+
+
+def _attach_document(
+    session: Session, claim, *, name="IMG_5992.jpg", kind="RECEIPT", size=2048
+):  # type: ignore[no-untyped-def]
+    from app.db.models import Document
+
+    path = f"ab/cd/{name}"
+    document = Document(
+        claim_id=claim.id,
+        kind=kind,
+        original_filename=name,
+        stored_path=path,
+        content_type="image/jpeg",
+        size_bytes=size,
+    )
+    session.add(document)
+    session.flush()
+    return path, b"\xff\xd8\xff" + b"x" * (size - 3)
+
+
+async def test_an_uploaded_photo_is_attached(session: Session) -> None:
+    """THE test in this section.
+
+    A receipt named in a list is a receipt nobody can see. Somebody writing to
+    an airline needs the picture, in the message, without opening the system.
+    """
+    sender = Recorder()
+    claim = await a_claim(session)
+    path, content = _attach_document(session, claim)
+
+    notify_ops_claim(
+        sender, claim, to="ops@example.com", base_url="http://x",
+        storage=_Storage({path: content}),
+    )
+
+    attachments = sender.sent[0].attachments
+    assert len(attachments) == 1
+    assert attachments[0].filename == "IMG_5992.jpg"
+    assert attachments[0].content == content
+    assert attachments[0].content_type == "image/jpeg"
+
+
+async def test_the_body_says_which_documents_are_attached(session: Session) -> None:
+    """A list that silently omits one is worse than one that never promised it.
+
+    Whoever is chasing the airline believes they are holding everything, and
+    finds out they are not at the point where it costs something.
+    """
+    sender = Recorder()
+    claim = await a_claim(session)
+    path, content = _attach_document(session, claim)
+
+    notify_ops_claim(
+        sender, claim, to="ops@example.com", base_url="http://x",
+        storage=_Storage({path: content}),
+    )
+
+    assert "attached" in sender.sent[0].text
+
+
+async def test_a_file_that_cannot_be_read_does_not_lose_the_claim(
+    session: Session,
+) -> None:
+    """Storage on a managed host does not survive a deploy.
+
+    A claim submitted before one and emailed after it points at bytes that
+    are gone. The claim details are the valuable part and must still arrive --
+    losing the whole message over a missing photograph would be the expensive
+    failure, not the cheap one.
+    """
+    sender = Recorder()
+    claim = await a_claim(session)
+    _attach_document(session, claim)  # stored_path deliberately not in storage
+
+    assert notify_ops_claim(
+        sender, claim, to="ops@example.com", base_url="http://x",
+        storage=_Storage({}),
+    )
+    message = sender.sent[0]
+    assert message.attachments == ()
+    assert claim.reference in message.text
+    assert "in the system" in message.text
+
+
+async def test_identity_documents_never_travel(session: Session) -> None:
+    """A photograph of a passport is strictly worse than the number on it.
+
+    Identity numbers are kept out of the inbox deliberately -- encrypted at
+    rest for a reason, and an inbox is unencrypted, forwarded, backed up by a
+    mail provider and searchable forever. The same rule has to cover a scan.
+
+    Nothing uploads this kind today. The rule is here so that the day somebody
+    adds "upload your passport", the safe behaviour is already the default.
+    """
+    sender = Recorder()
+    claim = await a_claim(session)
+    path, content = _attach_document(
+        session, claim, name="passport.jpg", kind="IDENTIFICATION"
+    )
+
+    notify_ops_claim(
+        sender, claim, to="ops@example.com", base_url="http://x",
+        storage=_Storage({path: content}),
+    )
+
+    message = sender.sent[0]
+    assert message.attachments == ()
+    # Still ACKNOWLEDGED, so nobody thinks it was never uploaded.
+    assert "passport.jpg" in message.text
+
+
+async def test_the_total_size_is_capped(session: Session) -> None:
+    """An email refused for size is an email that silently does not arrive.
+
+    Each upload may be 10MB and a claim may have several, which is more than
+    a provider will take. Budgeted against the BASE64 size, because that is
+    what goes over the wire.
+    """
+    from app.services.notifications import MAX_ATTACHED_BYTES
+
+    sender = Recorder()
+    claim = await a_claim(session)
+    files = {}
+    for i in range(4):
+        path, content = _attach_document(
+            session, claim, name=f"big{i}.jpg", size=6 * 1024 * 1024
+        )
+        files[path] = content
+
+    notify_ops_claim(
+        sender, claim, to="ops@example.com", base_url="http://x",
+        storage=_Storage(files),
+    )
+
+    message = sender.sent[0]
+    encoded = sum(-(-a.size_bytes * 4 // 3) for a in message.attachments)
+    assert encoded <= MAX_ATTACHED_BYTES
+    assert len(message.attachments) < 4, "some had to be left behind"
+    assert "in the system" in message.text, "and the body must say so"
+
+
+async def test_no_storage_still_sends_the_claim(session: Session) -> None:
+    """The details are the valuable part and must not depend on the files."""
+    sender = Recorder()
+    claim = await a_claim(session)
+    _attach_document(session, claim)
+
+    assert notify_ops_claim(
+        sender, claim, to="ops@example.com", base_url="http://x",
+    )
+    assert sender.sent[0].attachments == ()

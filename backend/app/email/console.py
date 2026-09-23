@@ -24,13 +24,26 @@ class ConsoleEmailSender:
     name = "console"
 
     def send(self, message: EmailMessage) -> bool:
+        # Attachments are named, never dumped: a megabyte of base64 in a
+        # terminal is how you lose the log you were reading.
+        files = (
+            "  files:   "
+            + ", ".join(
+                f"{a.filename} ({a.size_bytes / 1024:.0f} KB)"
+                for a in message.attachments
+            )
+            + "\n"
+            if message.attachments
+            else ""
+        )
         logger.info(
             "email (not sent — console sender)\n"
             "  to:      %s\n"
             "  subject: %s\n"
-            "%s",
+            "%s%s",
             message.to,
             message.subject,
+            files,
             _indent(message.text),
         )
         return True

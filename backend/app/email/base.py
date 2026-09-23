@@ -29,6 +29,40 @@ from typing import Protocol, runtime_checkable
 
 
 @dataclass(frozen=True, slots=True)
+class EmailAttachment:
+    """A file travelling with an email.
+
+    WHY THE BYTES AND NOT A LINK
+    ----------------------------
+    A link needs somewhere durable to point at, and an authenticated way to
+    reach it. Uploads currently live on the container's own disk, which on a
+    managed host does NOT survive a deploy -- so a link in an inbox would rot
+    quietly, and the email would become a promise the system cannot keep.
+
+    Attaching the bytes makes the message self-contained: whoever opens it
+    sees the receipt, today and in a year, whatever happened to the disk.
+
+    It is also the only form that answers the actual question. "IMG_5992.jpg"
+    tells somebody chasing an airline nothing at all; the photograph of the
+    receipt is the evidence.
+    """
+
+    filename: str
+    content: bytes
+    content_type: str
+
+    def __post_init__(self) -> None:
+        if not self.filename.strip():
+            raise ValueError("an attachment needs a filename")
+        if not self.content:
+            raise ValueError(f"attachment {self.filename!r} is empty")
+
+    @property
+    def size_bytes(self) -> int:
+        return len(self.content)
+
+
+@dataclass(frozen=True, slots=True)
 class EmailMessage:
     """One email, in both forms.
 
@@ -44,6 +78,9 @@ class EmailMessage:
     text: str
     html: str
     reply_to: str | None = None
+    # A tuple rather than a list, because the message is frozen and a mutable
+    # default on a shared dataclass is the oldest bug in Python.
+    attachments: tuple[EmailAttachment, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.to.strip() or "@" not in self.to:

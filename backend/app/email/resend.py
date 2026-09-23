@@ -34,6 +34,7 @@ unanswerable.
 
 from __future__ import annotations
 
+import base64
 import logging
 from typing import Final
 
@@ -95,6 +96,19 @@ class ResendEmailSender:
         if message.reply_to:
             payload["reply_to"] = [message.reply_to]
 
+        # Base64, which is what the API takes. It inflates the bytes by about
+        # a third, so the guard in `notify_ops_claim` budgets against the
+        # ENCODED size rather than the file size.
+        if message.attachments:
+            payload["attachments"] = [
+                {
+                    "filename": a.filename,
+                    "content": base64.b64encode(a.content).decode("ascii"),
+                    "content_type": a.content_type,
+                }
+                for a in message.attachments
+            ]
+
         try:
             response = self._post(payload)
         except httpx.HTTPError as exc:
@@ -102,7 +116,14 @@ class ResendEmailSender:
             return False
 
         if response.status_code < 300:
-            logger.info("sent %r to %s", message.subject, message.to)
+            logger.info(
+                "sent %r to %s%s",
+                message.subject,
+                message.to,
+                f" with {len(message.attachments)} attachment(s)"
+                if message.attachments
+                else "",
+            )
             return True
 
         # The provider's own words, not ours. The two refusals that actually

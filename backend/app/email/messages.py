@@ -419,6 +419,7 @@ def ops_claim_submitted(
     passengers: Sequence[tuple[str, bool]],
     expenses: Sequence[tuple[str, str]],
     documents: Sequence[str],
+    missing_documents: Sequence[str] = (),
     booking_reference: str | None,
     airline_reason: str | None,
     cancellation_notice: str | None,
@@ -474,7 +475,17 @@ def ops_claim_submitted(
         ),
         (
             f"Documents ({len(documents)})",
-            [(name, "") for name in documents] or [("none uploaded", "")],
+            # Say which are ATTACHED and which are not.
+            #
+            # A list that silently omits the one that would not fit is worse
+            # than one that never promised it: whoever is chasing the airline
+            # believes they are holding everything, and finds out they are not
+            # at the point where it costs something.
+            [
+                (name, "attached" if name not in set(missing_documents) else "in the system")
+                for name in documents
+            ]
+            or [("none uploaded", "")],
         ),
     ]
 

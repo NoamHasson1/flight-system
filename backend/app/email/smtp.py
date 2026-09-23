@@ -76,6 +76,15 @@ class SmtpEmailSender:
         mime.set_content(message.text)
         mime.add_alternative(message.html, subtype="html")
 
+        for attachment in message.attachments:
+            main, _, sub = attachment.content_type.partition("/")
+            mime.add_attachment(
+                attachment.content,
+                maintype=main or "application",
+                subtype=sub or "octet-stream",
+                filename=attachment.filename,
+            )
+
         try:
             with self._connect() as server:
                 if self._username:

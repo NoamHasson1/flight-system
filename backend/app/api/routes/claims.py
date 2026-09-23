@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
@@ -39,7 +40,7 @@ from app.schemas.claims import (
     ExpenseOut,
     PassengerOut,
 )
-from app.storage.files import FileStorage, UploadRejected
+from app.storage.files import FileStorage, LocalFileStorage, UploadRejected
 
 router = APIRouter(prefix="/api/v1/claims", tags=["claims"])
 
@@ -255,7 +256,7 @@ def submit_claim(
     # courtesy must never break the thing it is reporting on.
     background.add_task(
         _confirm, claim.id, sender, settings.public_base_url, settings.database_url,
-        settings.ops_email,
+        settings.ops_email, str(settings.upload_dir),
     )
 
     return _to_out(claim)
@@ -267,6 +268,7 @@ def _confirm(
     base_url: str,
     database_url: str,
     ops_email: str = "",
+    upload_dir: str = "",
 ) -> None:
     """Send the confirmation, in its own session.
 
@@ -283,7 +285,18 @@ def _confirm(
             if claim is not None:
                 send_claim_confirmation(sender, claim, base_url=base_url)
                 if ops_email:
-                    notify_ops_claim(sender, claim, to=ops_email, base_url=base_url)
+                    # Storage is opened here rather than injected, for the
+                    # same reason the session is: dependencies are torn down
+                    # before a background task runs.
+                    notify_ops_claim(
+                        sender,
+                        claim,
+                        to=ops_email,
+                        base_url=base_url,
+                        storage=LocalFileStorage(Path(upload_dir))
+                        if upload_dir
+                        else None,
+                    )
     except Exception:  # noqa: BLE001
         # Nothing above this can act on it, and the customer already has their
         # reference. Logged by the sender; swallowed here so a mail failure

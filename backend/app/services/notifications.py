@@ -12,10 +12,12 @@ address is not an error, it is a customer who did not ask to be emailed.
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from uuid import UUID
 
 from app.db.models import Claim, EligibilityCheck
-from app.email.base import EmailSender
+from app.storage.files import FileStorage
+from app.email.base import EmailAttachment, EmailSender
 from app.email.messages import (
     check_result,
     claim_submitted,
@@ -127,6 +129,82 @@ def _symbol(currency: str | None) -> str:
     return _SYMBOLS.get(currency or "", f"{currency} " if currency else "")
 
 
+# --- The files that travel with a claim --------------------------------------
+
+# Resend accepts about 40MB per message and every mail server has some limit.
+# Each upload is capped at 10MB, so a claim with five receipts can exceed what
+# will actually send -- and an email refused for size is an email that silently
+# does not arrive.
+#
+# Budgeted against the BASE64 size, which is what goes over the wire: encoding
+# inflates bytes by roughly a third, so 15MB of files is about 20MB of message.
+MAX_ATTACHED_BYTES = 15 * 1024 * 1024
+
+# The one kind that does NOT travel.
+#
+# Identity numbers are kept out of the inbox deliberately -- encrypted at rest
+# for a reason, and an inbox is the opposite of that: unencrypted, forwarded,
+# backed up by a mail provider, searchable forever. A photograph of a passport
+# is strictly worse than the number on it, so the same rule has to cover it.
+#
+# Nothing in the claim form uploads this kind today. The rule is here so that
+# the day somebody adds an "upload your passport" step, the safe behaviour is
+# already the default rather than something to remember.
+_NEVER_ATTACHED = frozenset({"IDENTIFICATION"})
+
+
+def attachments_for(
+    claim: Claim, storage: FileStorage
+) -> tuple[list[EmailAttachment], list[str]]:
+    """The claim's documents as attachments, and the names of any left behind.
+
+    Returns both because the message has to SAY what it is missing. A document
+    list that silently drops the biggest receipt is worse than one that never
+    promised to carry it: whoever is chasing the airline believes they have
+    everything.
+
+    A file that cannot be read is skipped rather than fatal. Storage on a
+    managed host does not survive a deploy, so a claim submitted before one
+    and emailed after it has rows pointing at bytes that are gone -- and the
+    claim details are still worth sending without them.
+    """
+    attached: list[EmailAttachment] = []
+    missing: list[str] = []
+    budget = MAX_ATTACHED_BYTES
+
+    for document in claim.documents:
+        if document.kind in _NEVER_ATTACHED:
+            missing.append(f"{document.original_filename} (נשמר במערכת)")
+            continue
+        try:
+            content = storage.open(document.stored_path)
+        except Exception:  # noqa: BLE001
+            logger.warning(
+                "document %s for claim %s could not be read from storage",
+                document.id,
+                claim.reference,
+            )
+            missing.append(document.original_filename)
+            continue
+
+        # The encoded size is what has to fit.
+        cost = -(-len(content) * 4 // 3)
+        if cost > budget:
+            missing.append(document.original_filename)
+            continue
+
+        budget -= cost
+        attached.append(
+            EmailAttachment(
+                filename=document.original_filename,
+                content=content,
+                content_type=document.content_type,
+            )
+        )
+
+    return attached, missing
+
+
 # --- What the company hears --------------------------------------------------
 
 
@@ -234,6 +312,7 @@ def notify_ops_claim(
     *,
     to: str,
     base_url: str,
+    storage: FileStorage | None = None,
 ) -> bool:
     """Copy a submitted claim to the company inbox.
 
@@ -254,6 +333,13 @@ def notify_ops_claim(
     origin, destination = snapshot.get("origin_iata"), snapshot.get("destination_iata")
     route = f"{origin} → {destination}" if origin and destination else None
 
+    # Optional so that a caller with no storage configured still sends the
+    # claim -- the details are the valuable part and must not depend on the
+    # files being reachable.
+    attached, missing = (
+        attachments_for(claim, storage) if storage is not None else ([], [])
+    )
+
     message = ops_claim_submitted(
         to=to.strip(),
         reference=claim.reference,
@@ -273,11 +359,22 @@ def notify_ops_claim(
             for e in claim.expenses
         ],
         documents=[d.original_filename for d in claim.documents],
+        missing_documents=missing,
         booking_reference=claim.booking_reference,
         airline_reason=claim.airline_reason,
         cancellation_notice=claim.cancellation_notice,
         claim_url=f"{base_url.rstrip('/')}/claim/{check.id}",
     )
+    # Attached here rather than passed into the builder: `ops_claim_submitted`
+    # composes words, and what travels alongside them is not its business.
+    if attached:
+        message = replace(message, attachments=tuple(attached))
+        logger.info(
+            "claim %s: attaching %d document(s), %.1f MB",
+            claim.reference,
+            len(attached),
+            sum(a.size_bytes for a in attached) / 1_048_576,
+        )
     return sender.send(message)
 
 
