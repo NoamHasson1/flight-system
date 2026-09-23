@@ -62,15 +62,43 @@ PROVIDER = "aerodatabox"
 # The endpoint accepts at most twelve hours per request, so a day is two.
 _WINDOWS = (("00:00", "12:00"), ("12:00", "23:59"))
 
+# THE PLAN HAS A PER-SECOND LIMIT, AND THIS LOOP IS THE ONE THING THAT HITS IT.
+#
+# Every other caller asks about one flight because a customer is waiting. This
+# asks for a fortnight as fast as the network allows, so it is the only place
+# that ever meets the throttle -- and it met it on the first real run, dying
+# with a bare 429 after two days of eight.
+#
+# A pause between requests is the whole fix. Slower than necessary on a good
+# day and correct on every day, which is the right trade for a job nobody
+# watches.
+_PAUSE_SECONDS = 1.5
 
-async def one_day(client: httpx.AsyncClient, key: str, day: date) -> list[RawFlight]:
-    """Every movement through Ben Gurion on one date, both ends described."""
-    found: list[RawFlight] = []
-    for start, end in _WINDOWS:
-        url = (
-            f"{DEFAULT_BASE_URL}/flights/airports/iata/{AIRPORT}"
-            f"/{day.isoformat()}T{start}/{day.isoformat()}T{end}"
-        )
+# A throttle is temporary and worth waiting out. The monthly quota is not --
+# retrying that spends what little is left to no purpose, so it is raised.
+_THROTTLE_ATTEMPTS = 4
+_THROTTLE_BACKOFF = 5.0
+
+
+def _is_throttle(response: httpx.Response) -> bool:
+    """Whether a 429 is the per-second limit rather than the monthly quota.
+
+    They arrive as the same status code and mean opposite things. The body is
+    the only thing that distinguishes them:
+
+        "You have exceeded the rate limit per second for your plan, PRO"
+
+    When the wording changes the fallback is to treat it as the quota, which
+    fails loudly instead of retrying into a wall.
+    """
+    return "per second" in response.text.lower()
+
+
+async def _fetch(
+    client: httpx.AsyncClient, key: str, url: str
+) -> httpx.Response:
+    """One request, waiting out the per-second throttle."""
+    for attempt in range(1, _THROTTLE_ATTEMPTS + 1):
         response = await client.get(
             url,
             headers={
@@ -87,7 +115,34 @@ async def one_day(client: httpx.AsyncClient, key: str, day: date) -> list[RawFli
                 "withAircraftImage": "false",
             },
         )
+        if response.status_code != 429 or not _is_throttle(response):
+            return response
+        if attempt < _THROTTLE_ATTEMPTS:
+            wait = _THROTTLE_BACKOFF * attempt
+            logger.info("throttled; waiting %.0fs before retrying", wait)
+            await asyncio.sleep(wait)
+    return response
+
+
+async def one_day(client: httpx.AsyncClient, key: str, day: date) -> list[RawFlight]:
+    """Every movement through Ben Gurion on one date, both ends described.
+
+    A 204 is an ANSWER, not a failure: the feed holds that date and has
+    nothing for that window. 21 September 2026 returns one, correctly -- it
+    was Yom Kippur and Ben Gurion was shut. An empty day is not always a gap,
+    and treating it as one sends somebody hunting for data that never existed.
+    """
+    found: list[RawFlight] = []
+    for start, end in _WINDOWS:
+        url = (
+            f"{DEFAULT_BASE_URL}/flights/airports/iata/{AIRPORT}"
+            f"/{day.isoformat()}T{start}/{day.isoformat()}T{end}"
+        )
+        response = await _fetch(client, key, url)
+        await asyncio.sleep(_PAUSE_SECONDS)
+
         if response.status_code in (204, 404):
+            logger.info("%s %s-%s: the feed has nothing", day, start, end)
             continue
         response.raise_for_status()
         payload = response.json()
