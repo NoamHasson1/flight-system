@@ -1,9 +1,9 @@
 import Image from "next/image";
-import Link from "next/link";
 
 import { FlightBoard } from "@/components/Board";
 import { FlightPath } from "@/components/FlightPath";
 import { Reveal } from "@/components/Reveal";
+import { SiteFooter } from "@/components/SiteFooter";
 import { Bands } from "@/components/Bands";
 import { CheckForm } from "@/components/CheckForm";
 import { Faq } from "@/components/Faq";
@@ -51,7 +51,6 @@ export default function Home() {
   return (
     <>
       <Reveal />
-      <Nav />
       <Hero />
       <CheckSection />
       <FlightBoard />
@@ -63,55 +62,8 @@ export default function Home() {
       <Cases />
       <Faq />
       <FinalCta />
-      <Footer />
+      <SiteFooter />
     </>
-  );
-}
-
-/* --- navigation ----------------------------------------------------------- */
-
-function Nav() {
-  const n = strings.nav;
-  const links = [
-    { href: "#how", label: n.how },
-    { href: "#bands", label: n.eligibility },
-    { href: "#board", label: n.board },
-    { href: "#faq", label: n.faq },
-    { href: "#about", label: n.about },
-  ];
-
-  return (
-    <header className={`${s.nav} glass px-5 py-3.5 sm:px-8`}>
-      <div className="mx-auto flex max-w-6xl items-center justify-between">
-        <Link href="/" className="flex items-center gap-2.5 no-underline">
-          <span
-            aria-hidden
-            className="grid size-8 place-items-center rounded-lg"
-            style={{ background: "var(--color-teal-600)", color: "#fff" }}
-          >
-            <PlaneIcon />
-          </span>
-          <span
-            className="text-subhead font-black tracking-wide"
-            style={{ color: "var(--text-strong)" }}
-          >
-            SKYCLAIM
-          </span>
-        </Link>
-
-        <nav className="hidden items-center gap-7 md:flex">
-          {links.map((l) => (
-            <a key={l.href} href={l.href} className={`${s.navLink} text-callout`}>
-              {l.label}
-            </a>
-          ))}
-        </nav>
-
-        <a href="#check" className={`${s.cta} ${s.ctaPill} press px-5 py-2.5 text-callout`}>
-          {n.cta}
-        </a>
-      </div>
-    </header>
   );
 }
 
@@ -485,67 +437,7 @@ function FinalCta() {
   );
 }
 
-/* --- footer --------------------------------------------------------------- */
-
-function Footer() {
-  const f = strings.footer;
-
-  return (
-    <footer className="px-5 py-14 sm:px-8" style={{ background: "var(--surface-mist)" }}>
-      <div className="mx-auto max-w-6xl">
-        <div className="grid gap-10 md:grid-cols-4">
-          <div>
-            <p className="text-subhead font-black" style={{ color: "var(--text-strong)" }}>
-              SKYCLAIM
-            </p>
-            <p className="mt-3 max-w-xs text-callout" style={{ color: "var(--text-muted)" }}>
-              {f.blurb}
-            </p>
-          </div>
-          {f.columns.map((col) => (
-            <div key={col.title}>
-              <p className="text-callout font-bold" style={{ color: "var(--text-strong)" }}>
-                {col.title}
-              </p>
-              <ul className="mt-3 space-y-2">
-                {col.links.map((link) => (
-                  <li key={link} className="text-callout" style={{ color: "var(--text-muted)" }}>
-                    {link}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-
-        <div
-          className="mt-10 border-t pt-6"
-          style={{ borderColor: "var(--border-subtle)" }}
-        >
-          <p className="text-caption" style={{ color: "var(--text-muted)" }}>
-            {f.rights}
-          </p>
-          <p className="mt-1 text-caption" style={{ color: "var(--text-muted)" }}>
-            {f.disclaimer}
-          </p>
-        </div>
-      </div>
-    </footer>
-  );
-}
-
 /* --- icons ---------------------------------------------------------------- */
-
-function PlaneIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5L21 16Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
 
 function ShieldIcon() {
   return (

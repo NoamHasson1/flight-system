@@ -19,18 +19,20 @@ import s from "./hero.module.css";
  * is keyboard-operable and announced correctly, rather than a div that
  * happens to toggle a class.
  */
-export function Faq() {
+export function Faq({ hideTitle = false }: { hideTitle?: boolean } = {}) {
   const [open, setOpen] = useState<number | null>(0);
   const f = strings.faq;
 
   return (
     <section id="faq" className={`${s.mist} px-5 py-20 sm:px-8 sm:py-24`}>
       <div className="mx-auto max-w-3xl">
-        <h2 className="text-title" style={{ color: "var(--text-strong)" }}>
-          {f.title}
-        </h2>
+        {hideTitle ? null : (
+          <h2 className="text-title" style={{ color: "var(--text-strong)" }}>
+            {f.title}
+          </h2>
+        )}
 
-        <div className="mt-8">
+        <div className={hideTitle ? "" : "mt-8"}>
           {f.items.map((item, i) => {
             const isOpen = open === i;
             return (

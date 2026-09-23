@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Heebo, JetBrains_Mono } from "next/font/google";
 
+import { SiteNav } from "@/components/SiteNav";
+
 import "./globals.css";
 
 /**
@@ -68,7 +70,13 @@ export default function RootLayout({
     // lower down leaves the scrollbar, the focus order and native form
     // controls on the wrong side.
     <html lang="he" dir="rtl" className={`${heebo.variable} ${mono.variable}`}>
-      <body>{children}</body>
+      <body>
+        {/* One nav for the whole site, so a new page cannot ship without it
+            and the current tab is known from the route rather than passed in
+            by every page. */}
+        <SiteNav />
+        {children}
+      </body>
     </html>
   );
 }

@@ -557,3 +557,173 @@
   z-index: 1;
   background: #151a22;
 }
+
+/* The current tab. An underline that grows from the centre rather than a
+   colour change alone: colour is the first thing lost to a display, a
+   colour-blind reader, or bright sunlight on a phone. */
+.navHere {
+  color: var(--text-strong);
+  position: relative;
+  font-weight: 700;
+}
+.navHere::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: -6px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--color-teal-600);
+}
+
+/* --- the rights page ------------------------------------------------------ */
+
+.lawCard {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-2xl);
+  padding: 2rem 1.75rem;
+  transition: box-shadow var(--duration-base) var(--ease-out-soft),
+              border-color var(--duration-base) var(--ease-out-soft);
+}
+.lawCard:hover {
+  box-shadow: var(--shadow-raised);
+  border-color: var(--color-teal-200);
+}
+
+.lawBadge {
+  display: inline-block;
+  border-radius: var(--radius-pill);
+  background: var(--surface-ink);
+  color: #fff;
+  padding: 0.25rem 0.8rem;
+  font-size: var(--text-caption);
+  font-weight: 700;
+}
+
+.trigger {
+  border-radius: var(--radius-pill);
+  background: var(--verdict-yes-fill);
+  border: 1px solid var(--verdict-yes-edge);
+  color: var(--color-teal-900);
+  padding: 0.3rem 0.8rem;
+  font-size: var(--text-caption);
+}
+
+/* The threshold, given its own strip because it is the single fact people
+   get wrong -- eight hours at departure is not three at arrival. */
+.thresholdStrip {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  background: var(--surface-mist);
+  border-radius: var(--radius-lg);
+  padding: 0.85rem 1.1rem;
+}
+
+.noteBox {
+  background: var(--verdict-review-fill);
+  border: 1px solid var(--verdict-review-edge);
+  border-radius: var(--radius-lg);
+  padding: 0.9rem 1.1rem;
+  font-size: var(--text-callout);
+  color: #7a4a06;
+  line-height: 1.65;
+}
+
+.blockCard {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: 1.6rem 1.4rem;
+  transition: transform var(--duration-base) var(--ease-out-soft),
+              box-shadow var(--duration-base) var(--ease-out-soft);
+}
+.blockCard:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-raised);
+}
+
+/* The qualification, not the rule. An airline leans on these exemptions
+   hardest in the cases where they do not apply, so it is emphasised rather
+   than left trailing the paragraph. */
+.caveat {
+  border-inline-start: 3px solid var(--color-teal-400);
+  padding-inline-start: 0.9rem;
+  font-size: var(--text-callout);
+  color: var(--text-default);
+  line-height: 1.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blockCard:hover { transform: none; }
+}
+
+/* --- the calculator -------------------------------------------------------- */
+.calcCard {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-2xl);
+  padding: 2rem 1.75rem;
+  box-shadow: var(--shadow-card);
+}
+
+.calcResult {
+  background: var(--surface-ink);
+  color: var(--text-on-ink);
+  border-radius: var(--radius-2xl);
+  padding: 2rem 1.75rem;
+  box-shadow: var(--shadow-raised);
+  /* Sticks while the questions scroll, so the number never leaves the screen
+     while somebody is changing what produces it. */
+  position: sticky;
+  top: 6rem;
+  align-self: start;
+}
+
+.calcNote {
+  background: rgb(255 255 255 / 0.06);
+  border-inline-start: 3px solid var(--color-teal-400);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem;
+  font-size: var(--text-caption);
+  line-height: 1.7;
+  color: var(--text-on-ink-dim);
+}
+
+.choice {
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-default);
+  background: var(--surface-card);
+  color: var(--text-default);
+  padding: 0.5rem 1rem;
+  font-size: var(--text-callout);
+  transition: border-color var(--duration-quick) var(--ease-out-soft),
+              background var(--duration-quick) var(--ease-out-soft),
+              transform var(--duration-instant) var(--ease-out-soft);
+}
+.choice:hover { border-color: var(--color-teal-400); }
+.choice:active { transform: scale(0.97); }
+.choiceOn {
+  background: var(--color-teal-600);
+  border-color: var(--color-teal-600);
+  color: #fff;
+  font-weight: 700;
+}
+
+.stepper {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  border: 1px solid var(--border-default);
+  background: var(--surface-card);
+  color: var(--text-strong);
+  font-size: 1.25rem;
+  line-height: 1;
+}
+.stepper:hover:not(:disabled) { border-color: var(--color-teal-400); }
+.stepper:disabled { opacity: 0.4; }
+
+@media (max-width: 1023px) {
+  .calcResult { position: static; }
+}
