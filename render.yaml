@@ -2,23 +2,26 @@
 #
 #   Render → New → Blueprint → pick this repository
 #
-# CURRENTLY ON FREE PLANS, TO SHOW PEOPLE. Read this before relying on it.
+# ON PAID PLANS as of 23 September 2026. What that bought, and why:
 #
-#   The database is DELETED AFTER 30 DAYS. That is Render's free tier, not a
-#   setting, and it is why the archive stays on the laptop for now: the only
-#   copy of data nobody sells back does not belong somewhere with an expiry
-#   date. What lives here is a demonstration, and losing it costs nothing.
+#   THE DATABASE IS NO LONGER DELETED AFTER 30 DAYS. That was Render's free
+#   tier, not a setting, and it is the only reason the archive lived on a
+#   laptop. It can now live here.
 #
-#   The web services SLEEP after about 15 minutes idle, and the next visitor
-#   waits roughly a minute for them to wake. Load the page yourself a minute
-#   before showing anybody.
+#   THE ARCHIVE RUNS ON A MACHINE THAT DOES NOT SLEEP. The cron jobs below are
+#   the whole point of paying. A laptop running this lost 24.9 hours of three
+#   days -- 36% -- to the lid being shut, and the Ben Gurion board sheds the
+#   past continuously, so a missed hour is a missed hour forever. Nobody sells
+#   2023 back.
 #
-#   The cron jobs are NOT here. Render has no free plan for them, and they are
-#   the part that must never miss a tick -- so the archive keeps running on the
-#   laptop until there is a reason to pay. See backend/deploy/crontab.txt.
+#   THE WEB SERVICES NO LONGER SLEEP, so there is no cold start for a visitor
+#   to outrun. That is a nicety; the archive is not.
 #
-# To go to production: change every `plan: free` to `starter` (and the database
-# to `basic-256mb`), then uncomment the cron jobs at the bottom of this file.
+# THESE PLAN LINES ARE NOT DECORATION. This blueprint is authoritative for a
+# blueprint-managed service: leaving `plan: free` here while the dashboard says
+# otherwise means the next sync can DOWNGRADE what you are paying for, and take
+# the database with it. If you change a plan in the dashboard, change it here
+# in the same sitting.
 #
 # Two secrets are deliberately NOT here -- ENCRYPTION_KEYS and
 # AERODATABOX_API_KEY are marked `sync: false`, so Render asks for them once
@@ -29,50 +32,67 @@ databases:
   - name: flight-db
     databaseName: flight_system
     user: flight
-    # Free while this is a demonstration, and therefore deleted after 30 days.
-    # Nothing irreplaceable may live here until this says basic-256mb.
-    plan: free
+    # $6/month, 0.1 CPU, 256MB. Paid, so it is not deleted after 30 days --
+    # which is what makes it somewhere the archive may actually live.
+    plan: basic-256mb
 
 services:
-  # # --- the archive ---------------------------------------------------------
-  # #
-  # # Deployed FIRST and deployable alone: it is the only part of this system
-  # # where being down destroys something. The website being offline costs a
-  # # visitor; the archive being offline costs a day of Ben Gurion that nobody
-  # # sells back. A laptop running this lost 40% of three days to sleep.
-  # - type: cron
-  #   name: flight-archive
-  #   runtime: docker
-  #   dockerfilePath: ./backend/Dockerfile
-  #   dockerContext: ./backend
-  #   schedule: "*/15 * * * *"
-  #   dockerCommand: python -m app.tasks.archive_board
-  #   plan: starter
-  #   envVars:
-  #     - key: DATABASE_URL
-  #       fromDatabase:
-  #         name: flight-db
-  #         property: connectionString
-  #     - key: ENCRYPTION_KEYS
-  #       sync: false
+  # --- the archive ---------------------------------------------------------
+  #
+  # The only part of this system where being down DESTROYS something. The
+  # website being offline costs a visitor, who comes back. The archive being
+  # offline costs a day of Ben Gurion that nobody sells back.
+  #
+  # Every fifteen minutes, not nightly. The board is not a fixed window over a
+  # set of days -- it SHEDS THE PAST CONTINUOUSLY: 189 flights recorded for one
+  # day at 09:00, 145 of them still listed four hours later. IZ1168 on 18
+  # September was cancelled and paid ILS1,530; it was on the board on the 17th
+  # and gone by the 19th, so a nightly job would never have seen it.
+  #
+  # Running often is free -- no key, no quota, one request -- and an unchanged
+  # row is skipped rather than rewritten.
+  #
+  # No ENCRYPTION_KEYS here, deliberately. This job writes flight_lookups and
+  # nothing else; there is no personal data in a flight board. A secret that is
+  # not needed should not be pasted into one more place, and if some future
+  # task does touch an encrypted column it fails loudly rather than writing
+  # plaintext.
+  - type: cron
+    name: flight-archive
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    schedule: "*/15 * * * *"
+    dockerCommand: python -m app.tasks.archive_board
+    plan: starter
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: flight-db
+          property: connectionString
 
-  # # Once a day, buying the far end of disrupted flights while the paid feed
-  # # still sells it: it keeps about a year, and a passenger has four.
-  # - type: cron
-  #   name: flight-enrich
-  #   runtime: docker
-  #   dockerfilePath: ./backend/Dockerfile
-  #   dockerContext: ./backend
-  #   schedule: "30 3 * * *"
-  #   dockerCommand: python -m app.tasks.enrich --min-delay 1
-  #   plan: starter
-  #   envVars:
-  #     - key: DATABASE_URL
-  #       fromDatabase:
-  #         name: flight-db
-  #         property: connectionString
-  #     - key: ENCRYPTION_KEYS
-  #       sync: false
+  # Once a day, buying the far end of disrupted flights while the paid feed
+  # still sells it. The board knows only what happened AT Ben Gurion, so a
+  # departure has no arrival time -- and EC261 measures the delay at arrival.
+  # AeroDataBox keeps about five months on this plan; a passenger has four
+  # years. So the far end is bought while it is still for sale.
+  - type: cron
+    name: flight-enrich
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    schedule: "30 3 * * *"
+    dockerCommand: python -m app.tasks.enrich --min-delay 1
+    plan: starter
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: flight-db
+          property: connectionString
+      - key: FLIGHT_PROVIDER
+        value: aerodatabox
+      - key: AERODATABOX_API_KEY
+        sync: false
   #     - key: FLIGHT_PROVIDER
   #       value: aerodatabox
   #     - key: AERODATABOX_API_KEY
@@ -86,21 +106,17 @@ services:
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
-    plan: free
+    plan: starter
     healthCheckPath: /health
-    # A pre-deploy command would go here, and cannot: the free tier does not
-    # support one. So the schema is applied by hand, once, against the
-    # database's external connection string:
+    # Restored now that the plan supports it. It had to be applied by hand on
+    # free, which is a step that gets forgotten exactly once and then serves a
+    # 500 to whoever is looking.
     #
-    #   DATABASE_URL='<external URL from the Render dashboard>' \
-    #     uv run alembic upgrade head
-    #
-    # Migrating on startup instead would be the easy way out and is the wrong
-    # habit to build: a container that migrates as it boots runs several at
-    # once the moment there is more than one instance, and a half-applied
-    # schema is worse than a late deploy. Restore this line with the paid plan:
-    #
-    #   preDeployCommand: alembic upgrade head
+    # A pre-deploy command, NOT a migration on startup. Migrating as the
+    # container boots is the easy way out and the wrong habit: it runs several
+    # at once the moment there is more than one instance, and a half-applied
+    # schema is worse than a late deploy.
+    preDeployCommand: alembic upgrade head
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -136,7 +152,7 @@ services:
     runtime: docker
     dockerfilePath: ./frontend/Dockerfile
     dockerContext: ./frontend
-    plan: free
+    plan: starter
     envVars:
       # Read when a request arrives, not baked into the image, so the same
       # build runs in staging and production.
