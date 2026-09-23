@@ -211,7 +211,7 @@ def test_a_future_date_is_rejected_with_a_useful_message(
     """
     code, body = post(client, flight_number="BA165", flight_date="2099-01-01")
     assert code == 422
-    assert "future" in str(body["detail"]).lower()
+    assert "בעתיד" in str(body["detail"])
 
 
 def test_a_flight_older_than_every_limitation_period_is_rejected(
@@ -221,7 +221,7 @@ def test_a_flight_older_than_every_limitation_period_is_rejected(
     to claim, and asking the provider would spend money to say so."""
     code, body = post(client, flight_number="BA165", flight_date="2000-01-01")
     assert code == 422
-    assert "six years" in str(body["detail"])
+    assert "שש שנים" in str(body["detail"])
 
 
 def test_a_malformed_email_is_rejected(client: TestClient) -> None:

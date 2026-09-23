@@ -47,13 +47,13 @@ const EMPTY_PASSENGER: Passenger = { fullName: "", nationalId: "", isMinor: fals
 const EMPTY_COST: Cost = { category: "HOTEL", amount: "", currency: "EUR", description: "" };
 
 const CATEGORIES = [
-  ["HOTEL", "Hotel"],
-  ["MEAL", "Food"],
-  ["DRINK", "Drinks"],
-  ["TRANSPORT", "Taxi or transport"],
-  ["COMMUNICATION", "Phone calls"],
-  ["REBOOKING", "A replacement ticket"],
-  ["OTHER", "Something else"],
+  ["HOTEL", "מלון"],
+  ["MEAL", "אוכל"],
+  ["DRINK", "שתייה"],
+  ["TRANSPORT", "מונית או תחבורה"],
+  ["COMMUNICATION", "שיחות טלפון"],
+  ["REBOOKING", "כרטיס חלופי"],
+  ["OTHER", "משהו אחר"],
 ] as const;
 
 const CURRENCIES = ["EUR", "GBP", "ILS", "USD"] as const;
@@ -284,7 +284,7 @@ export function ClaimWizard({ check }: { check: EligibilityResponse }) {
               className={`${s.cta} px-7 py-3.5 text-subhead`}
               style={{ fontWeight: 700 }}
             >
-              {busy ? "Working…" : t.next}
+              {busy ? "רגע…" : t.next}
             </button>
           ) : (
             <button
@@ -309,8 +309,7 @@ function Progress({ step }: { step: number }) {
     <div>
       <div className="flex items-baseline justify-between">
         <p className="text-micro uppercase" style={{ color: "var(--color-teal-600)" }}>
-          {String(step + 1).padStart(2, "0")} of{" "}
-          {String(t.steps.length).padStart(2, "0")} · {t.steps[step]}
+          {step + 1} מתוך {t.steps.length} · {t.steps[step]}
         </p>
       </div>
       <div className={`${s.progress} mt-3`}>
@@ -430,7 +429,7 @@ function Booking({ draft, patch }: StepProps) {
               aria-describedby={describedBy}
               value={draft.airlineReason}
               onChange={(e) => patch({ airlineReason: e.target.value })}
-              placeholder="They said there was a technical fault with the aircraft."
+              placeholder="אמרו לנו שהייתה תקלה טכנית במטוס."
               className={`${s.field} mt-2 w-full resize-y px-4 py-3 text-body`}
             />
           )}
@@ -533,7 +532,7 @@ function Costs({ draft, patch }: StepProps) {
                 <Text
                   label={t.costs.description}
                   value={c.description}
-                  placeholder="One night at the airport hotel"
+                  placeholder="לילה אחד במלון בשדה התעופה"
                   onChange={(v) => set(i, { description: v })}
                 />
               </div>
@@ -655,11 +654,11 @@ function Review({
                   {c.description ? ` · ${c.description}` : ""}
                 </span>
               ))
-            : "None"}
+            : "אין"}
         </Summary>
 
         <Summary label={t.review.documents}>
-          {uploads.length ? uploads.join(", ") : "None uploaded"}
+          {uploads.length ? uploads.join(", ") : "לא הועלו מסמכים"}
         </Summary>
       </dl>
 

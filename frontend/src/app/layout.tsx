@@ -1,44 +1,49 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Plus_Jakarta_Sans } from "next/font/google";
+import { Heebo, JetBrains_Mono } from "next/font/google";
 
 import "./globals.css";
 
 /**
- * Inter, with the system stack behind it.
+ * Heebo, the working face.
  *
- * The skill's advice is to default to the platform font, which already ships
- * optical sizing and legibility tuning. The reason to override it here: this
- * interface shows amounts and flight numbers in columns, and Inter's tabular
- * figures are dependable across every platform where San Francisco is not
- * available. `display: swap` means the system font renders immediately and is
- * replaced when Inter arrives, rather than leaving the page blank.
+ * This interface is Hebrew, and a Latin face with a Hebrew fallback is not the
+ * same thing as a Hebrew face: the fallback differs by platform, so the same
+ * page has different letterforms, weights and line heights on every machine.
+ * Heebo is drawn for both scripts by the same hand -- it is Roboto's Latin
+ * matched to a Hebrew companion -- so a sentence mixing "LY315" with Hebrew
+ * words does not change typeface halfway through.
+ *
+ * `display: swap` means the system font renders immediately and is replaced
+ * when Heebo arrives, rather than leaving the page blank.
  */
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
+const heebo = Heebo({
+  subsets: ["hebrew", "latin"],
+  variable: "--font-heebo",
   display: "swap",
+  weight: ["400", "500", "700", "900"],
 });
 
 /**
- * The display face.
+ * The monospace face, for the things that are codes rather than words.
  *
- * Plus Jakarta Sans: rounded, geometric and warm at large sizes, which is the
- * character the Gyro reference gets from its headline face. Used only for
- * display and title -- Inter stays on everything working, because it is more
- * legible small and its tabular figures keep columns of money aligned.
+ * Flight numbers and amounts are read as SHAPES down a column -- LY315 under
+ * BZ746, 1,530 under 3,670 -- and a proportional face makes the column ragged
+ * and the comparison slow. It is also the one place Latin belongs in a Hebrew
+ * page: a flight number is not a Hebrew word and pretending otherwise makes
+ * the direction ambiguous.
  */
-const jakarta = Plus_Jakarta_Sans({
+const mono = JetBrains_Mono({
   subsets: ["latin"],
-  variable: "--font-jakarta",
+  variable: "--font-mono",
   display: "swap",
-  weight: ["600", "700", "800"],
+  weight: ["400", "500", "700"],
 });
 
 export const metadata: Metadata = {
-  title: "Flight Compensation — are you owed money?",
+  title: 'Skyclaim — פיצוי על טיסות שבוטלו או התעכבו | עו"ד יצחק מימון',
   description:
-    "Check whether a delayed or cancelled flight entitles you to compensation " +
-    "under EC261, UK261 or the Israeli Aviation Services Law.",
+    "הטיסה בוטלה או התעכבה? בדקו תוך פחות מדקה כמה פיצוי עשוי להגיע לכם " +
+    "לפי חוק שירותי תעופה, EU261 ו-UK261. בדיקה חינם, בלי הרשמה.",
 };
 
 export const viewport: Viewport = {
@@ -48,8 +53,8 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#faf9fd" },
-    { media: "(prefers-color-scheme: dark)", color: "#14121f" },
+    { media: "(prefers-color-scheme: light)", color: "#f5f7f9" },
+    { media: "(prefers-color-scheme: dark)", color: "#151a22" },
   ],
 };
 
@@ -57,7 +62,12 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${jakarta.variable}`}>
+    // dir="rtl" on the ROOT, not on a wrapper. Every layout below it then
+    // inherits direction, so `margin-inline-start` means "before the text"
+    // everywhere and nothing has to know which way the page runs. Setting it
+    // lower down leaves the scrollbar, the focus order and native form
+    // controls on the wrong side.
+    <html lang="he" dir="rtl" className={`${heebo.variable} ${mono.variable}`}>
       <body>{children}</body>
     </html>
   );

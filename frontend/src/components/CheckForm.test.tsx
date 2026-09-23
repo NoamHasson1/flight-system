@@ -39,11 +39,11 @@ beforeEach(() => {
 async function fillAndSubmit(number: string, date = "2026-08-14") {
   const user = userEvent.setup();
   render(<CheckForm />);
-  await user.type(screen.getByLabelText(/flight number/i), number);
-  const dateField = screen.getByLabelText(/date it departed/i);
+  await user.type(screen.getByLabelText(/מספר טיסה/), number);
+  const dateField = screen.getByLabelText(/תאריך הטיסה/);
   await user.clear(dateField);
   await user.type(dateField, date);
-  await user.click(screen.getByRole("button", { name: /see what you're owed/i }));
+  await user.click(screen.getByRole("button", { name: /בדיקת זכאות/ }));
   return user;
 }
 
@@ -65,19 +65,19 @@ describe("what the customer types", () => {
     // is correct and useless.
     const user = userEvent.setup();
     render(<CheckForm />);
-    await user.type(screen.getByLabelText(/flight number/i), "B");
+    await user.type(screen.getByLabelText(/מספר טיסה/), "B");
 
-    expect(screen.queryByText(/doesn't look like a flight number/i)).toBeNull();
+    expect(screen.queryByText(/זה לא נראה כמו מספר טיסה/)).toBeNull();
   });
 
   it("explains a malformed flight number once the field is left", async () => {
     const user = userEvent.setup();
     render(<CheckForm />);
-    await user.type(screen.getByLabelText(/flight number/i), "!!!");
+    await user.type(screen.getByLabelText(/מספר טיסה/), "!!!");
     await user.tab();
 
     expect(
-      await screen.findByText(/doesn't look like a flight number/i),
+      await screen.findByText(/זה לא נראה כמו מספר טיסה/),
     ).toBeInTheDocument();
   });
 
@@ -85,7 +85,7 @@ describe("what the customer types", () => {
     // The point of client-side validation: a typo costs nothing.
     const user = userEvent.setup();
     render(<CheckForm />);
-    await user.click(screen.getByRole("button", { name: /see what you're owed/i }));
+    await user.click(screen.getByRole("button", { name: /בדיקת זכאות/ }));
 
     expect(checkEligibility).not.toHaveBeenCalled();
   });
@@ -115,7 +115,7 @@ describe("what comes back", () => {
     );
     await fillAndSubmit("FR1234");
 
-    expect(await screen.findByText(/which flight were you on/i)).toBeInTheDocument();
+    expect(await screen.findByText(/באיזו טיסה טסתם/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /departing 06:00 UTC/i })).toBeInTheDocument();
     expect(push).not.toHaveBeenCalled();
   });
@@ -150,20 +150,22 @@ describe("what comes back", () => {
     });
     await fillAndSubmit("BA165");
 
-    expect(await screen.findByText(/don't assume you have no claim/i)).toBeInTheDocument();
+    expect(await screen.findByText(/אל תניחו שאין לכם תביעה/)).toBeInTheDocument();
     expect(push).not.toHaveBeenCalled();
   });
 
   it("shows the server's own words on a rejected request", async () => {
-    // The backend's validation messages are written for humans -- "That date
-    // is in the future" -- so they are worth surfacing rather than replacing.
+    // The backend's validation messages are written for a person, name the
+    // field that is wrong, and are in HEBREW -- which is what makes showing
+    // them verbatim safe. A server speaking a different language from the
+    // site is the reason this is worth asserting.
     checkEligibility.mockResolvedValue({
       ok: false,
-      failure: { kind: "invalid", messages: ["That date is in the future."] },
+      failure: { kind: "invalid", messages: ["התאריך הזה בעתיד."] },
     });
     await fillAndSubmit("BA165");
 
-    expect(await screen.findByText(/that date is in the future/i)).toBeInTheDocument();
+    expect(await screen.findByText(/התאריך הזה בעתיד/)).toBeInTheDocument();
   });
 });
 
@@ -174,7 +176,7 @@ describe("while it is working", () => {
     checkEligibility.mockReturnValue(new Promise((r) => (release = r)));
 
     const user = await fillAndSubmit("BA165");
-    const button = await screen.findByRole("button", { name: /checking your flight/i });
+    const button = await screen.findByRole("button", { name: /בודקים את הטיסה/ });
     expect(button).toBeDisabled();
 
     await user.click(button);
@@ -203,14 +205,14 @@ describe("a check that takes a while", () => {
 
   function submitWithFakeTimers() {
     render(<CheckForm />);
-    fireEvent.change(screen.getByLabelText(/flight number/i), {
+    fireEvent.change(screen.getByLabelText(/מספר טיסה/), {
       target: { value: "BA165" },
     });
-    fireEvent.change(screen.getByLabelText(/date it departed/i), {
+    fireEvent.change(screen.getByLabelText(/תאריך הטיסה/), {
       target: { value: "2026-08-14" },
     });
     fireEvent.click(
-      screen.getByRole("button", { name: /see what you're owed/i }),
+      screen.getByRole("button", { name: /בדיקת זכאות/ }),
     );
   }
 
@@ -227,7 +229,7 @@ describe("a check that takes a while", () => {
 
       // Well past the old twenty-second ceiling.
       await vi.advanceTimersByTimeAsync(40_000);
-      expect(screen.queryByText(/couldn't reach the flight database/i)).toBeNull();
+      expect(screen.queryByText(/לא הצלחנו להגיע למאגר הטיסות/)).toBeNull();
 
       settle(decided());
       await vi.advanceTimersByTimeAsync(0);
@@ -248,7 +250,7 @@ describe("a check that takes a while", () => {
 
       await vi.advanceTimersByTimeAsync(0);
       expect(screen.getByRole("button")).toHaveTextContent(
-        /checking your flight/i,
+        /בודקים את הטיסה/,
       );
 
       // act(), because the state change originates in a timer rather than in
@@ -257,7 +259,7 @@ describe("a check that takes a while", () => {
         await vi.advanceTimersByTimeAsync(6_000);
       });
       expect(screen.getByRole("button")).toHaveTextContent(
-        /can take up to a minute/i,
+        /יכול לקחת עד דקה/,
       );
     } finally {
       vi.useRealTimers();

@@ -292,3 +292,268 @@
   color: var(--verdict-review);
   border-radius: var(--radius-lg);
 }
+
+/* ===========================================================================
+   The Hebrew landing page.
+
+   RTL NOTE: every rule below uses LOGICAL properties -- inline-start rather
+   than left, border-inline rather than border-right. The page is dir="rtl" at
+   the root, so a physical `left` here would be correct on this build and
+   wrong the moment anything renders LTR (an English page, a flight number in
+   isolation, a future second language). Logical properties are the same
+   amount of typing and cannot be wrong.
+   =========================================================================== */
+
+/* --- the boarding pass ---------------------------------------------------
+   The check form is dressed as a boarding pass because that is the object
+   the reader already associates with the information we are asking for. The
+   notch and the dashed tear line do the work: they are what makes a white
+   rectangle read as a ticket rather than a form. */
+.pass {
+  background: var(--surface-card);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-float);
+  overflow: hidden;
+}
+
+.passStrip {
+  background: var(--surface-ink);
+  color: var(--text-on-ink);
+  font-family: var(--font-code-stack);
+  letter-spacing: 0.14em;
+}
+
+/* The two half-circles bitten out of the sides, where a real ticket is torn.
+   Drawn as background gradients rather than elements so they cannot be
+   selected, read by a screen reader, or knocked out of place by reflow. */
+.passTear {
+  position: relative;
+  border-top: 1px dashed var(--border-default);
+}
+.passTear::before,
+.passTear::after {
+  content: "";
+  position: absolute;
+  top: -11px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface-mist);
+}
+.passTear::before { inset-inline-start: -11px; }
+.passTear::after { inset-inline-end: -11px; }
+
+/* --- the disruptions board ----------------------------------------------- */
+.board {
+  background: var(--surface-ink);
+  color: var(--text-on-ink);
+}
+
+.boardTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.boardTable th {
+  font-size: var(--text-caption);
+  font-weight: 500;
+  color: var(--text-on-ink-dim);
+  padding: 0.75rem 1rem;
+  text-align: start;
+  border-bottom: 1px solid rgb(255 255 255 / 0.10);
+  white-space: nowrap;
+}
+
+.boardTable td {
+  padding: 0.95rem 1rem;
+  border-bottom: 1px solid rgb(255 255 255 / 0.06);
+  font-size: var(--text-callout);
+  text-align: start;
+}
+
+.boardTable tbody tr:hover { background: rgb(255 255 255 / 0.03); }
+
+/* Flight numbers and amounts are codes read down a column, not words. */
+.code {
+  font-family: var(--font-code-stack);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  /* A Latin code inside an RTL paragraph: without this the browser may
+     reorder the characters around neighbouring punctuation. */
+  direction: ltr;
+  unicode-bidi: isolate;
+  display: inline-block;
+}
+
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-code-stack);
+  font-size: var(--text-caption);
+  letter-spacing: 0.12em;
+  color: var(--text-on-ink-dim);
+}
+.live::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f2564d;
+  box-shadow: 0 0 0 0 rgb(242 86 77 / 0.6);
+  animation: pulse 2.4s var(--ease-out-soft) infinite;
+}
+@keyframes pulse {
+  70% { box-shadow: 0 0 0 9px rgb(242 86 77 / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(242 86 77 / 0); }
+}
+
+.chip {
+  border-radius: var(--radius-pill);
+  padding: 0.35rem 0.9rem;
+  font-size: var(--text-caption);
+  font-weight: 500;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  color: var(--text-on-ink-dim);
+  transition: background var(--duration-quick) var(--ease-out-soft),
+              color var(--duration-quick) var(--ease-out-soft);
+}
+.chip:hover { color: var(--text-on-ink); }
+.chipOn {
+  background: #ffffff;
+  color: var(--surface-ink);
+  border-color: #ffffff;
+  font-weight: 700;
+}
+
+/* --- compensation bands --------------------------------------------------- */
+.bandCard {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: 1.75rem 1.5rem;
+  text-align: center;
+  transition: transform var(--duration-base) var(--ease-out-soft),
+              box-shadow var(--duration-base) var(--ease-out-soft);
+}
+.bandCard:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-raised);
+}
+
+.place {
+  display: inline-block;
+  border-radius: var(--radius-pill);
+  background: var(--surface-mist);
+  border: 1px solid var(--border-subtle);
+  padding: 0.2rem 0.65rem;
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+
+/* --- the lawyer ----------------------------------------------------------- */
+.portrait {
+  border-radius: var(--radius-2xl);
+  overflow: hidden;
+  position: relative;
+  background: #0d1218;
+}
+
+/* The name plate that sits over the corner of the photograph. */
+.plate {
+  position: absolute;
+  inset-inline-end: 1rem;
+  bottom: 1rem;
+  background: var(--color-teal-400);
+  color: #06201e;
+  border-radius: var(--radius-lg);
+  padding: 0.7rem 1.1rem;
+  box-shadow: var(--shadow-raised);
+}
+
+.quote {
+  border-inline-start: 3px solid var(--color-teal-400);
+  background: rgb(255 255 255 / 0.04);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem 1.6rem;
+}
+
+/* --- FAQ ------------------------------------------------------------------ */
+.faqItem {
+  border-bottom: 1px solid var(--border-subtle);
+}
+.faqQ {
+  width: 100%;
+  text-align: start;
+  padding: 1.25rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+.faqMark {
+  flex: none;
+  transition: transform var(--duration-base) var(--ease-out-soft);
+  color: var(--color-teal-600);
+}
+.faqOpen .faqMark { transform: rotate(45deg); }
+.faqA {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--text-callout);
+  line-height: 1.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live::before { animation: none; }
+  .bandCard:hover { transform: none; }
+  .faqMark { transition: none; }
+}
+
+/* The board's own scroll window.
+
+   A fixed height so the section does not grow to sixty rows and push the rest
+   of the page below the horizon, and a masked top and bottom edge so rows
+   fade out rather than being guillotined by a hard border -- the same reason
+   a departures board is read through a frame. */
+.boardScroll {
+  max-height: 26rem;
+  overflow-y: auto;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.2) transparent;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 2.5rem,
+    #000 calc(100% - 2.5rem),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 2.5rem,
+    #000 calc(100% - 2.5rem),
+    transparent 100%
+  );
+}
+.boardScroll::-webkit-scrollbar { width: 6px; height: 6px; }
+.boardScroll::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.18);
+  border-radius: 999px;
+}
+.boardScroll:focus-visible {
+  outline: 2px solid var(--color-teal-400);
+  outline-offset: 4px;
+}
+
+/* The header row has to stay put while the body scrolls under it, or the
+   columns lose their labels three rows in. */
+.boardTable thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #151a22;
+}

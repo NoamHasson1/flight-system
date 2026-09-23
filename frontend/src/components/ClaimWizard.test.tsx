@@ -56,10 +56,10 @@ beforeEach(() => {
 async function startClaim() {
   const user = userEvent.setup();
   render(<ClaimWizard check={CHECK} />);
-  await user.type(screen.getByLabelText(/your full name/i), "Noam Hasson");
-  await user.type(screen.getByLabelText(/^email$/i), "noam@example.com");
-  await user.type(screen.getByLabelText(/full name on the ticket/i), "Noam Hasson");
-  await user.click(screen.getByRole("button", { name: /continue/i }));
+  await user.type(screen.getByLabelText(/השם המלא שלכם/), "Noam Hasson");
+  await user.type(screen.getByLabelText(/^אימייל$/), "noam@example.com");
+  await user.type(screen.getByLabelText(/שם מלא כפי שמופיע בכרטיס/), "Noam Hasson");
+  await user.click(screen.getByRole("button", { name: /המשך/ }));
   return user;
 }
 
@@ -68,24 +68,24 @@ describe("moving through the steps", () => {
     // A claim nobody can be reached about is a claim that never gets paid.
     const user = userEvent.setup();
     render(<ClaimWizard check={CHECK} />);
-    await user.click(screen.getByRole("button", { name: /continue/i }));
+    await user.click(screen.getByRole("button", { name: /המשך/ }));
 
-    expect(await screen.findByText(/name to put on the claim/i)).toBeInTheDocument();
-    expect(screen.getByText(/who was on the booking/i)).toBeInTheDocument();
+    expect(await screen.findByText(/צריך שם כדי לפתוח את התביעה/)).toBeInTheDocument();
+    expect(screen.getByText(/מי היה בהזמנה/)).toBeInTheDocument();
   });
 
   it("shows how far through you are", async () => {
     // "03 of 05" is the single thing that stops a long form being abandoned.
     await startClaim();
-    expect(await screen.findByText(/02 of 05/i)).toBeInTheDocument();
+    expect(await screen.findByText(/2 מתוך 5/)).toBeInTheDocument();
   });
 
   it("lets you go back without losing what you typed", async () => {
     const user = await startClaim();
-    await screen.findByText(/your booking/i);
-    await user.click(screen.getByRole("button", { name: /^back$/i }));
+    await screen.findByText(/ההזמנה שלכם/);
+    await user.click(screen.getByRole("button", { name: /^חזרה$/ }));
 
-    expect(screen.getByLabelText(/your full name/i)).toHaveValue("Noam Hasson");
+    expect(screen.getByLabelText(/השם המלא שלכם/)).toHaveValue("Noam Hasson");
   });
 });
 
@@ -98,14 +98,14 @@ describe("when the airline told them", () => {
     // so an integer field turned both into a blank that a claim handler could
     // not tell apart from a question nobody asked.
     const user = await startClaim();
-    await screen.findByText(/your booking/i);
+    await screen.findByText(/ההזמנה שלכם/);
 
-    const select = screen.getByLabelText(/when did the airline tell you/i);
+    const select = screen.getByLabelText(/מתי חברת התעופה הודיעה לכם/);
     expect(
-      within(select).getByRole("option", { name: /never told me/i }),
+      within(select).getByRole("option", { name: /לא הודיעו לי בכלל/ }),
     ).toBeInTheDocument();
     expect(
-      within(select).getByRole("option", { name: /can't remember/i }),
+      within(select).getByRole("option", { name: /אני לא זוכר/ }),
     ).toBeInTheDocument();
 
     await user.selectOptions(select, "NEVER_TOLD");
@@ -117,15 +117,15 @@ describe("when the airline told them", () => {
     // mismatch here is rejected by the API, so it must be pinned somewhere.
     createClaim.mockResolvedValue({ ok: true, data: CLAIM });
     const user = await startClaim();
-    await screen.findByText(/your booking/i);
+    await screen.findByText(/ההזמנה שלכם/);
 
     await user.selectOptions(
-      screen.getByLabelText(/when did the airline tell you/i),
+      screen.getByLabelText(/מתי חברת התעופה הודיעה לכם/),
       "ONE_TO_TWO_WEEKS",
     );
-    await user.click(screen.getByRole("button", { name: /continue/i }));
-    await screen.findByText(/what did it cost you/i);
-    await user.click(screen.getByRole("button", { name: /continue/i }));
+    await user.click(screen.getByRole("button", { name: /המשך/ }));
+    await screen.findByText(/כמה זה עלה לכם/);
+    await user.click(screen.getByRole("button", { name: /המשך/ }));
 
     await waitFor(() => expect(createClaim).toHaveBeenCalled());
     expect(createClaim.mock.calls[0][0]).toMatchObject({
@@ -140,12 +140,12 @@ describe("passengers", () => {
     // three quarters of the claim.
     const user = userEvent.setup();
     render(<ClaimWizard check={CHECK} />);
-    await user.click(screen.getByRole("button", { name: /add another passenger/i }));
+    await user.click(screen.getByRole("button", { name: /הוספת נוסע/ }));
 
-    expect(screen.getAllByLabelText(/full name on the ticket/i)).toHaveLength(2);
+    expect(screen.getAllByLabelText(/שם מלא כפי שמופיע בכרטיס/)).toHaveLength(2);
 
-    await user.click(screen.getAllByRole("button", { name: /^remove$/i })[0]);
-    expect(screen.getAllByLabelText(/full name on the ticket/i)).toHaveLength(1);
+    await user.click(screen.getAllByRole("button", { name: /^הסרה$/ })[0]);
+    expect(screen.getAllByLabelText(/שם מלא כפי שמופיע בכרטיס/)).toHaveLength(1);
   });
 });
 
@@ -155,7 +155,7 @@ describe("the draft", () => {
     // work at that moment is how a claim never gets filed.
     const user = userEvent.setup();
     const { unmount } = render(<ClaimWizard check={CHECK} />);
-    await user.type(screen.getByLabelText(/your full name/i), "Noam Hasson");
+    await user.type(screen.getByLabelText(/השם המלא שלכם/), "Noam Hasson");
     await waitFor(() =>
       expect(window.localStorage.getItem("claim-draft:check-1")).toContain("Noam"),
     );
@@ -164,14 +164,14 @@ describe("the draft", () => {
     render(<ClaimWizard check={CHECK} />);
 
     await waitFor(() =>
-      expect(screen.getByLabelText(/your full name/i)).toHaveValue("Noam Hasson"),
+      expect(screen.getByLabelText(/השם המלא שלכם/)).toHaveValue("Noam Hasson"),
     );
   });
 
   it("keeps drafts for different checks apart", async () => {
     const user = userEvent.setup();
     render(<ClaimWizard check={CHECK} />);
-    await user.type(screen.getByLabelText(/your full name/i), "Noam Hasson");
+    await user.type(screen.getByLabelText(/השם המלא שלכם/), "Noam Hasson");
     await waitFor(() =>
       expect(window.localStorage.getItem("claim-draft:check-1")).toBeTruthy(),
     );
@@ -187,10 +187,10 @@ describe("creating the claim", () => {
     createClaim.mockResolvedValue({ ok: true, data: CLAIM });
 
     const user = await startClaim();
-    await screen.findByText(/your booking/i);
-    await user.click(screen.getByRole("button", { name: /continue/i }));
-    await screen.findByText(/what did it cost you/i);
-    await user.click(screen.getByRole("button", { name: /continue/i }));
+    await screen.findByText(/ההזמנה שלכם/);
+    await user.click(screen.getByRole("button", { name: /המשך/ }));
+    await screen.findByText(/כמה זה עלה לכם/);
+    await user.click(screen.getByRole("button", { name: /המשך/ }));
 
     await waitFor(() => expect(createClaim).toHaveBeenCalledTimes(1));
     expect(createClaim).toHaveBeenCalledWith(
@@ -209,9 +209,9 @@ describe("creating the claim", () => {
     });
 
     const user = await startClaim();
-    await screen.findByText(/your booking/i);
-    await user.click(screen.getByRole("button", { name: /continue/i }));
-    await user.click(await screen.findByRole("button", { name: /continue/i }));
+    await screen.findByText(/ההזמנה שלכם/);
+    await user.click(screen.getByRole("button", { name: /המשך/ }));
+    await user.click(await screen.findByRole("button", { name: /המשך/ }));
 
     expect(await screen.findByText(/FS-2026-AAAAAA/)).toBeInTheDocument();
   });
@@ -222,13 +222,13 @@ describe("creating the claim", () => {
     createClaim.mockResolvedValue({ ok: true, data: CLAIM });
 
     const user = await startClaim();
-    await screen.findByText(/your booking/i);
-    await user.click(screen.getByRole("button", { name: /continue/i }));
-    await user.click(await screen.findByRole("button", { name: /continue/i }));
-    await screen.findByText(/upload what you have/i);
+    await screen.findByText(/ההזמנה שלכם/);
+    await user.click(screen.getByRole("button", { name: /המשך/ }));
+    await user.click(await screen.findByRole("button", { name: /המשך/ }));
+    await screen.findByText(/העלו מה שיש לכם/);
 
-    await user.click(screen.getByRole("button", { name: /^back$/i }));
-    await user.click(await screen.findByRole("button", { name: /continue/i }));
+    await user.click(screen.getByRole("button", { name: /^חזרה$/ }));
+    await user.click(await screen.findByRole("button", { name: /המשך/ }));
 
     expect(createClaim).toHaveBeenCalledTimes(1);
   });
@@ -243,14 +243,14 @@ describe("submitting", () => {
     });
 
     const user = await startClaim();
-    await screen.findByText(/your booking/i);
-    await user.click(screen.getByRole("button", { name: /continue/i }));
-    await user.click(await screen.findByRole("button", { name: /continue/i }));
-    await screen.findByText(/upload what you have/i);
-    await user.click(screen.getByRole("button", { name: /continue/i }));
-    await user.click(await screen.findByRole("button", { name: /submit my claim/i }));
+    await screen.findByText(/ההזמנה שלכם/);
+    await user.click(screen.getByRole("button", { name: /המשך/ }));
+    await user.click(await screen.findByRole("button", { name: /המשך/ }));
+    await screen.findByText(/העלו מה שיש לכם/);
+    await user.click(screen.getByRole("button", { name: /המשך/ }));
+    await user.click(await screen.findByRole("button", { name: /שליחת התביעה/ }));
 
-    expect(await screen.findByText(/your claim is in/i)).toBeInTheDocument();
+    expect(await screen.findByText(/התביעה נשלחה/)).toBeInTheDocument();
     expect(screen.getByText("FS-2026-K7M9QX")).toBeInTheDocument();
   });
 
@@ -259,12 +259,12 @@ describe("submitting", () => {
     submitClaim.mockResolvedValue({ ok: true, data: CLAIM });
 
     const user = await startClaim();
-    await screen.findByText(/your booking/i);
-    await user.click(screen.getByRole("button", { name: /continue/i }));
-    await user.click(await screen.findByRole("button", { name: /continue/i }));
-    await screen.findByText(/upload what you have/i);
-    await user.click(screen.getByRole("button", { name: /continue/i }));
-    await user.click(await screen.findByRole("button", { name: /submit my claim/i }));
+    await screen.findByText(/ההזמנה שלכם/);
+    await user.click(screen.getByRole("button", { name: /המשך/ }));
+    await user.click(await screen.findByRole("button", { name: /המשך/ }));
+    await screen.findByText(/העלו מה שיש לכם/);
+    await user.click(screen.getByRole("button", { name: /המשך/ }));
+    await user.click(await screen.findByRole("button", { name: /שליחת התביעה/ }));
 
     await waitFor(() =>
       expect(window.localStorage.getItem("claim-draft:check-1")).toBeNull(),

@@ -65,9 +65,16 @@ class EligibilityRequest(BaseModel):
         """
         cleaned = re.sub(r"[\s\-_.]", "", value).upper()
         if not _FLIGHT_NUMBER.match(cleaned):
+            # HEBREW, because this reaches a customer verbatim.
+            #
+            # The frontend shows the server's own words for a 422 rather than
+            # replacing them -- these messages say WHICH field is wrong and
+            # why, which a generic client-side sentence cannot. That only
+            # works while the server and the site speak the same language,
+            # and the site is Hebrew.
             raise ValueError(
-                f"{value!r} does not look like a flight number. Expected an "
-                f"airline code followed by digits, for example BA165 or LY 324."
+                f"‏{value!r} לא נראה כמו מספר טיסה. צריך קוד חברה ואחריו "
+                f"ספרות, למשל LY315 או BZ 734."
             )
         return cleaned
 
@@ -83,13 +90,13 @@ class EligibilityRequest(BaseModel):
         today = datetime.now().date()
         if value > today:
             raise ValueError(
-                "That date is in the future. Enter the date the flight departed; "
-                "we can only check flights that have already taken off."
+                "התאריך הזה בעתיד. הזינו את היום שבו הטיסה המריאה — אפשר "
+                "לבדוק רק טיסות שכבר יצאו."
             )
         if today - value > MAX_AGE:
             raise ValueError(
-                "That flight is more than six years ago, which is beyond the "
-                "time limit for claiming in every country we cover."
+                "הטיסה הזו מלפני יותר משש שנים, מעבר לתקופת ההתיישנות בכל "
+                "אחת מהמדינות שאנחנו מכסים."
             )
         return value
 

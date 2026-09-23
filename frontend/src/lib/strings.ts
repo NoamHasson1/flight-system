@@ -1,105 +1,127 @@
 /**
  * Every word the customer reads, in one file.
  *
- * Two reasons it lives here rather than inline in components.
+ * WHY HEBREW, AND WHY THE WHOLE FILE
+ * ----------------------------------
+ * The customers are Israeli passengers, and the lawyer behind the service is
+ * an Israeli one. A half-translated product is worse than either language
+ * alone: the reader hits an English sentence at the moment they are deciding
+ * whether to trust this with a passport number.
  *
- * First, Hebrew. The Israeli market is half the point of this product, and
- * retrofitting translation into forty components is a rewrite while adding a
- * second object here is an afternoon. The English is written to be
- * translatable: no sentences assembled from fragments, no "you have {n}
- * claim(s)" that only works in languages with one plural rule.
+ * So the whole flow is Hebrew -- the landing page, the verdict, the claim
+ * wizard, the errors -- not just the parts a visitor sees first.
  *
- * Second, tone. This product tells people about money and the law at a moment
- * when something has already gone wrong for them. Keeping the copy together is
- * the only way to notice that one screen is reassuring and the next sounds like
- * a bank. The rules: plain words over legal ones, never blame the reader, and
- * never claim more certainty than we have.
+ * KEEPING IT IN ONE FILE
+ * ----------------------
+ * Tone. This product talks about money and the law at a moment when something
+ * has already gone wrong for somebody. Keeping the copy together is the only
+ * way to notice that one screen is reassuring and the next sounds like a bank.
+ *
+ * The rules: plain words over legal ones, never blame the reader, and never
+ * claim more certainty than we have.
+ *
+ * ON NUMBERS AND TESTIMONIALS
+ * ---------------------------
+ * There are none here yet, deliberately. Figures like "7 million recovered"
+ * and named reviews are advertising for a named lawyer, and unverified ones
+ * must not ship. The sections that would carry them are built and read
+ * correctly without them -- see `credentials` and `testimonials`, both empty.
+ * Filling either is a data change, not a layout change.
  */
 
 export const strings = {
   brand: {
     name: "Skyclaim",
-    tagline: "EC261 · UK261 · Israeli Aviation Services Law",
+    lawyer: "עו״ד יצחק מימון",
+    lawyerField: "דיני תעופה וזכויות נוסעים",
+    tagline: "חוק שירותי תעופה · EU261 · UK261",
+  },
+
+  nav: {
+    how: "איך זה עובד",
+    eligibility: "זכאות לפיצוי",
+    board: "לוח שיבושים",
+    faq: "שאלות נפוצות",
+    about: "אודות",
+    cta: "בדיקת זכאות",
   },
 
   hero: {
-    headlineA: "Flight delayed?",
-    headlineB: "You may be owed money.",
+    /* Said once, at the top, because it is the question a visitor actually
+       has: whose side is this service on. */
+    badge: "אנחנו מייצגים נוסעים בלבד. לא חברות תעופה.",
+    headlineA: "הטיסה בוטלה",
+    headlineB: "או התעכבה?",
+    accent: "בדקו כמה כסף מגיע לכם.",
     subhead:
-      "Enter your flight number and the date it departed. We check what " +
-      "actually happened to that flight and tell you in seconds whether you " +
-      "can claim — and how much.",
-    cardTitle: "Check what you're owed",
-    reassurance: "Free · No account · No card",
+      "בדיקת זכאות ראשונית תוך פחות מדקה. אנחנו בודקים מה קרה לטיסה בפועל " +
+      "ואת הזכויות שעשויות להגיע לכם.",
+    cta: "בדיקת זכאות",
+    secondaryCta: "לוח שיבושי טיסות",
+    cardTitle: "בדיקת זכאות",
+    reassurance: "בלי הרשמה · הבדיקה חינם · לוקח דקה",
   },
 
-  /** The four reassurances under the hero, straight from the reference. */
-  stats: [
-    { value: "Up to €600", label: "per passenger for delays, cancellations and denied boarding" },
-    { value: "Three laws", label: "EU, UK and Israeli rules checked on every flight" },
-    { value: "No risk", label: "the check is free and you are never charged to find out" },
-    { value: "Seconds", label: "an answer before you have finished your coffee" },
-  ] as const,
-
-  steps: [
-    { n: "1", title: "Enter your flight", body: "The flight number and the date it departed. Nothing else." },
-    { n: "2", title: "We check it", body: "We look up what actually happened to that flight and apply the rules." },
-    { n: "3", title: "You claim", body: "If you qualify, add your passengers and receipts and we take it from there." },
-  ] as const,
+  check: {
+    /* The boarding-pass framing. English on purpose: it is the language of a
+       boarding pass, and it is pastiche rather than content -- nobody has to
+       read it to use the form. */
+    stripBrand: "SKYCLAIM AIR",
+    stripSub: "BOARDING PASS · ELIGIBILITY CHECK",
+    stripFree: "FREE",
+    eyebrow: "בדיקת זכאות — חינם, בלי הרשמה",
+    lead: "מזינים את פרטי הטיסה, ומקבלים תשובה תוך דקה.",
+  },
 
   form: {
-    flightNumberLabel: "Flight number",
-    flightNumberPlaceholder: "BA165",
-    flightNumberHint: "The airline code and number, like BA165 or LY324.",
-    dateLabel: "Date it departed",
-    dateHint: "The day the flight took off, not the day you booked.",
-    submit: "See what you're owed",
-    submitting: "Checking your flight…",
+    flightNumberLabel: "מספר טיסה",
+    flightNumberPlaceholder: "LY315",
+    flightNumberHint: "קוד החברה והמספר, למשל LY315 או BZ734.",
+    dateLabel: "תאריך הטיסה",
+    dateHint: "היום שבו הטיסה המריאה, לא היום שבו הזמנתם.",
+    submit: "בדיקת זכאות",
+    submitting: "בודקים את הטיסה…",
     /**
      * Shown once a check has been running long enough to look broken.
      *
-     * A free host stops a service after a quarter of an hour of quiet and
-     * takes the better part of a minute to start it again. The check WILL
-     * succeed; it just has to wait for a machine to wake up first.
-     *
-     * Saying so is the difference between a slow answer and a broken site.
-     * Somebody watching a silent spinner for thirty seconds closes the tab,
-     * and a closed tab is a claim nobody ever finds out about.
+     * The check WILL succeed; it is waiting for something slow. Saying so is
+     * the difference between a slow answer and a broken site: somebody
+     * watching a silent spinner for thirty seconds closes the tab, and a
+     * closed tab is a claim nobody ever hears about.
      */
-    submittingSlow: "Still checking — the first search after a quiet spell can take up to a minute…",
+    submittingSlow: "עדיין בודקים — החיפוש הראשון אחרי הפסקה יכול לקחת עד דקה…",
   },
 
   /**
    * Errors the customer can act on.
    *
-   * None of these say "error" and none of them blame the reader. A person
-   * whose flight was cancelled and who is now being told they typed something
-   * wrong is having a worse day than whoever wrote the message.
+   * None say "שגיאה" and none blame the reader. Somebody whose flight was
+   * cancelled and who is now being told they typed something wrong is having
+   * a worse day than whoever wrote the message.
    */
   errors: {
-    flightNumberRequired: "Enter the flight number from your booking.",
+    flightNumberRequired: "הזינו את מספר הטיסה מתוך ההזמנה.",
     flightNumberFormat:
-      "That doesn't look like a flight number. It's usually two letters and " +
-      "some digits, like BA165.",
-    dateRequired: "Enter the date the flight departed.",
-    emailFormat: "That doesn't look like an email address.",
+      "זה לא נראה כמו מספר טיסה. בדרך כלל שתי אותיות ואחריהן ספרות, " +
+      "למשל LY315.",
+    dateRequired: "הזינו את התאריך שבו הטיסה המריאה.",
+    emailFormat: "זו לא נראית כמו כתובת אימייל.",
     dateFuture:
-      "That date is in the future. Enter the date the flight departed — we " +
-      "can only check flights that have already taken off.",
+      "התאריך הזה בעתיד. הזינו את היום שבו הטיסה המריאה — אפשר לבדוק רק " +
+      "טיסות שכבר יצאו.",
     dateTooOld:
-      "That flight is more than six years ago, which is beyond the time limit " +
-      "for claiming in every country we cover.",
+      "הטיסה הזו מלפני יותר משש שנים, מעבר לתקופת ההתיישנות בכל אחת " +
+      "מהמדינות שאנחנו מכסים.",
     /**
      * The most important string in this file.
      *
-     * Someone who reads "something went wrong" and closes the tab has lost a
-     * claim nobody will ever know about. It has to say, explicitly, that this
-     * is not an answer about their flight.
+     * Somebody who reads "משהו השתבש" and closes the tab has lost a claim
+     * nobody will ever know about. It has to say, explicitly, that this is
+     * not an answer about their flight.
      */
     unreachable:
-      "We couldn't reach the flight database just now. This is a problem on " +
-      "our side and says nothing about your flight — please try again in a " +
-      "moment, and don't assume you have no claim.",
+      "לא הצלחנו להגיע למאגר הטיסות כרגע. זו תקלה אצלנו והיא לא אומרת " +
+      "כלום על הטיסה שלכם — נסו שוב עוד רגע, ואל תניחו שאין לכם תביעה.",
   },
 
   /**
@@ -107,49 +129,48 @@ export const strings = {
    *
    * Deliberately NO regulation names, thresholds or clause-by-clause
    * reasoning: the customer asked a simple question and gets a simple answer.
-   * All of that reasoning is still computed and still STORED against the check
-   * -- it is what support and the claim handler work from -- it just is not
-   * what this screen is for.
+   * All of that reasoning is still computed and still STORED against the
+   * check -- it is what support and the claim handler work from -- it just is
+   * not what this screen is for.
    */
   verdict: {
     ELIGIBLE: {
-      eyebrow: "Good news",
-      lead: "You can claim compensation",
-      amountLabel: "per passenger on the booking",
+      eyebrow: "חדשות טובות",
+      lead: "מגיע לכם פיצוי",
+      amountLabel: "לכל נוסע בהזמנה",
     },
     NOT_ELIGIBLE: {
-      eyebrow: "Checked",
-      /* Not "Sorry" and not "Unfortunately". This is a finding about an
-         airline's obligation, not a rejection of the person reading it. */
-      lead: "This flight doesn't qualify",
+      eyebrow: "נבדק",
+      /* Not "מצטערים" and not "לצערנו". This is a finding about an airline's
+         obligation, not a rejection of the person reading it. */
+      lead: "הטיסה הזו לא עומדת בתנאים",
       body:
-        "Nothing here is down to anything you did. Compensation depends on how " +
-        "late the flight actually was and on where it flew, and this one falls " +
-        "outside those limits.",
+        "זה לא קשור לשום דבר שעשיתם. הפיצוי תלוי בכמה הטיסה באמת איחרה " +
+        "ובאיזה מסלול היא טסה, והמקרה הזה נופל מחוץ לגבולות האלה.",
       doubt:
-        "If you landed later than we show, or the airline told you something " +
-        "different, ask us to check it by hand.",
+        "אם נחתתם מאוחר יותר ממה שמופיע כאן, או שחברת התעופה אמרה לכם משהו " +
+        "אחר — בקשו מאיתנו בדיקה ידנית.",
     },
     NEEDS_REVIEW: {
-      eyebrow: "One more thing",
+      eyebrow: "עוד דבר אחד",
       /* Never a polite no. It has to be obvious this is unfinished. */
-      lead: "We need to check this by hand",
+      lead: "צריך שנבדוק את זה ידנית",
       body:
-        "Something about this flight can't be answered automatically. That is " +
-        "not a no — leave us your email and a person will come back to you.",
+        "משהו בטיסה הזו לא ניתן לבדיקה אוטומטית. זה לא 'לא' — השאירו " +
+        "כתובת אימייל ואדם יחזור אליכם.",
     },
     /**
      * The amount is real and the law is settled. One fact is missing, and the
      * person reading this is the only one who has it.
      *
-     * Showing the figure is the point. "We'll look into it" and "you are owed
-     * 1,530 shekels, subject to one question" describe the same state of
-     * knowledge, and only one of them gets answered.
+     * Showing the figure is the point. "נבדוק ונחזור אליכם" and "מגיעים לכם
+     * 1,530 ש״ח, בכפוף לשאלה אחת" describe the same state of knowledge, and
+     * only one of them gets answered.
      */
     LIKELY_ELIGIBLE: {
-      eyebrow: "Almost certainly",
-      lead: "You look owed",
-      amountLabel: "per passenger, subject to one question",
+      eyebrow: "כמעט בוודאות",
+      lead: "נראה שמגיע לכם",
+      amountLabel: "לכל נוסע, בכפוף לשאלה אחת",
     },
   },
 
@@ -162,165 +183,341 @@ export const strings = {
    */
   questions: {
     cancellation_notice: {
-      title: "When did the airline tell you?",
+      title: "מתי חברת התעופה הודיעה לכם?",
       /* The law, in one sentence, so the question does not read as an
          obstacle invented by us. */
       explain:
-        "Two weeks' notice or more lets the airline off. Less than that, and " +
-        "this is payable.",
+        "הודעה של שבועיים מראש ומעלה פוטרת את חברת התעופה. פחות מזה — " +
+        "הפיצוי עומד בתוקפו.",
       options: [
-        { value: "NEVER_TOLD", label: "They never told me" },
-        { value: "ON_THE_DAY", label: "On the day of the flight" },
-        { value: "UNDER_A_WEEK", label: "Less than a week before" },
-        { value: "ONE_TO_TWO_WEEKS", label: "One to two weeks before" },
-        { value: "OVER_TWO_WEEKS", label: "More than two weeks before" },
-        { value: "CANNOT_REMEMBER", label: "I can't remember" },
+        { value: "NEVER_TOLD", label: "לא הודיעו לי בכלל" },
+        { value: "ON_THE_DAY", label: "ביום הטיסה" },
+        { value: "UNDER_A_WEEK", label: "פחות משבוע לפני" },
+        { value: "ONE_TO_TWO_WEEKS", label: "שבוע עד שבועיים לפני" },
+        { value: "OVER_TWO_WEEKS", label: "יותר משבועיים לפני" },
+        { value: "CANNOT_REMEMBER", label: "אני לא זוכר" },
       ],
     },
     actual_arrival: {
-      title: "When did you actually land?",
+      title: "מתי נחתתם בפועל?",
       explain:
-        "Your flight left late enough to qualify whatever happened next. If " +
-        "the airline still got you there close to schedule, the amount halves.",
+        "הטיסה שלכם יצאה מאוחר מספיק כדי לזכות בפיצוי בכל מקרה. אם בסוף " +
+        "חברת התעופה הביאה אתכם קרוב ללוח הזמנים, הסכום קטן בחצי.",
       options: [] as const,
     },
   },
 
   result: {
-    notFoundLead: "We couldn't find that flight",
-    ambiguousLead: "Which flight were you on?",
+    notFoundLead: "לא מצאנו את הטיסה הזו",
+    ambiguousLead: "באיזו טיסה טסתם?",
     ambiguousExplain:
-      "More than one flight carried that number on that date. Pick yours and " +
-      "we'll check it.",
-    yourFlight: "Your flight",
-    whatNext: "What happens next",
+      "יותר מטיסה אחת נשאה את המספר הזה באותו תאריך. בחרו את שלכם ונבדוק.",
+    yourFlight: "הטיסה שלכם",
+    whatNext: "מה קורה עכשיו",
     nextSteps: [
-      "Add the passengers on your booking and upload your ticket.",
-      "We put the claim to the airline in writing, citing the rule that applies.",
-      "You get paid. We only take a fee if the claim succeeds.",
+      "מוסיפים את הנוסעים שבהזמנה ומעלים את הכרטיס.",
+      "אנחנו פונים לחברת התעופה בכתב, בהסתמך על הסעיף שחל על המקרה.",
+      "מקבלים את הכסף. אנחנו גובים עמלה רק אם התביעה מצליחה.",
     ] as const,
     caveat:
-      "Airlines don't have to pay when the cause was outside their control — " +
-      "severe weather, for instance. We'll ask what you were told.",
-    startClaim: "Start my claim",
-    askHuman: "Ask us to check by hand",
-    checkAnother: "Check another flight",
+      "חברות תעופה לא חייבות לפצות כשהסיבה הייתה מחוץ לשליטתן — מזג אוויר " +
+      "קיצוני, למשל. נשאל אתכם מה נאמר לכם.",
+    startClaim: "התחילו תביעה",
+    askHuman: "בקשו בדיקה ידנית",
+    checkAnother: "בדקו טיסה נוספת",
+  },
+
+  /** The live disruptions board, built from our own archive. */
+  board: {
+    title: "לוח שיבושי טיסות",
+    lead: "טיסות שבוטלו או התעכבו לאחרונה מישראל ואליה.",
+    live: "LIVE",
+    updated: "עודכן",
+    filters: { all: "הכול", today: "היום", week: "השבוע" },
+    search: "חפשו מספר טיסה, יעד או חברת תעופה",
+    columns: {
+      flight: "טיסה",
+      route: "מסלול",
+      airline: "חברה",
+      date: "תאריך",
+      status: "סטטוס",
+      award: "פיצוי אפשרי",
+    },
+    status: { cancelled: "בוטלה", delayed: "עיכוב" },
+    upTo: "עד",
+    needsCheck: "בדיקה",
+    empty: "לא נרשמו שיבושים בתקופה הזו.",
+    /* Ours comes from the archive rather than from a hand-written table, so
+       it does not carry the reference site's "for illustration only". It does
+       carry this, which is true: a board entry is not a ruling. */
+    footnote:
+      "הנתונים מגיעים מלוח הטיסות הרשמי של נתב״ג. פיצוי בפועל נקבע לפי " +
+      "נסיבות המקרה.",
+    checkThis: "בדקו את הטיסה",
+  },
+
+  /** What the law pays, by distance. */
+  bands: {
+    title: "כמה פיצוי יכול להגיע על ביטול טיסה?",
+    lead:
+      "בחלק מהמקרים גובה הפיצוי נקבע בין היתר לפי מרחק הטיסה. הפיצוי הוא " +
+      "לכל נוסע הזכאי לו, ולא לפי מחיר כרטיס הטיסה.",
+    familyToggle: "טסים כמשפחה / קבוצה?",
+    perPassenger: "לכל נוסע",
+    rows: [
+      { range: 'עד 2,000 ק״מ', amount: "₪1,530", places: ["לרנקה", "אתונה", "רודוס", "בוקרשט"] },
+      { range: 'ק״מ 2,000–4,500', amount: "₪2,450", places: ["רומא", "ברלין", "פריז", "אמסטרדם", "לונדון"] },
+      { range: 'מעל 4,500 ק״מ', amount: "₪3,670", places: ["ניו יורק", "בנגקוק", "טוקיו", "טורונטו"] },
+    ] as const,
+    familyExample: "טסתם כמשפחה של 4? טיסה ארוכה שבוטלה יכולה להגיע לדוגמה ל:",
+    familyCaveat: "כפוף כמובן לזכאות ולנסיבות המקרה.",
+    cta: "בדקו מה מגיע על הטיסה שלכם",
+    updatedNote: "הסכומים מעודכנים לספטמבר 2026.",
+  },
+
+  frameworks: {
+    title: "אתם לא צריכים לדעת איזה חוק חל על הטיסה שלכם.",
+    lead: "Skyclaim בודקת את פרטי המקרה מול המסגרות הרלוונטיות.",
+    items: ["חוק שירותי תעופה", "EU261", "UK261", "אמנת מונטריאול"] as const,
+  },
+
+  lawyer: {
+    eyebrow: "לא רק מערכת. יש מי שעומד מאחוריה.",
+    name: "עו״ד יצחק מימון",
+    lead: "ניסיון בדיני תעופה, בתוך תהליך הרבה יותר פשוט.",
+    body:
+      "עו״ד יצחק מימון מתמחה בדיני תעופה ובזכויות נוסעים, ומייצג נוסעים מול " +
+      "חברות התעופה — מקומיות ובינלאומיות כאחד. ההיכרות עם המסגרות " +
+      "המשפטיות — חוק שירותי תעופה, התקנה האירופית, החוק הבריטי ואמנת " +
+      "מונטריאול — היא שעומדת בבסיס הבדיקה של Skyclaim.",
+    pullQuoteA: "אנחנו מייצגים נוסעים בלבד.",
+    pullQuoteB: "לא חברות תעופה.",
+    photoAlt: "עו״ד יצחק מימון",
+    /**
+     * EMPTY ON PURPOSE, AND NOT A PLACEHOLDER.
+     *
+     * Years of experience, cases handled, sums recovered, review counts --
+     * every one of these is advertising for a named advocate, and publishing
+     * an unverified figure is a problem for him, not only for us. The section
+     * lays out correctly with none, so adding a verified figure later is a
+     * data change and nothing else.
+     */
+    credentials: [] as readonly { value: string; label: string }[],
+  },
+
+  howItWorks: {
+    titleA: "אתם נותנים לנו את פרטי הטיסה.",
+    titleB: "אנחנו דואגים לשאר.",
+    steps: [
+      { n: "01", title: "מאתרים את הטיסה", body: "מספר טיסה או חיפוש לפי מסלול." },
+      { n: "02", title: "בודקים זכאות", body: "המערכת בודקת את האירוע ואת הזכויות האפשריות." },
+      { n: "03", title: "אנחנו מטפלים", body: "אם יש בסיס לתביעה, משלימים פרטים ומכאן אנחנו מול חברת התעופה." },
+    ] as const,
+    cta: "בדיקת זכאות",
+  },
+
+  why: {
+    title: "חברת התעופה מכירה את הכללים.",
+    lead: "עכשיו גם אתם יכולים לדעת מה מגיע לכם.",
+    items: [
+      { title: "טכנולוגיה", body: "איתור ובדיקת הטיסה במהירות ובדיוק." },
+      { title: "פשטות", body: "תהליך ברור במקום התכתבויות וטפסים." },
+      { title: "ניסיון משפטי", body: "עו״ד יצחק מימון וההתמחות בזכויות נוסעים." },
+    ] as const,
+  },
+
+  /** EMPTY until real, attributable reviews exist. See `lawyer.credentials`. */
+  testimonials: {
+    title: "נוסעים שכבר עברו את זה.",
+    items: [] as readonly { quote: string; name: string; when: string }[],
+  },
+
+  cases: {
+    title: "הטיסה השתבשה? ייתכן שמגיע לכם כסף.",
+    items: [
+      "ביטול טיסה",
+      "עיכוב משמעותי",
+      "קונקשן שהוחמץ",
+      "סירוב עלייה למטוס",
+      "הוצאות מלון / אוכל / תחבורה",
+      "טיסה חלופית שהגיעה מאוחר",
+    ] as const,
+    unsure: "לא בטוחים?",
+    unsureBody: "פשוט תנו לנו לבדוק.",
+  },
+
+  faq: {
+    title: "שאלות נפוצות",
+    items: [
+      {
+        q: "הטיסה שלי בוטלה. האם בהכרח מגיע לי פיצוי?",
+        a: "לא בהכרח. הזכאות תלויה בין היתר במועד ההודעה, בסיבת הביטול, במסלול ובנסיבות נוספות. הבדיקה של Skyclaim נועדה לבחון את המקרה הספציפי שלכם.",
+      },
+      {
+        q: "כמה פיצוי אפשר לקבל?",
+        a: "במקרים המתאימים הפיצוי עשוי להגיע לאלפי שקלים לכל נוסע, בהתאם למרחק הטיסה ולדין החל.",
+      },
+      {
+        q: "גם ילדים זכאים לפיצוי?",
+        a: "יש לבחון את סוג הכרטיס ואת נסיבות המקרה, אך במקרים רבים הזכאות נבחנת ביחס לכל נוסע בנפרד.",
+      },
+      {
+        q: "קיבלתי טיסה חלופית. עדיין יכול להגיע לי כסף?",
+        a: "ייתכן. עצם קבלת הטיסה החלופית לא בהכרח שוללת זכאות.",
+      },
+      {
+        q: "חברת התעופה כבר דחתה אותי. עדיין אפשר לפנות?",
+        a: "כן. תשובה של חברת התעופה אינה בהכרח סוף הבדיקה.",
+      },
+      {
+        q: "אפשר לתבוע על טיסה שהייתה בעבר?",
+        a: "במקרים רבים כן, בכפוף לתקופת ההתיישנות החלה על המקרה.",
+      },
+      {
+        q: "מה לגבי הוצאות על מלון, אוכל ומוניות?",
+        a: "ייתכן שניתן לדרוש גם החזר עבור הוצאות מסוימות. לכן חשוב לשמור קבלות.",
+      },
+      {
+        q: "אילו מסמכים צריך?",
+        a: "בשלב הראשון כמעט כלום. מתחילים מפרטי הטיסה, ובהמשך המערכת תגיד בדיוק אילו מסמכים דרושים.",
+      },
+    ] as const,
+    more: "יש לכם שאלה שלא ענינו עליה?",
+  },
+
+  finalCta: {
+    badge: "מייצגים נוסעים בלבד",
+    title: "הטיסה השתבשה?",
+    lead: "בואו נבדוק מה מגיע לכם.",
+    body:
+      "אותה מערכת, אותו תהליך — איתור הטיסה, בדיקת הזכאות, וטיפול מול חברת " +
+      "התעופה. מתחילים בפחות מדקה.",
+  },
+
+  footer: {
+    blurb: "פיצוי על טיסות שבוטלו או התעכבו. מייצגים נוסעים בלבד.",
+    columns: [
+      { title: "Skyclaim", links: ["בדיקת זכאות", "ביטולי טיסות", "עיכובים", "קונקשנים"] },
+      { title: "אודות", links: ["עו״ד יצחק מימון", "שאלות נפוצות", "יצירת קשר"] },
+      { title: "מידע משפטי", links: ["תנאי שימוש", "פרטיות", "נגישות"] },
+    ] as const,
+    rights: "© 2026 Skyclaim · עו״ד יצחק מימון",
+    disclaimer:
+      "המידע באתר אינו מהווה ייעוץ משפטי מחייב ואינו תחליף לבדיקה פרטנית.",
   },
 
   /** The claim wizard. */
   claim: {
-    title: "Start your claim",
-    steps: ["Passengers", "Booking", "Costs", "Documents", "Review"] as const,
-    back: "Back",
-    next: "Continue",
+    title: "התחלת תביעה",
+    steps: ["נוסעים", "ההזמנה", "הוצאות", "מסמכים", "סיכום"] as const,
+    back: "חזרה",
+    next: "המשך",
 
     passengers: {
-      title: "Who was on the booking?",
+      title: "מי היה בהזמנה?",
       body:
-        "Compensation is paid per passenger, so add everyone who travelled on " +
-        "this booking — not just you.",
-      contactName: "Your full name",
-      contactEmail: "Email",
-      contactEmailHint: "This is where we send updates about the claim.",
-      contactPhone: "Phone (optional)",
-      fullName: "Full name on the ticket",
-      nationalId: "ID or passport number",
-      nationalIdHint: "Airlines ask for this to match you to the booking.",
-      minor: "Under 18",
-      add: "Add another passenger",
-      remove: "Remove",
+        "הפיצוי משולם לכל נוסע, אז הוסיפו את כל מי שטס בהזמנה הזו — לא רק אתכם.",
+      contactName: "השם המלא שלכם",
+      contactEmail: "אימייל",
+      contactEmailHint: "לכאן נשלח עדכונים על התביעה.",
+      contactPhone: "טלפון (לא חובה)",
+      fullName: "שם מלא כפי שמופיע בכרטיס",
+      nationalId: "מספר תעודת זהות או דרכון",
+      nationalIdHint: "חברות התעופה מבקשות את זה כדי לשייך אתכם להזמנה.",
+      minor: "מתחת לגיל 18",
+      add: "הוספת נוסע",
+      remove: "הסרה",
     },
 
     booking: {
-      title: "Your booking",
-      body: "Two things no flight database can tell us — only you can.",
-      reference: "Booking reference",
-      referenceHint: "Six characters on your ticket, like XJ4K2P.",
-      airlineReason: "What did the airline say was the reason?",
+      title: "ההזמנה שלכם",
+      body: "שני דברים ששום מאגר טיסות לא יודע — רק אתם.",
+      reference: "מספר הזמנה",
+      referenceHint: "שישה תווים על הכרטיס, למשל XJ4K2P.",
+      airlineReason: "מה חברת התעופה אמרה שהייתה הסיבה?",
       airlineReasonHint:
-        "In your own words. Airlines don't have to pay when the cause was " +
-        "outside their control, so this decides a lot.",
-      notice: "If the flight was cancelled, when did the airline tell you?",
+        "במילים שלכם. חברות תעופה לא חייבות לפצות כשהסיבה הייתה מחוץ " +
+        "לשליטתן, אז זה קובע הרבה.",
+      notice: "אם הטיסה בוטלה — מתי חברת התעופה הודיעה לכם?",
       /**
        * Buckets, not a day count, and two of them are not quantities at all.
        *
-       * "They never told me" and "I can't remember" are the answers that decide
-       * the most claims, and a number cannot hold either: both collapse into a
-       * blank that a claim handler cannot tell apart from an unanswered
-       * question. The values match the backend's CancellationNotice.
+       * "לא הודיעו לי" and "אני לא זוכר" are the answers that decide the most
+       * claims, and a number cannot hold either: both collapse into a blank
+       * that a claim handler cannot tell apart from an unanswered question.
+       * The values match the backend's CancellationNotice.
        */
       noticeOptions: [
-        { value: "", label: "It wasn't cancelled" },
-        { value: "NEVER_TOLD", label: "They never told me" },
-        { value: "ON_THE_DAY", label: "On the day of the flight" },
-        { value: "UNDER_A_WEEK", label: "Less than a week before" },
-        { value: "ONE_TO_TWO_WEEKS", label: "One to two weeks before" },
-        { value: "OVER_TWO_WEEKS", label: "More than two weeks before" },
-        { value: "CANNOT_REMEMBER", label: "I can't remember" },
+        { value: "", label: "הטיסה לא בוטלה" },
+        { value: "NEVER_TOLD", label: "לא הודיעו לי בכלל" },
+        { value: "ON_THE_DAY", label: "ביום הטיסה" },
+        { value: "UNDER_A_WEEK", label: "פחות משבוע לפני" },
+        { value: "ONE_TO_TWO_WEEKS", label: "שבוע עד שבועיים לפני" },
+        { value: "OVER_TWO_WEEKS", label: "יותר משבועיים לפני" },
+        { value: "CANNOT_REMEMBER", label: "אני לא זוכר" },
       ] as const,
     },
 
     costs: {
-      title: "What did it cost you?",
+      title: "כמה זה עלה לכם?",
       body:
-        "Hotels, taxis, meals and calls caused by the disruption are reimbursed " +
-        "on top of the compensation — at cost, against a receipt. Skip this if " +
-        "there weren't any.",
-      category: "What was it",
-      amount: "Amount",
-      currency: "Currency",
-      description: "Description (optional)",
-      add: "Add a cost",
-      remove: "Remove",
-      none: "No out-of-pocket costs",
+        "מלון, מוניות, אוכל ושיחות בגלל השיבוש מוחזרים בנוסף לפיצוי — לפי " +
+        "העלות ומול קבלה. אפשר לדלג אם לא היו.",
+      category: "על מה",
+      amount: "סכום",
+      currency: "מטבע",
+      description: "תיאור (לא חובה)",
+      add: "הוספת הוצאה",
+      remove: "הסרה",
+      none: "לא היו הוצאות מהכיס",
     },
 
     documents: {
-      title: "Upload what you have",
+      title: "העלו מה שיש לכם",
       body:
-        "Your ticket or booking confirmation is the important one. Receipts " +
-        "back up the costs you listed. PDFs or photos, up to 10 MB each.",
-      booking: "Ticket or booking confirmation",
-      receipt: "Receipts",
-      boardingPass: "Boarding pass (optional)",
-      drop: "Choose a file",
-      uploaded: "Uploaded",
-      later: "You can add more later — we'll email you a link.",
+        "הכרטיס או אישור ההזמנה הם החשובים. קבלות מגבות את ההוצאות שרשמתם. " +
+        "קובצי PDF או תמונות, עד 10MB כל אחד.",
+      booking: "כרטיס או אישור הזמנה",
+      receipt: "קבלות",
+      boardingPass: "כרטיס עלייה למטוס (לא חובה)",
+      drop: "בחרו קובץ",
+      uploaded: "הועלה",
+      later: "אפשר להוסיף עוד בהמשך — נשלח לכם קישור במייל.",
     },
 
     review: {
-      title: "Check it over",
-      body: "Once you submit, we put the claim to the airline in writing.",
-      passengers: "Passengers",
-      booking: "Booking",
-      costs: "Costs",
-      documents: "Documents",
-      submit: "Submit my claim",
-      submitting: "Submitting…",
+      title: "עברו על הפרטים",
+      body: "אחרי השליחה אנחנו פונים לחברת התעופה בכתב.",
+      passengers: "נוסעים",
+      booking: "ההזמנה",
+      costs: "הוצאות",
+      documents: "מסמכים",
+      submit: "שליחת התביעה",
+      submitting: "שולחים…",
       consent:
-        "By submitting you confirm the details are accurate and ask us to " +
-        "pursue this claim on your behalf.",
+        "בשליחה אתם מאשרים שהפרטים נכונים ומבקשים מאיתנו לטפל בתביעה " +
+        "בשמכם.",
     },
 
     done: {
-      title: "Your claim is in",
+      title: "התביעה נשלחה",
       body:
-        "We'll put it to the airline and email you when there's news. Keep this " +
-        "reference — it's how you or we find the claim later.",
-      reference: "Your claim reference",
+        "אנחנו פונים לחברת התעופה ונעדכן אתכם במייל כשיהיו חדשות. שמרו את " +
+        "מספר האסמכתא — כך תמצאו את התביעה בהמשך.",
+      reference: "מספר האסמכתא שלכם",
     },
 
     errors: {
-      needPassenger: "Add at least one passenger before continuing.",
-      needName: "Enter this passenger's full name.",
-      needContactName: "We need a name to put on the claim.",
-      needContactEmail: "We need an email address to send updates to.",
-      badAmount: "Enter an amount, like 42.50.",
+      needPassenger: "הוסיפו לפחות נוסע אחד כדי להמשיך.",
+      needName: "הזינו את השם המלא של הנוסע.",
+      needContactName: "צריך שם כדי לפתוח את התביעה.",
+      needContactEmail: "צריך כתובת אימייל כדי לשלוח עדכונים.",
+      badAmount: "הזינו סכום, למשל 42.50.",
     },
   },
 
   legal: {
-    disclaimer: "This is an automated estimate, not legal advice.",
+    disclaimer: "זו הערכה אוטומטית ואינה ייעוץ משפטי.",
   },
 } as const;
 

@@ -42,23 +42,23 @@
      and slightly positive as it shrinks. One letter-spacing for every size is
      wrong somewhere. */
   --text-display: clamp(2.25rem, 1.4rem + 3.6vw, 4rem);
-  --text-display--line-height: 1.05;
-  --text-display--letter-spacing: -0.028em;
+  --text-display--line-height: 1.18;
+  --text-display--letter-spacing: -0.005em;
   --text-display--font-weight: 800;
 
   --text-title: clamp(1.75rem, 1.3rem + 1.9vw, 2.5rem);
-  --text-title--line-height: 1.12;
-  --text-title--letter-spacing: -0.02em;
+  --text-title--line-height: 1.25;
+  --text-title--letter-spacing: -0.004em;
   --text-title--font-weight: 750;
 
   --text-heading: 1.375rem;
   --text-heading--line-height: 1.3;
-  --text-heading--letter-spacing: -0.012em;
+  --text-heading--letter-spacing: 0em;
   --text-heading--font-weight: 700;
 
   --text-subhead: 1.0625rem;
   --text-subhead--line-height: 1.45;
-  --text-subhead--letter-spacing: -0.006em;
+  --text-subhead--letter-spacing: 0em;
   --text-subhead--font-weight: 600;
 
   --text-body: 1rem;
@@ -80,6 +80,7 @@
 
   --font-display: var(--font-display-stack);
   --font-sans: var(--font-sans-stack);
+  --font-code: var(--font-code-stack);
 
   /* Radii scale with the surface: a large card with a small radius looks
      stamped out, a small chip with a large one becomes a pill by accident. */
@@ -100,10 +101,14 @@
 :root {
   color-scheme: light;
 
-  --font-sans-stack: var(--font-inter), -apple-system, BlinkMacSystemFont,
-    "Segoe UI", system-ui, sans-serif;
-  --font-display-stack: var(--font-jakarta), var(--font-inter), system-ui,
-    sans-serif;
+  /* One face for both scripts. A Latin face with a Hebrew fallback changes
+     letterform, weight and line height halfway through a sentence, and does
+     it differently on every platform. Heebo is drawn for both. */
+  --font-sans-stack: var(--font-heebo), "Segoe UI", system-ui, sans-serif;
+  --font-display-stack: var(--font-heebo), "Segoe UI", system-ui, sans-serif;
+  /* Codes, not words: flight numbers and amounts, read down a column. */
+  --font-code-stack: var(--font-mono), ui-monospace, SFMono-Regular, Menlo,
+    monospace;
 
   /* Semantic aliases. Components use these, never a raw ramp step. */
   --surface-page: #ffffff;
@@ -224,5 +229,152 @@ body {
     --text-default: var(--text-strong);
     --text-muted: var(--text-strong);
     --border-subtle: var(--border-default);
+  }
+}
+
+/* ===========================================================================
+   Motion and surface, modelled on heygyro.com and on Apple's motion rules.
+
+   The two ideas doing the work:
+
+   1. A GRADIENT FIELD rather than flat bands. Gyro's page is one continuous
+      wash that changes hue as you descend, so sections feel like places in a
+      single space rather than stacked rectangles.
+
+   2. MOTION THAT RESPECTS THE CLOCK. Everything here is spring-shaped
+      (cubic-bezier with a soft finish), starts from where the element
+      actually is, and is switched off entirely under prefers-reduced-motion.
+      A page that animates through a vestibular disorder is not modern, it is
+      careless.
+   =========================================================================== */
+
+html {
+  /* Anchor links glide instead of teleporting. The reduced-motion override
+     at the bottom of this file turns it back off, which is the one case
+     where jumping is the accessible behaviour. */
+  scroll-behavior: smooth;
+  /* Sticky header is 64px; without this an anchored section lands underneath
+     it and the heading is invisible. */
+  scroll-padding-top: 5.5rem;
+}
+
+/* --- the field ------------------------------------------------------------
+   Three stops, not two: a flat two-stop gradient over a tall page reads as a
+   single dull wash, while a third stop gives it a horizon. */
+.field {
+  background:
+    radial-gradient(120% 80% at 80% -10%, #d9f5f1 0%, transparent 55%),
+    radial-gradient(100% 70% at 10% 10%, #e8f6ff 0%, transparent 50%),
+    linear-gradient(180deg, #f7fafb 0%, #ffffff 60%, #f5f7f9 100%);
+}
+
+.fieldInk {
+  background:
+    radial-gradient(90% 60% at 85% 0%, #16413d 0%, transparent 60%),
+    linear-gradient(180deg, #151a22 0%, #10151c 100%);
+}
+
+/* --- the flight path ------------------------------------------------------
+   The decorative dashed arc, borrowed from Gyro. Drawn in SVG rather than as
+   a border-radius trick so the dash pattern is even along the curve, and
+   marked aria-hidden at the call site: it says nothing. */
+.path {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+.pathLine {
+  stroke: var(--color-teal-400);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 9;
+  fill: none;
+  opacity: 0.35;
+  stroke-dashoffset: 0;
+  animation: drift 24s linear infinite;
+}
+@keyframes drift {
+  to { stroke-dashoffset: -280; }
+}
+
+/* The little aeroplane that travels the arc. `offset-path` follows the same
+   curve the line is drawn along, so the two cannot fall out of step. */
+.pathPlane {
+  fill: var(--color-teal-600);
+  offset-rotate: auto;
+  animation: fly 24s linear infinite;
+  opacity: 0.55;
+}
+@keyframes fly {
+  from { offset-distance: 0%; }
+  to { offset-distance: 100%; }
+}
+
+/* --- scroll reveal --------------------------------------------------------
+   Driven by an IntersectionObserver that sets data-shown, NOT by a scroll
+   handler: an observer fires off the main thread and costs nothing, while a
+   scroll listener runs on every frame of every scroll for the life of the
+   page.
+
+   The transform is small on purpose. A 16px rise reads as the page settling;
+   a 60px rise reads as a slideshow and, on a long page, as seasickness. */
+[data-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 16px, 0);
+  transition:
+    opacity 620ms var(--ease-out-soft),
+    transform 620ms var(--ease-out-soft);
+  will-change: opacity, transform;
+}
+[data-reveal][data-shown="true"] {
+  opacity: 1;
+  transform: none;
+}
+/* Children stagger, so a row of three cards arrives as a phrase rather than
+   as one block. Capped at six: beyond that the last card is late enough to
+   look broken. */
+[data-reveal][data-delay="1"] { transition-delay: 70ms; }
+[data-reveal][data-delay="2"] { transition-delay: 140ms; }
+[data-reveal][data-delay="3"] { transition-delay: 210ms; }
+[data-reveal][data-delay="4"] { transition-delay: 280ms; }
+[data-reveal][data-delay="5"] { transition-delay: 350ms; }
+
+/* --- glass -----------------------------------------------------------------
+   The sticky header. Translucent with a blur, so content passes UNDER it and
+   stays legible, rather than an opaque bar that eats a strip of the viewport.
+   Saturation is lifted because blurring desaturates whatever is behind it. */
+.glass {
+  background: rgb(255 255 255 / 0.72);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  border-bottom: 1px solid rgb(17 24 32 / 0.06);
+}
+
+/* --- pressable -------------------------------------------------------------
+   Feedback on POINTER-DOWN, not on click. Waiting for the release to show
+   anything is the single most common reason an interface feels dead. */
+.press {
+  transition: transform 120ms var(--ease-out-soft),
+              box-shadow 220ms var(--ease-out-soft);
+}
+.press:active { transform: scale(0.975); }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .pathLine, .pathPlane { animation: none; }
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .press:active { transform: none; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass {
+    background: #ffffff;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 }
