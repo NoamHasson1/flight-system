@@ -55,6 +55,18 @@ export const strings = {
     dateHint: "The day the flight took off, not the day you booked.",
     submit: "See what you're owed",
     submitting: "Checking your flight…",
+    /**
+     * Shown once a check has been running long enough to look broken.
+     *
+     * A free host stops a service after a quarter of an hour of quiet and
+     * takes the better part of a minute to start it again. The check WILL
+     * succeed; it just has to wait for a machine to wake up first.
+     *
+     * Saying so is the difference between a slow answer and a broken site.
+     * Somebody watching a silent spinner for thirty seconds closes the tab,
+     * and a closed tab is a claim nobody ever finds out about.
+     */
+    submittingSlow: "Still checking — the first search after a quiet spell can take up to a minute…",
   },
 
   /**

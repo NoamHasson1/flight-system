@@ -10,7 +10,7 @@
  * real server by the end-to-end run.
  */
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -181,5 +181,86 @@ describe("while it is working", () => {
     expect(checkEligibility).toHaveBeenCalledTimes(1);
 
     release(decided());
+  });
+});
+
+describe("a check that takes a while", () => {
+  /**
+   * The failure these cover, in full:
+   *
+   * A free host stops a service after a quarter of an hour of quiet. The next
+   * visitor's check waits for it to boot -- measured at 21.9 seconds -- and
+   * the browser used to give up at 20. Two seconds short. It then showed
+   * "we couldn't reach the flight database", which is a sentence about the
+   * flight database being down, when the answer was two seconds away.
+   *
+   * It failed for essentially every first visitor after a quiet spell.
+   *
+   * These drive the form with fireEvent rather than userEvent: userEvent
+   * schedules its own timers between keystrokes, and under fake timers that
+   * deadlocks against the clock the test is trying to control.
+   */
+
+  function submitWithFakeTimers() {
+    render(<CheckForm />);
+    fireEvent.change(screen.getByLabelText(/flight number/i), {
+      target: { value: "BA165" },
+    });
+    fireEvent.change(screen.getByLabelText(/date it departed/i), {
+      target: { value: "2026-08-14" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: /see what you're owed/i }),
+    );
+  }
+
+  it("keeps waiting instead of calling a slow answer a failure", async () => {
+    vi.useFakeTimers();
+    try {
+      let settle: (value: unknown) => void = () => {};
+      checkEligibility.mockReturnValue(
+        new Promise((resolve) => {
+          settle = resolve;
+        }),
+      );
+      submitWithFakeTimers();
+
+      // Well past the old twenty-second ceiling.
+      await vi.advanceTimersByTimeAsync(40_000);
+      expect(screen.queryByText(/couldn't reach the flight database/i)).toBeNull();
+
+      settle(decided());
+      await vi.advanceTimersByTimeAsync(0);
+      expect(push).toHaveBeenCalledWith("/check/abc-123");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("says what is happening rather than spinning in silence", async () => {
+    // Somebody watching a silent spinner for thirty seconds closes the tab,
+    // and a closed tab is a claim nobody ever hears about. The wait is real;
+    // the silence is what loses the customer.
+    vi.useFakeTimers();
+    try {
+      checkEligibility.mockReturnValue(new Promise(() => {}));
+      submitWithFakeTimers();
+
+      await vi.advanceTimersByTimeAsync(0);
+      expect(screen.getByRole("button")).toHaveTextContent(
+        /checking your flight/i,
+      );
+
+      // act(), because the state change originates in a timer rather than in
+      // an event React already knows about.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(6_000);
+      });
+      expect(screen.getByRole("button")).toHaveTextContent(
+        /can take up to a minute/i,
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

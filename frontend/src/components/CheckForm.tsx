@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { checkEligibility, type FlightOption } from "@/lib/api";
 import { strings } from "@/lib/strings";
@@ -19,6 +19,9 @@ const FLIGHT_NUMBER = /^[A-Z0-9]{2}[A-Z]?\d{1,4}[A-Z]?$/;
 
 const normalise = (value: string) =>
   value.replace(/[\s\-_.]/g, "").toUpperCase();
+
+/** How long a check may run before the button explains itself. */
+const SLOW_AFTER_MS = 5_000;
 
 export function CheckForm() {
   const router = useRouter();
@@ -49,6 +52,28 @@ export function CheckForm() {
 
   const busy = state.phase === "checking";
 
+  /**
+   * True once a check has been running long enough that a silent spinner
+   * starts to read as a broken page.
+   *
+   * The wait is real and the answer is coming: on a free host the backend
+   * stops after a quarter of an hour of quiet and takes the better part of a
+   * minute to wake, and the browser now waits long enough to let it. What
+   * this fixes is not the delay but the SILENCE -- somebody watching nothing
+   * happen for thirty seconds closes the tab, and a closed tab is a claim
+   * nobody ever hears about.
+   *
+   * Five seconds because a normal check takes under two, so anything past
+   * five is already unusual enough to deserve a word.
+   */
+  const [slow, setSlow] = useState(false);
+
+  useEffect(() => {
+    if (!busy) return;
+    const timer = setTimeout(() => setSlow(true), SLOW_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, [busy]);
+
   async function run(optionKey?: string) {
     setTouched({ flightNumber: true, flightDate: true });
     if (numberError || dateError) {
@@ -56,6 +81,7 @@ export function CheckForm() {
       return;
     }
 
+    setSlow(false);
     setState({ phase: "checking" });
 
     const result = await checkEligibility({
@@ -168,7 +194,11 @@ export function CheckForm() {
             style={{ fontFamily: "var(--font-display-stack)", fontWeight: 700 }}
           >
             {busy && <Spinner />}
-            {busy ? strings.form.submitting : strings.form.submit}
+            {busy
+              ? slow
+                ? strings.form.submittingSlow
+                : strings.form.submitting
+              : strings.form.submit}
           </button>
 
           {state.phase === "problem" ? (

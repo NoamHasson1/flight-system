@@ -86,7 +86,36 @@ function baseUrl(): string {
   return withScheme.replace(/\/$/, "");
 }
 
-const TIMEOUT_MS = 20_000;
+/**
+ * How long the browser waits before deciding nothing is coming.
+ *
+ * THIS IS THE LAST LAYER IN A LADDER, AND IT MUST BE THE MOST PATIENT.
+ *
+ *     browser (here)   this value
+ *     proxy            75s, twice        -- src/app/api/[...path]/route.ts
+ *     backend          about 81s worst case:
+ *                        board       5s connect + 15s read
+ *                        AeroDataBox 3 attempts of the same, plus backoff
+ *
+ * It was 20 seconds, which is BELOW the budget the backend is allowed to
+ * spend. The browser therefore hung up on requests that were going to
+ * succeed, and did it first, so the proxy's patience was never reached.
+ *
+ * Measured cold start on a free host: 21.9s. Two seconds past the old
+ * ceiling, which made it fail for essentially every first visitor after a
+ * quiet spell -- while showing them a message about the flight database
+ * being unreachable, when it was merely still waking up.
+ *
+ * The board request is the slow one by design: it pulls the WHOLE Ben Gurion
+ * board, about 3,200 flights, on every lookup. A slow morning at data.gov.il
+ * costs fifteen seconds on a request that works perfectly.
+ *
+ * So: longer than anything downstream can legitimately take, and short enough
+ * that a genuinely dead backend still ends. The waiting is made bearable by
+ * saying what is happening -- see CheckForm's `slow` state -- rather than by
+ * cutting it short and calling a slow answer a failure.
+ */
+const TIMEOUT_MS = 90_000;
 
 export async function checkEligibility(
   input: EligibilityRequest,
