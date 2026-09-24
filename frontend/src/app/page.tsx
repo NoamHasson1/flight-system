@@ -1,6 +1,9 @@
 import Image from "next/image";
 
+import Link from "next/link";
+
 import { FlightBoard } from "@/components/Board";
+import { GoogleRating } from "@/components/GoogleRating";
 import { FlightPath } from "@/components/FlightPath";
 import { Reveal } from "@/components/Reveal";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -59,6 +62,7 @@ export default function Home() {
       <Lawyer />
       <HowItWorks />
       <Why />
+      <Reviews />
       <Cases />
       <Faq />
       <FinalCta />
@@ -140,6 +144,10 @@ function Hero() {
         >
           {h.reassurance}
         </p>
+
+        <div className={`${s.rise} ${s.d4} mt-8 flex justify-center`}>
+          <GoogleRating />
+        </div>
       </div>
     </section>
   );
@@ -180,6 +188,31 @@ function CheckSection() {
         <div className="px-6 py-8 sm:px-10">
           <CheckForm />
         </div>
+      </div>
+
+      {/* Under the form, small, and a link rather than a billboard.
+          Somebody who has read this far has already decided to type a
+          flight number -- the face is here to reassure them that a person
+          stands behind the answer, not to sell them anything. Above the
+          form it would be the first thing they had to get past. */}
+      <div className="mt-8 flex justify-center">
+        <Link href="/about" className={`${s.backedBy} press`}>
+          <span className={s.backedByPhoto}>
+            <Image
+              src="/people/yitzhak-maimon-sm.jpg"
+              alt=""
+              fill
+              sizes="40px"
+              style={{ objectFit: "cover", objectPosition: "center 14%" }}
+            />
+          </span>
+          <span className="text-caption" style={{ color: "var(--text-muted)" }}>
+            {c.backedBy}{" "}
+            <strong style={{ color: "var(--text-strong)" }}>
+              {strings.brand.lawyer}
+            </strong>
+          </span>
+        </Link>
       </div>
     </section>
   );
@@ -364,6 +397,35 @@ function Why() {
             </div>
           ))}
         </div>
+      </div>
+    </section>
+  );
+}
+
+/* --- reviews --------------------------------------------------------------- */
+
+function Reviews() {
+  const r = strings.reviews;
+
+  return (
+    <section className={`${s.mist} px-5 py-20 text-center sm:px-8`}>
+      <div className="mx-auto max-w-2xl">
+        <h2 data-reveal className="text-title" style={{ color: "var(--text-strong)" }}>
+          {r.title}
+        </h2>
+        <p
+          data-reveal
+          className="mx-auto mt-4 max-w-xl text-body"
+          style={{ color: "var(--text-muted)" }}
+        >
+          {r.lead}
+        </p>
+        <div data-reveal data-delay="1" className="mt-8 flex justify-center">
+          <GoogleRating />
+        </div>
+        <p className="mt-4 text-caption" style={{ color: "var(--text-muted)" }}>
+          {r.readAll} ←
+        </p>
       </div>
     </section>
   );

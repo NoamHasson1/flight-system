@@ -241,6 +241,10 @@ export const strings = {
     stripFree: "FREE",
     eyebrow: "בדיקת זכאות — חינם, בלי הרשמה",
     lead: "מזינים את פרטי הטיסה, ומקבלים תשובה תוך דקה.",
+    /* Under the form, not over it. Somebody at this point has decided to
+       type a flight number; the face is there to reassure, not to sell. */
+    backedBy: "הבדיקה נשענת על הידע של",
+    backedByLink: "עוד על יצחק",
   },
 
   form: {
@@ -499,10 +503,48 @@ export const strings = {
     ] as const,
   },
 
-  /** EMPTY until real, attributable reviews exist. See `lawyer.credentials`. */
-  testimonials: {
-    title: "נוסעים שכבר עברו את זה.",
-    items: [] as readonly { quote: string; name: string; when: string }[],
+  /**
+   * The Google rating.
+   *
+   * VERIFIED, unlike the figures still absent from `lawyer.credentials`.
+   * Read off the listing for "יצחק מימון עורך דין תעופה" on 24 September
+   * 2026: 5.0 from 309 reviews. The link goes to that listing so anybody can
+   * check it in one click, which is the whole reason a rating is worth
+   * showing at all.
+   *
+   * The COUNT will drift as reviews arrive. It is written here rather than
+   * fetched because fetching it needs the Google Places API and a key, and a
+   * number that is a little low is honest while a number that is a little
+   * high is not -- so it only ever needs updating upward, at leisure.
+   */
+  reviews: {
+    rating: "5.0",
+    count: 309,
+    countLabel: "ביקורות בגוגל",
+    ratingLabel: "דירוג ממוצע",
+    verified: "פרופיל Google מאומת",
+    readAll: "לקריאת כל הביקורות בגוגל",
+    url:
+      "https://www.google.com/maps/place/?q=place_id:" +
+      "ChIJ0-AAE2m-gxMRfNCXrJmW_is",
+    title: "נוסעים שכבר עברו את זה",
+    lead:
+      "הדירוג והביקורות מתפרסמים בפרופיל Google של המשרד — לא אצלנו באתר, " +
+      "כך שאי אפשר לערוך אותם.",
+    /**
+     * EMPTY, and not a placeholder.
+     *
+     * Review text belongs to Google and to the people who wrote it.
+     * Republishing it by copying it off the listing is both a terms
+     * violation and a thing we could quietly edit -- which is exactly what
+     * makes a testimonial on a company's own site worth less than a rating
+     * that links out.
+     *
+     * To fill this properly: the Google Places API returns reviews with
+     * attribution, under terms that permit displaying them. Until then the
+     * rating and the link do the work honestly.
+     */
+    quotes: [] as readonly { quote: string; name: string; when: string }[],
   },
 
   cases: {

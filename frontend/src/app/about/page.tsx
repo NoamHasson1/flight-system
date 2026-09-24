@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
+import { GoogleRating } from "@/components/GoogleRating";
 import { PageHead } from "@/components/PageHead";
 import { Reveal } from "@/components/Reveal";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -57,9 +58,12 @@ export default function AboutPage() {
               <p className={`${s.accent} text-heading font-black`}>{l.pullQuoteB}</p>
             </div>
 
-            <Link href="/#check" className={`${s.cta} ${s.ctaPill} press mt-8 px-7 py-3.5 text-subhead`}>
-              {strings.hero.cta}
-            </Link>
+            <div className="mt-8 flex flex-wrap items-center gap-4">
+              <Link href="/#check" className={`${s.cta} ${s.ctaPill} press px-7 py-3.5 text-subhead`}>
+                {strings.hero.cta}
+              </Link>
+              <GoogleRating />
+            </div>
           </div>
 
           <div className={`${s.portrait} aspect-[4/5]`}>
