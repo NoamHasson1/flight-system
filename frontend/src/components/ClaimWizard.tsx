@@ -40,6 +40,8 @@ type Draft = {
   bookingReference: string;
   airlineReason: string;
   cancellationNotice: string;
+  alreadyGot: string;
+  anythingElse: string;
   costs: Cost[];
 };
 
@@ -58,12 +60,26 @@ const CATEGORIES = [
 
 const CURRENCIES = ["EUR", "GBP", "ILS", "USD"] as const;
 
-function blankDraft(): Draft {
+/**
+ * A fresh draft, with as many passenger rows as the result screen was told.
+ *
+ * The counter on the verdict page is not decoration: it changes the amount
+ * shown there, and somebody who said "four of us" has already answered this
+ * question. Asking again three screens later is how a form starts to feel
+ * like paperwork -- and worse, it invites a different answer, which then
+ * disagrees with the figure that persuaded them to start.
+ *
+ * Clamped, because the count arrives in a URL and a URL is typed by anyone.
+ */
+function blankDraft(passengers = 1): Draft {
+  const rows = Math.min(Math.max(Math.trunc(passengers) || 1, 1), 9);
   return {
     contactName: "",
     contactEmail: "",
     contactPhone: "",
-    passengers: [{ ...EMPTY_PASSENGER }],
+    alreadyGot: "NOTHING",
+    anythingElse: "",
+    passengers: Array.from({ length: rows }, () => ({ ...EMPTY_PASSENGER })),
     bookingReference: "",
     airlineReason: "",
     cancellationNotice: "",
@@ -75,7 +91,15 @@ export function ClaimWizard({ check }: { check: EligibilityResponse }) {
   const storageKey = `claim-draft:${check.check_id}`;
 
   const [step, setStep] = useState(0);
-  const [draft, setDraft] = useState<Draft>(blankDraft);
+  // Read once, at mount. `useSearchParams` would make this a client route
+  // that re-renders on every navigation for a value that cannot change.
+  const [draft, setDraft] = useState<Draft>(() =>
+    blankDraft(
+      typeof window === "undefined"
+        ? 1
+        : Number(new URLSearchParams(window.location.search).get("passengers")),
+    ),
+  );
   const [claim, setClaim] = useState<ClaimOut | null>(null);
   const [uploads, setUploads] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -145,16 +169,21 @@ export function ClaimWizard({ check }: { check: EligibilityResponse }) {
   async function forward() {
     setError(null);
 
+    // Step 0 asks only for a way to reach somebody. Deliberately the
+    // cheapest step in the form: if they stop here we can still write to
+    // them, which is not true of any later abandonment.
     if (step === 0) {
       if (!draft.contactName.trim()) return setError(t.errors.needContactName);
       if (!draft.contactEmail.trim()) return setError(t.errors.needContactEmail);
-      const named = draft.passengers.filter((p) => p.fullName.trim());
-      if (!named.length) return setError(t.errors.needPassenger);
-      patch({ passengers: named });
       return setStep(1);
     }
 
-    if (step === 1) return setStep(2);
+    if (step === 1) {
+      const named = draft.passengers.filter((p) => p.fullName.trim());
+      if (!named.length) return setError(t.errors.needPassenger);
+      patch({ passengers: named });
+      return setStep(2);
+    }
 
     if (step === 2) {
       const bad = draft.costs.find((c) => !isAmount(c.amount));
@@ -243,8 +272,8 @@ export function ClaimWizard({ check }: { check: EligibilityResponse }) {
         {/* tabIndex -1 so focus can be moved here programmatically without
             putting it in the tab order. */}
         <div ref={headingRef} tabIndex={-1} style={{ outline: "none" }}>
-          {step === 0 && <Passengers draft={draft} patch={patch} />}
-          {step === 1 && <Booking draft={draft} patch={patch} />}
+          {step === 0 && <Contact draft={draft} patch={patch} />}
+          {step === 1 && <Passengers draft={draft} patch={patch} />}
           {step === 2 && <Costs draft={draft} patch={patch} />}
           {step === 3 && (
             <Documents uploads={uploads} busy={busy} onPick={attach} />
@@ -324,6 +353,109 @@ function Progress({ step }: { step: number }) {
   );
 }
 
+/**
+ * Step one: who to reply to, and what happened.
+ *
+ * Everything here arrives in about thirty seconds, which is the point. The
+ * old form asked for every passenger's identity number first -- the slowest
+ * possible opening, demanded of somebody who has not yet committed to
+ * anything, and it meant an abandoned form left no way at all to reach them.
+ */
+function Contact({ draft, patch }: StepProps) {
+  const c = t.contact;
+  return (
+    <>
+      <Head title={c.title} body={c.body} />
+
+      <div className="mt-6 flex flex-col gap-5">
+        <Text
+          label={c.phone}
+          hint={c.phoneHint}
+          type="tel"
+          value={draft.contactPhone}
+          onChange={(v) => patch({ contactPhone: v })}
+        />
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Text
+            label={c.name}
+            value={draft.contactName}
+            onChange={(v) => patch({ contactName: v })}
+          />
+          <Text
+            label={c.email}
+            type="email"
+            value={draft.contactEmail}
+            onChange={(v) => patch({ contactEmail: v })}
+          />
+        </div>
+
+        {/* Radios, not a dropdown. Four short options that change how the
+            letter is written deserve to be readable at a glance -- a
+            <select> hides three of them behind a tap. */}
+        <Field label={c.alreadyGot} hint={c.alreadyGotHint}>
+          {() => (
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {c.alreadyGotOptions.map((o) => (
+                <label
+                  key={o.value}
+                  className={`${s.radioCard} ${draft.alreadyGot === o.value ? s.radioOn : ""}`}
+                >
+                  <input
+                    type="radio"
+                    name="alreadyGot"
+                    value={o.value}
+                    checked={draft.alreadyGot === o.value}
+                    onChange={() => patch({ alreadyGot: o.value })}
+                    className="sr-only"
+                  />
+                  <span className={s.radioDot} aria-hidden />
+                  <span className="text-callout">{o.label}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </Field>
+
+        <Field label={c.whatHappened} hint={c.whatHappenedHint}>
+          {(id, describedBy) => (
+            <textarea
+              id={id}
+              rows={3}
+              aria-describedby={describedBy}
+              value={draft.airlineReason}
+              onChange={(e) => patch({ airlineReason: e.target.value })}
+              placeholder="אמרו לנו שהייתה תקלה טכנית במטוס."
+              className={`${s.field} mt-2 w-full resize-y px-4 py-3 text-body`}
+            />
+          )}
+        </Field>
+
+        <Field label={t.booking.notice}>
+          {(id) => (
+            <select
+              id={id}
+              value={draft.cancellationNotice}
+              onChange={(e) => patch({ cancellationNotice: e.target.value })}
+              className={`${s.field} mt-2 w-full px-4 py-3.5 text-body`}
+            >
+              {t.booking.noticeOptions.map((o) => (
+                <option key={o.label} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
+      </div>
+
+      <p className="mt-6 text-center text-caption" style={{ color: "var(--text-muted)" }}>
+        {c.nextUp}
+      </p>
+    </>
+  );
+}
+
 function Passengers({ draft, patch }: StepProps) {
   const set = (i: number, change: Partial<Passenger>) =>
     patch({
@@ -334,18 +466,15 @@ function Passengers({ draft, patch }: StepProps) {
     <>
       <Head title={t.passengers.title} body={t.passengers.body} />
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+      {/* PNR first: one field, shared by everybody on the booking, and the
+          thing an airline matches a claim against. */}
+      <div className="mt-6">
         <Text
-          label={t.passengers.contactName}
-          value={draft.contactName}
-          onChange={(v) => patch({ contactName: v })}
-        />
-        <Text
-          label={t.passengers.contactEmail}
-          hint={t.passengers.contactEmailHint}
-          type="email"
-          value={draft.contactEmail}
-          onChange={(v) => patch({ contactEmail: v })}
+          label={t.passengers.reference}
+          hint={t.passengers.referenceHint}
+          value={draft.bookingReference}
+          uppercase
+          onChange={(v) => patch({ bookingReference: v })}
         />
       </div>
 
@@ -354,7 +483,7 @@ function Passengers({ draft, patch }: StepProps) {
           <div key={i} className={`${s.row} p-4 sm:p-5`}>
             <div className="flex items-center justify-between">
               <p className="text-micro uppercase" style={{ color: "var(--text-muted)" }}>
-                Passenger {i + 1}
+                נוסע {i + 1}
               </p>
               {draft.passengers.length > 1 ? (
                 <button
@@ -403,55 +532,22 @@ function Passengers({ draft, patch }: StepProps) {
       >
         + {t.passengers.add}
       </button>
-    </>
-  );
-}
-
-function Booking({ draft, patch }: StepProps) {
-  return (
-    <>
-      <Head title={t.booking.title} body={t.booking.body} />
-
-      <div className="mt-6 flex flex-col gap-5">
-        <Text
-          label={t.booking.reference}
-          hint={t.booking.referenceHint}
-          value={draft.bookingReference}
-          uppercase
-          onChange={(v) => patch({ bookingReference: v })}
-        />
-
-        <Field label={t.booking.airlineReason} hint={t.booking.airlineReasonHint}>
+      <div className="mt-6">
+        <Field label={t.passengers.anythingElse} hint={t.passengers.anythingElseHint}>
           {(id, describedBy) => (
             <textarea
               id={id}
               rows={3}
               aria-describedby={describedBy}
-              value={draft.airlineReason}
-              onChange={(e) => patch({ airlineReason: e.target.value })}
-              placeholder="אמרו לנו שהייתה תקלה טכנית במטוס."
+              value={draft.anythingElse}
+              onChange={(e) => patch({ anythingElse: e.target.value })}
+              placeholder="תארו במילים שלכם מה קרה, פרטים נוספים על השיבוש, הוצאות, וכו׳"
               className={`${s.field} mt-2 w-full resize-y px-4 py-3 text-body`}
             />
           )}
         </Field>
-
-        <Field label={t.booking.notice}>
-          {(id) => (
-          <select
-            id={id}
-            value={draft.cancellationNotice}
-            onChange={(e) => patch({ cancellationNotice: e.target.value })}
-            className={`${s.field} mt-2 w-full px-4 py-3.5 text-body`}
-          >
-            {t.booking.noticeOptions.map((o) => (
-              <option key={o.label} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-          )}
-        </Field>
       </div>
+
     </>
   );
 }

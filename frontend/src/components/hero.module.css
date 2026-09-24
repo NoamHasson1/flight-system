@@ -769,3 +769,121 @@
   flex: none;
   background: #0d1218;
 }
+
+/* --- the found-flight card ------------------------------------------------ */
+.foundCard {
+  background: var(--surface-mist);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: 1.4rem 1.5rem;
+}
+
+/* The dashed line between two cities. Grows to fill whatever is left after
+   the two names, so a short route and a long one both centre the aeroplane. */
+.routeLine {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-teal-400);
+  position: relative;
+}
+.routeLine::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  border-top: 1.5px dashed var(--color-teal-200);
+}
+.routeLine svg {
+  position: relative;
+  background: var(--surface-mist);
+  padding: 0 0.4rem;
+}
+
+/* The second choice. Legible and pressable, not a quiet link -- somebody who
+   got the wrong flight must be able to leave without hunting for the way. */
+.ghost {
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-default);
+  background: var(--surface-card);
+  color: var(--text-strong);
+  font-weight: 700;
+  transition: border-color var(--duration-quick) var(--ease-out-soft);
+}
+.ghost:hover { border-color: var(--text-muted); }
+
+/* --- trust strip ----------------------------------------------------------- */
+.trustStrip {
+  background: var(--surface-card);
+  border-block: 1px solid var(--border-subtle);
+  padding-block: 1.75rem;
+}
+.trustCell {
+  text-align: center;
+  padding: 0.75rem 1rem;
+  /* A hairline between cells, and never one dangling off the end. Logical
+     properties so it lands on the correct side in RTL. */
+  border-inline-end: 1px solid var(--border-subtle);
+}
+.trustCell:nth-child(2n) { border-inline-end: 0; }
+@media (min-width: 1024px) {
+  .trustCell:nth-child(2n) { border-inline-end: 1px solid var(--border-subtle); }
+  .trustCell:last-child { border-inline-end: 0; }
+}
+
+/* The passenger counter on the result screen. Raised, because it is the
+   thing on that page that changes the number above it. */
+.countCard {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-2xl);
+  padding: 1.6rem 1.5rem;
+  box-shadow: var(--shadow-card);
+}
+
+/* --- radio cards ----------------------------------------------------------
+   Four short options that change how a letter gets written deserve to be
+   readable at a glance. A <select> hides three of them behind a tap. */
+.radioCard {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-default);
+  background: var(--surface-card);
+  padding: 0.85rem 1rem;
+  cursor: pointer;
+  color: var(--text-default);
+  transition: border-color var(--duration-quick) var(--ease-out-soft),
+              background var(--duration-quick) var(--ease-out-soft);
+}
+.radioCard:hover { border-color: var(--color-teal-400); }
+.radioOn {
+  border-color: var(--color-teal-600);
+  background: var(--verdict-yes-fill);
+  color: var(--color-teal-900);
+  font-weight: 700;
+}
+.radioDot {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  border: 2px solid var(--border-default);
+  flex: none;
+  position: relative;
+}
+.radioOn .radioDot { border-color: var(--color-teal-600); }
+.radioOn .radioDot::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--color-teal-600);
+}
+/* The native input stays in the DOM and focusable -- only visually hidden --
+   so the keyboard and screen reader still get a real radio group. */
+.radioCard:has(input:focus-visible) {
+  outline: 2px solid var(--color-teal-400);
+  outline-offset: 2px;
+}

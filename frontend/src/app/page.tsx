@@ -1,7 +1,5 @@
 import Image from "next/image";
 
-import Link from "next/link";
-
 import { FlightBoard } from "@/components/Board";
 import { GoogleRating } from "@/components/GoogleRating";
 import { FlightPath } from "@/components/FlightPath";
@@ -55,6 +53,7 @@ export default function Home() {
     <>
       <Reveal />
       <Hero />
+      <TrustStrip />
       <CheckSection />
       <FlightBoard />
       <Bands />
@@ -153,6 +152,56 @@ function Hero() {
   );
 }
 
+/* --- trust strip ----------------------------------------------------------- */
+
+function TrustStrip() {
+  return (
+    <section className={`${s.trustStrip} px-5 sm:px-8`}>
+      <div className="mx-auto grid max-w-6xl grid-cols-2 lg:grid-cols-4">
+        {strings.trust.map((item) => (
+          <div key={item.label} className={s.trustCell}>
+            <TrustIcon kind={item.icon} />
+            <p className="mt-2 text-heading font-black" style={{ color: "var(--text-strong)" }}>
+              {item.value}
+            </p>
+            <p className="mt-1 text-caption" style={{ color: "var(--text-muted)" }}>
+              {item.label}
+            </p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function TrustIcon({ kind }: { kind: string }) {
+  const teal = "var(--color-teal-400)";
+  if (kind === "stars") {
+    return (
+      <span className="flex justify-center gap-0.5" aria-hidden>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <svg key={i} width="13" height="13" viewBox="0 0 24 24" fill={teal}>
+            <path d="m12 2 3 6.6 7 .9-5.1 4.9 1.3 7-6.2-3.4L5.8 21.4l1.3-7L2 9.5l7-.9L12 2Z" />
+          </svg>
+        ))}
+      </span>
+    );
+  }
+  const paths: Record<string, string> = {
+    people: "M16 19v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 9a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm13 10v-2a4 4 0 0 0-3-3.9",
+    trend: "M3 17 9 11l4 4 8-8M21 7v5h-5",
+    star: "m12 2 3 6.6 7 .9-5.1 4.9 1.3 7-6.2-3.4L5.8 21.4l1.3-7L2 9.5l7-.9L12 2Z",
+  };
+  return (
+    <svg
+      width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden
+      className="mx-auto" style={{ color: teal }}
+    >
+      <path d={paths[kind] ?? paths.star} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 /* --- the check, dressed as a boarding pass -------------------------------- */
 
 function CheckSection() {
@@ -190,30 +239,6 @@ function CheckSection() {
         </div>
       </div>
 
-      {/* Under the form, small, and a link rather than a billboard.
-          Somebody who has read this far has already decided to type a
-          flight number -- the face is here to reassure them that a person
-          stands behind the answer, not to sell them anything. Above the
-          form it would be the first thing they had to get past. */}
-      <div className="mt-8 flex justify-center">
-        <Link href="/about" className={`${s.backedBy} press`}>
-          <span className={s.backedByPhoto}>
-            <Image
-              src="/people/yitzhak-maimon-sm.jpg"
-              alt=""
-              fill
-              sizes="40px"
-              style={{ objectFit: "cover", objectPosition: "center 14%" }}
-            />
-          </span>
-          <span className="text-caption" style={{ color: "var(--text-muted)" }}>
-            {c.backedBy}{" "}
-            <strong style={{ color: "var(--text-strong)" }}>
-              {strings.brand.lawyer}
-            </strong>
-          </span>
-        </Link>
-      </div>
     </section>
   );
 }

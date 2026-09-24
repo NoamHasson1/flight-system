@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import s from "@/components/hero.module.css";
 import { getCheck, type EligibilityResponse } from "@/lib/api";
+import { PassengerCount } from "@/components/PassengerCount";
 import { strings } from "@/lib/strings";
 
 /**
@@ -120,7 +121,12 @@ export default async function CheckResult({ params }: Params) {
           </section>
         ))}
 
-        <Actions primary={strings.result.startClaim} href={`/claim/${checkId}`} />
+        <PassengerCount
+          checkId={checkId}
+          amount={check.best_award ? Number(check.best_award.amount) : null}
+          currency={check.best_award?.currency ?? null}
+        />
+        <Actions primary={null} />
         <Caveat />
       </Shell>
     );
@@ -163,7 +169,12 @@ export default async function CheckResult({ params }: Params) {
           </ol>
         </section>
 
-        <Actions primary={strings.result.startClaim} href={`/claim/${checkId}`} />
+        <PassengerCount
+          checkId={checkId}
+          amount={check.best_award ? Number(check.best_award.amount) : null}
+          currency={check.best_award?.currency ?? null}
+        />
+        <Actions primary={null} />
         <Caveat />
       </Shell>
     );

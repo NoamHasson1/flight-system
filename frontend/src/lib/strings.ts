@@ -267,6 +267,28 @@ export const strings = {
   },
 
   /**
+   * The step between finding a flight and showing what it is worth.
+   *
+   * WHY IT EXISTS
+   * -------------
+   * A flight number is reused: LY315 flies most days, and somebody typing
+   * the wrong date gets a real flight that is not theirs. Without this they
+   * would see a confident verdict about a journey they did not take -- and
+   * the dangerous half is a "no" for somebody who is in fact owed money.
+   *
+   * It also does something quieter. Being shown the route and asked to
+   * confirm makes the next screen feel like an answer about YOUR flight
+   * rather than a number a website produced.
+   */
+  confirm: {
+    found: "מצאנו את הטיסה",
+    question: "זו הטיסה שלכם?",
+    yes: "כן, המשך",
+    no: "לא, חיפוש מחדש",
+    steps: ["בדיקה", "פרטים", "נוסעים", "חתימה"] as const,
+  },
+
+  /**
    * Errors the customer can act on.
    *
    * None say "שגיאה" and none blame the reader. Somebody whose flight was
@@ -396,6 +418,9 @@ export const strings = {
     caveat:
       "חברות תעופה לא חייבות לפצות כשהסיבה הייתה מחוץ לשליטתן — מזג אוויר " +
       "קיצוני, למשל. נשאל אתכם מה נאמר לכם.",
+    howMany: "כמה נוסעים הייתם בהזמנה?",
+    howManyHint: "הפיצוי הוא לכל נוסע, אז זה משנה את הסכום.",
+    totalFor: "סה״כ ל-{n} נוסעים",
     startClaim: "התחילו תביעה",
     askHuman: "בקשו בדיקה ידנית",
     checkAnother: "בדקו טיסה נוספת",
@@ -517,6 +542,25 @@ export const strings = {
    * number that is a little low is honest while a number that is a little
    * high is not -- so it only ever needs updating upward, at leisure.
    */
+  /**
+   * The four claims across the top.
+   *
+   * Two are verified externally: the rating and the review count come from
+   * the Google listing and the badge beside them links to it, so anybody can
+   * check in one click.
+   *
+   * Two are the firm's own: the sum recovered and the positioning. They are
+   * published on the author's instruction, which is the right way round --
+   * they are claims about his practice and his to stand behind, not mine to
+   * invent. Kept here rather than inline so revising one is a data change.
+   */
+  trust: [
+    { value: "נוסעים בלבד", label: "מייצגים רק נוסעים", icon: "people" },
+    { value: "7+ מיליון ₪", label: "פיצויים שהושגו", icon: "trend" },
+    { value: "5.0", label: "דירוג ממוצע בגוגל", icon: "stars" },
+    { value: "309", label: "ביקורות Google", icon: "star" },
+  ] as const,
+
   reviews: {
     rating: "5.0",
     count: 309,
@@ -687,9 +731,57 @@ export const strings = {
   /** The claim wizard. */
   claim: {
     title: "התחלת תביעה",
-    steps: ["נוסעים", "ההזמנה", "הוצאות", "מסמכים", "סיכום"] as const,
+    /**
+     * REORDERED: contact details first, passengers second.
+     *
+     * The old order asked for every passenger's name and identity number
+     * before asking who to reply to. That is backwards for two reasons. It
+     * front-loads the slowest step onto somebody who has not yet committed
+     * to anything, and it means an abandoned form leaves NO way to reach the
+     * person -- the details we could have acted on are the ones we asked for
+     * last.
+     *
+     * A phone number and an email arrive in thirty seconds. Everything after
+     * them is worth asking for because somebody who has given them has
+     * decided to go through with it.
+     */
+    steps: ["פרטים", "נוסעים", "הוצאות", "מסמכים", "סיכום"] as const,
     back: "חזרה",
     next: "המשך",
+
+    /** Step one: who to reply to, and what happened. */
+    contact: {
+      title: "פרטים ליצירת קשר",
+      body:
+        "מספר נייד ואימייל, ואנחנו מתחילים לעבוד על התיק. " +
+        "בלי שיחות מכירה — רק עדכונים על התביעה.",
+      phone: "טלפון נייד",
+      phoneHint: "לאימות ולעדכונים על התיק בלבד. בלי שיחות מכירה.",
+      name: "שם מלא ליצירת קשר",
+      email: "אימייל",
+      whatHappened: "מה קרה בטיסה?",
+      whatHappenedHint:
+        "במילים שלכם. חברות תעופה לא חייבות לפצות כשהסיבה הייתה מחוץ " +
+        "לשליטתן, אז זה קובע הרבה.",
+      /**
+       * What the airline has already given them.
+       *
+       * Asked because it changes the claim rather than merely describing it:
+       * a voucher accepted at the desk is sometimes argued to settle the
+       * matter, and care given -- a hotel, a meal -- is a separate
+       * entitlement that does NOT reduce the compensation. Knowing which
+       * happened decides how the letter is written.
+       */
+      alreadyGot: "קיבלתם כבר משהו מחברת התעופה?",
+      alreadyGotHint: "לא חובה לענות, אבל זה עוזר לנו לבחור נכון את מסלול הדרישה.",
+      alreadyGotOptions: [
+        { value: "NOTHING", label: "לא קיבלנו כלום" },
+        { value: "MONEY_OR_VOUCHER", label: "פיצוי כספי או שובר" },
+        { value: "CARE", label: "רק סיוע: מלון, אוכל או טיסה חלופית" },
+        { value: "BOTH", label: "גם פיצוי וגם סיוע" },
+      ] as const,
+      nextUp: "הצעד הבא: שמות הנוסעים, חצי דקה",
+    },
 
     passengers: {
       title: "מי היה בהזמנה?",
@@ -705,6 +797,11 @@ export const strings = {
       minor: "מתחת לגיל 18",
       add: "הוספת נוסע",
       remove: "הסרה",
+      reference: "מספר הזמנה (PNR) — משותף לכל הנוסעים",
+      referenceHint: "שישה תווים על הכרטיס, למשל ABC123.",
+      anythingElse: "עוד משהו שכדאי שנדע? (לא חובה)",
+      anythingElseHint:
+        "תארו במילים שלכם פרטים נוספים על השיבוש, אם יש.",
     },
 
     booking: {

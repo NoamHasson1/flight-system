@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { checkEligibility, type FlightOption } from "@/lib/api";
+import { airlineName, cityName } from "@/lib/names";
 import { strings } from "@/lib/strings";
 
 import s from "./hero.module.css";
@@ -12,7 +13,25 @@ type State =
   | { phase: "idle" }
   | { phase: "checking" }
   | { phase: "choose"; options: FlightOption[]; message: string }
+  /**
+   * The flight was found, and we are asking whether it is theirs BEFORE
+   * showing what it is worth.
+   *
+   * A flight number is reused -- LY315 flies most days -- so somebody who
+   * mistypes the date gets a real flight that is not theirs. Without this
+   * step they would read a confident verdict about a journey they never
+   * took, and the dangerous half of that is a "no" shown to somebody who is
+   * in fact owed money.
+   */
+  | { phase: "confirm"; checkId: string; flight: FlightSummary }
   | { phase: "problem"; messages: string[] };
+
+type FlightSummary = {
+  flight_number: string;
+  airline: string | null;
+  origin: string | null;
+  destination: string | null;
+};
 
 /** Matches the backend's rule, so a typo is caught before a round trip. */
 const FLIGHT_NUMBER = /^[A-Z0-9]{2}[A-Z]?\d{1,4}[A-Z]?$/;
@@ -113,9 +132,27 @@ export function CheckForm() {
       return;
     }
 
-    // Every other outcome -- decided, not found, or unresolved -- has been
-    // stored and has an id, so it gets a URL that can be reloaded, shared and
-    // sent to support.
+    // A decided check with an identified flight gets the confirmation step.
+    // Everything else -- not found, unresolved -- goes straight through:
+    // there is no flight to confirm, and asking "is this yours?" about a
+    // flight we could not find would be a nonsense question.
+    const flight = result.data.flight;
+    if (result.data.status === "DECIDED" && flight?.origin && flight?.destination) {
+      setState({
+        phase: "confirm",
+        checkId: result.data.check_id,
+        flight: {
+          flight_number: flight.flight_number,
+          airline: flight.airline ?? null,
+          origin: flight.origin,
+          destination: flight.destination,
+        },
+      });
+      return;
+    }
+
+    // Stored and given an id, so it gets a URL that can be reloaded, shared
+    // and sent to support.
     router.push(`/check/${result.data.check_id}`);
   }
 
@@ -127,7 +164,13 @@ export function CheckForm() {
       >
         {strings.hero.cardTitle}
       </h2>
-      {state.phase === "choose" ? (
+      {state.phase === "confirm" ? (
+        <ConfirmFlight
+          flight={state.flight}
+          onYes={() => router.push(`/check/${state.checkId}`)}
+          onNo={() => setState({ phase: "idle" })}
+        />
+      ) : state.phase === "choose" ? (
         <ChooseFlight
           options={state.options}
           message={state.message}
@@ -264,6 +307,82 @@ function Field({
         {error ?? ""}
       </span>
     </label>
+  );
+}
+
+/**
+ * "We found this flight. Is it yours?"
+ *
+ * Shown AFTER the check has run but BEFORE the verdict, which is the only
+ * ordering that works: we cannot describe the flight without looking it up,
+ * and we must not price a journey somebody did not take.
+ *
+ * The route is drawn rather than written -- two cities with a dashed line and
+ * an aeroplane between them -- because that is the shape of a boarding pass
+ * and it is recognised faster than "TLV → LHR" is read.
+ */
+function ConfirmFlight({
+  flight,
+  onYes,
+  onNo,
+}: {
+  flight: FlightSummary;
+  onYes: () => void;
+  onNo: () => void;
+}) {
+  const c = strings.confirm;
+  return (
+    <div className="mt-6">
+      <p className="flex items-center gap-2 text-callout" style={{ color: "var(--color-teal-600)" }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <path d="m5 13 4 4L19 7" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        {c.found}
+      </p>
+
+      <div className={`${s.foundCard} mt-4`}>
+        <div className="flex items-baseline justify-between gap-4">
+          <span className={`${s.code} text-title`} style={{ color: "var(--text-strong)" }}>
+            {flight.flight_number}
+          </span>
+          {flight.airline ? (
+            <span className="text-callout" style={{ color: "var(--text-muted)" }}>
+              {airlineName(flight.airline)}
+            </span>
+          ) : null}
+        </div>
+
+        <div className="mt-5 flex items-center justify-between gap-4">
+          <span className="text-heading" style={{ color: "var(--text-strong)" }}>
+            {cityName(flight.origin)}
+          </span>
+          <span className={s.routeLine} aria-hidden>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5L21 16Z" />
+            </svg>
+          </span>
+          <span className="text-heading" style={{ color: "var(--text-strong)" }}>
+            {cityName(flight.destination)}
+          </span>
+        </div>
+      </div>
+
+      <p className="mt-6 text-center text-callout" style={{ color: "var(--text-muted)" }}>
+        {c.question}
+      </p>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {/* "Yes" leads, because it is the answer nine times in ten. "No"
+            is a plain button rather than a quiet link: somebody who got the
+            wrong flight must be able to leave without hunting. */}
+        <button type="button" onClick={onYes} className={`${s.cta} press w-full px-6 py-3.5 text-subhead`}>
+          {c.yes}
+        </button>
+        <button type="button" onClick={onNo} className={`${s.ghost} press w-full px-6 py-3.5 text-subhead`}>
+          {c.no}
+        </button>
+      </div>
+    </div>
   );
 }
 
