@@ -143,10 +143,6 @@ function Hero() {
         >
           {h.reassurance}
         </p>
-
-        <div className={`${s.rise} ${s.d4} mt-8 flex justify-center`}>
-          <GoogleRating />
-        </div>
       </div>
     </section>
   );
