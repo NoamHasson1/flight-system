@@ -406,6 +406,7 @@ export const strings = {
   result: {
     notFoundLead: "לא מצאנו את הטיסה הזו",
     ambiguousLead: "באיזו טיסה טסתם?",
+    searchAgain: "חיפוש טיסה אחרת",
     ambiguousExplain:
       "יותר מטיסה אחת נשאה את המספר הזה באותו תאריך. בחרו את שלכם ונבדוק.",
     yourFlight: "הטיסה שלכם",

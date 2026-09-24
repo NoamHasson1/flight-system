@@ -429,7 +429,7 @@ function ChooseFlight({
         className="mt-5 text-callout underline underline-offset-4"
         style={{ color: "var(--text-muted)" }}
       >
-        Search a different flight
+        {strings.result.searchAgain}
       </button>
     </div>
   );

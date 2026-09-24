@@ -44,8 +44,8 @@ def test_same_clock_time_on_different_days_is_told_apart() -> None:
     )
     labels = [o.label for o in options]
     assert len(set(labels)) == 2, labels
-    assert "18 Sep" in labels[0]
-    assert "19 Sep" in labels[1]
+    assert "18/9" in labels[0], labels[0]
+    assert "19/9" in labels[1], labels[1]
 
 
 def test_same_day_keeps_the_label_short() -> None:
@@ -61,9 +61,10 @@ def test_same_day_keeps_the_label_short() -> None:
         ]
     )
     labels = [o.label for o in options]
+    # Israel time: September is UTC+3.
     assert labels == [
-        "DUB → STN, departing 07:25 UTC",
-        "DUB → STN, departing 19:40 UTC",
+        "DUB → STN, יוצאת ב-10:25",
+        "DUB → STN, יוצאת ב-22:40",
     ]
 
 
@@ -80,5 +81,5 @@ def test_an_unknown_departure_time_says_so() -> None:
         ]
     )
     labels = [o.label for o in options]
-    assert "time unknown" in labels[1]
+    assert "שעה לא ידועה" in labels[1], labels[1]
     assert len(set(labels)) == 2

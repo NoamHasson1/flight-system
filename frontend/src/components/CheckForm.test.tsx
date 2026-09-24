@@ -108,15 +108,15 @@ describe("what comes back", () => {
         status: "AMBIGUOUS",
         message: "2 flights carried that number.",
         options: [
-          { key: "a", route: "DUB → STN", label: "DUB → STN, departing 06:00 UTC", scheduled_departure: null },
-          { key: "b", route: "DUB → STN", label: "DUB → STN, departing 16:00 UTC", scheduled_departure: null },
+          { key: "a", route: "DUB → STN", label: "DUB → STN, יוצאת ב-09:00", scheduled_departure: null },
+          { key: "b", route: "DUB → STN", label: "DUB → STN, יוצאת ב-19:00", scheduled_departure: null },
         ],
       }),
     );
     await fillAndSubmit("FR1234");
 
     expect(await screen.findByText(/באיזו טיסה טסתם/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /departing 06:00 UTC/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /יוצאת ב-09:00/ })).toBeInTheDocument();
     expect(push).not.toHaveBeenCalled();
   });
 
@@ -125,13 +125,13 @@ describe("what comes back", () => {
       .mockResolvedValueOnce(
         decided({
           status: "AMBIGUOUS",
-          options: [{ key: "evening", route: "DUB → STN", label: "DUB → STN, departing 16:00 UTC", scheduled_departure: null }],
+          options: [{ key: "evening", route: "DUB → STN", label: "DUB → STN, יוצאת ב-19:00", scheduled_departure: null }],
         }),
       )
       .mockResolvedValueOnce(decided({ check_id: "chosen-1" }));
 
     const user = await fillAndSubmit("FR1234");
-    await user.click(await screen.findByRole("button", { name: /departing 16:00 UTC/i }));
+    await user.click(await screen.findByRole("button", { name: /יוצאת ב-19:00/ }));
 
     await waitFor(() =>
       expect(checkEligibility).toHaveBeenLastCalledWith(

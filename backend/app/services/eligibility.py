@@ -23,6 +23,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from enum import StrEnum
+from zoneinfo import ZoneInfo
 
 from app.domain.models import FlightFacts, Verdict
 from app.observability import flow
@@ -47,6 +48,10 @@ class CheckStatus(StrEnum):
     UNRESOLVED = "UNRESOLVED"  # we could not get far enough to decide
 
 
+# The clock a passenger actually remembers: what was on the boarding pass.
+ISRAEL = ZoneInfo("Asia/Jerusalem")
+
+
 @dataclass(frozen=True, slots=True)
 class FlightOption:
     """One of several flights sharing a number on a date, for the customer to
@@ -62,14 +67,21 @@ class FlightOption:
 
     @property
     def label(self) -> str:
+        """What the customer reads on the button.
+
+        ISRAEL TIME, NOT UTC. Somebody choosing between two departures knows
+        what was printed on their boarding pass, and nothing on a boarding
+        pass is in UTC. "04:30 UTC" for a flight they remember leaving at
+        07:30 is a button they will not press.
+        """
         if self.scheduled_departure is None:
-            when = "time unknown"
+            when = "שעה לא ידועה"
         else:
-            at = self.scheduled_departure
-            clock = at.strftime("%H:%M UTC")
+            at = self.scheduled_departure.astimezone(ISRAEL)
+            clock = at.strftime("%H:%M")
             # Built by hand rather than with %-d, which is not portable.
-            when = f"{at:%a} {at.day} {at:%b}, {clock}" if self.show_date else clock
-        return f"{self.route}, departing {when}"
+            when = f"{at.day}/{at.month}, {clock}" if self.show_date else clock
+        return f"{self.route}, יוצאת ב-{when}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -163,14 +175,27 @@ async def check(
             **base,  # type: ignore[arg-type]
         )
 
+    # COLLAPSE RECORDS THAT DESCRIBE THE SAME FLIGHT.
+    #
+    # Two sources, or two rows from one source, routinely return the same
+    # journey. Offered as a choice they are indistinguishable -- identical
+    # label, identical key -- so picking one filters to both, the check is
+    # still ambiguous, and the button appears to do nothing. Observed live on
+    # IZ164 / 23 September, where the board held two rows for one flight.
+    #
+    # Ambiguity means "two DIFFERENT flights share a number", which is a real
+    # thing a passenger can answer. It does not mean "two records describe one
+    # flight", which is a question nobody can answer and we should not ask.
+    records, conflicted = _collapse_duplicates(records)
+
     if option_key is not None:
         records = [r for r in records if _option_key(r) == option_key]
         if not records:
             return CheckResult(
                 status=CheckStatus.NOT_FOUND,
                 message=(
-                    f"That flight is no longer among the matches for {number} "
-                    f"on {flight_date.isoformat()}. Please search again."
+                    f"הטיסה הזו כבר לא מופיעה בין ההתאמות ל-{number} בתאריך "
+                    f"{flight_date.isoformat()}. נסו לחפש שוב."
                 ),
                 **base,  # type: ignore[arg-type]
             )
@@ -186,13 +211,32 @@ async def check(
             status=CheckStatus.AMBIGUOUS,
             options=options,
             message=(
-                f"{len(options)} flights carried the number {number} on "
-                f"{flight_date.isoformat()}. Which one were you on?"
+                f"{len(options)} טיסות נשאו את המספר {number} בתאריך "
+                f"{flight_date.isoformat()}. באיזו מהן טסתם?"
             ),
             **base,  # type: ignore[arg-type]
         )
 
     record = records[0]
+
+    # The sources disagreed about what happened to this flight -- one said it
+    # landed, another said it was cancelled. That is not a question a
+    # passenger can settle and it is not one to guess at: a wrong "cancelled"
+    # promises money that is not owed, and a wrong "landed" denies money that
+    # is. Both are expensive, so a person looks.
+    if conflicted:
+        flow.line("DECISION", "NEEDS_REVIEW — the sources disagree about this flight")
+        return CheckResult(
+            status=CheckStatus.UNRESOLVED,
+            message=(
+                "המקורות שלנו לא מסכימים על מה שקרה לטיסה הזו, ולכן היא "
+                "דורשת בדיקה ידנית. זה לא 'לא' — השאירו כתובת אימייל "
+                "ואדם יחזור אליכם."
+            ),
+            raw=record,
+            **base,  # type: ignore[arg-type]
+        )
+
     mapped = to_flight_facts(record)
     if isinstance(mapped, MappingFailure):
         flow.line("normalised", "FAILED")
@@ -278,6 +322,51 @@ def _log_rules(result: engine.EligibilityResult) -> None:
             flow.cont(f"also payable: {others}")
     else:
         flow.line("DECISION", result.verdict.value)
+
+
+def _collapse_duplicates(
+    records: Sequence[RawFlight],
+) -> tuple[list[RawFlight], bool]:
+    """One record per distinguishable flight, and whether any group disagreed.
+
+    Grouped by the SAME key the customer would choose with, because that is
+    the definition of indistinguishable: if two records produce one key, no
+    choice between them is possible and offering one is a dead end.
+
+    Within a group the most informative record wins -- the one that knows the
+    most times. A row with a scheduled departure can be reasoned about; a row
+    with none mostly cannot.
+
+    The flag is separate from the records on purpose. A disagreement is not a
+    reason to discard either record, it is a reason to stop and ask somebody.
+    """
+    groups: dict[str, list[RawFlight]] = {}
+    for record in records:
+        groups.setdefault(_option_key(record), []).append(record)
+
+    kept: list[RawFlight] = []
+    conflicted = False
+    for group in groups.values():
+        if len({r.status for r in group}) > 1:
+            conflicted = True
+        kept.append(max(group, key=_informativeness))
+    return kept, conflicted
+
+
+def _informativeness(record: RawFlight) -> int:
+    """How much a record actually says. More is better."""
+    return sum(
+        1
+        for value in (
+            record.scheduled_departure,
+            record.scheduled_arrival,
+            record.actual_departure,
+            record.actual_arrival,
+            record.origin_iata,
+            record.destination_iata,
+        )
+        if value is not None
+    )
 
 
 def _build_options(records: Sequence[RawFlight]) -> tuple[FlightOption, ...]:

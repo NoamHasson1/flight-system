@@ -177,7 +177,7 @@ class FlightOptionOut(BaseModel):
 
     key: str
     route: str
-    label: str = Field(examples=["DUB → STN, departing 16:00 UTC"])
+    label: str = Field(examples=["LCA → TLV, יוצאת ב-07:30"])
     scheduled_departure: datetime | None
 
 
