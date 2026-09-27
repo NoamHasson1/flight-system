@@ -213,3 +213,85 @@ def test_loaded_types_are_immutable() -> None:
     assert isinstance(ba, Airline)
     with pytest.raises(AttributeError):
         ba.country = "IL"  # type: ignore[misc]
+
+
+# --- resolving an airport from a name alone ----------------------------------
+#
+# A last resort for records that carry a name and no code. Codeshares do this
+# routinely, and passengers book codeshares -- so refusing them all means
+# refusing a large slice of real claims.
+#
+# Getting it WRONG is far more expensive than refusing. The destination
+# decides which country is involved, therefore which law applies, and the
+# distance, therefore how much is owed.
+
+
+def test_a_name_that_starts_an_airport_name_resolves() -> None:
+    """The common shape: "Newark" -> "Newark Liberty International Airport"."""
+    from app.domain.reference import find_airport_by_name
+
+    found = find_airport_by_name("Newark")
+
+    assert found is not None and found.iata == "EWR"
+
+
+def test_a_route_description_still_finds_the_destination() -> None:
+    """THE case this was extended for.
+
+    AeroDataBox returns the arrival of a codeshare as
+    {"name": "Mahe Seychelles Via Mauritius"}. No airport name begins with
+    that, so the prefix rule finds nothing -- and a real passenger on
+    HM9349 was told we could not identify their flight.
+    """
+    from app.domain.reference import find_airport_by_name
+
+    found = find_airport_by_name("Mahe Seychelles Via Mauritius")
+
+    assert found is not None and found.iata == "SEZ"
+
+
+def test_everything_after_via_is_ignored() -> None:
+    """"Via Mauritius" is where the aircraft stops, not where the passenger
+    ends up. Matching on it would name the wrong country, the wrong law and
+    the wrong distance."""
+    from app.domain.reference import find_airport_by_name
+
+    # Were "via" not honoured, the Mauritius half could compete for the match.
+    assert find_airport_by_name("Mahe Seychelles Via Mauritius").iata == "SEZ"  # type: ignore[union-attr]
+
+
+@pytest.mark.parametrize("name", ["London", "New York", "Paris"])
+def test_an_ambiguous_name_resolves_to_nothing(name: str) -> None:
+    """THE test that protects this whole function.
+
+    Seven Londons. Two New Yorks, and neither is the one a traveller means --
+    the containing rule would happily return a seaplane base. A match that
+    merely looks confident sends somebody's claim to the wrong country, and
+    refusing costs only a manual review.
+    """
+    from app.domain.reference import find_airport_by_name
+
+    assert find_airport_by_name(name) is None
+
+
+def test_a_name_inside_an_airport_name_is_not_enough() -> None:
+    """Only one direction is safe.
+
+        airport name inside the given name  -> safe
+        given name inside an airport name   -> not
+
+    The second is how "New York" becomes a seaplane base, so it is not
+    attempted -- even though it would make "Heathrow" resolve.
+    """
+    from app.domain.reference import find_airport_by_name
+
+    assert find_airport_by_name("Heathrow") is None
+
+
+def test_generic_words_do_not_make_a_match() -> None:
+    """"Airport" and "International" appear in thousands of names and
+    identify nothing. Left in, a short real name looks like a match for
+    everything."""
+    from app.domain.reference import find_airport_by_name
+
+    assert find_airport_by_name("International Airport") is None

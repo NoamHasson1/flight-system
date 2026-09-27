@@ -93,11 +93,42 @@ services:
         value: aerodatabox
       - key: AERODATABOX_API_KEY
         sync: false
-  #     - key: FLIGHT_PROVIDER
-  #       value: aerodatabox
-  #     - key: AERODATABOX_API_KEY
-  #       sync: false
 
+  # Once a day, the only job whose purpose is to notice that another job
+  # has failed.
+  #
+  # Everything else here assumes the archive is complete, and nothing
+  # checked that it was. The failure is silent by construction: a cron that
+  # stops firing raises nothing, a half-captured day looks like a quiet
+  # Saturday, and a dataset that moves returns zero rows without an error.
+  # The system keeps answering confidently from a record with holes in it.
+  #
+  # It can check because the board keeps about four days: while a day is
+  # still published, ask it and the archive the same question and compare.
+  # One request, no key, no quota.
+  #
+  # 05:30 Israel, so the answer is waiting before anybody starts work.
+  - type: cron
+    name: flight-coverage
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    schedule: "30 2 * * *"
+    dockerCommand: python -m app.tasks.coverage --email
+    plan: starter
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: flight-db
+          property: connectionString
+      - key: OPS_EMAIL
+        sync: false
+      - key: EMAIL_SENDER
+        value: resend
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
 
   # --- the application -----------------------------------------------------
 
