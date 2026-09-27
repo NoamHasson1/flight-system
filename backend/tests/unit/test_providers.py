@@ -260,3 +260,97 @@ def test_a_scenario_timestamp_without_an_offset_is_rejected(tmp_path: Path) -> N
 
     with pytest.raises(ValueError, match="no UTC offset"):
         asyncio.run(FakeFlightProvider(path).fetch("AA1", AUG_14))
+
+
+# --- a day the source has shed -----------------------------------------------
+
+
+async def test_an_empty_answer_does_not_erase_what_we_already_hold() -> None:
+    """THE reason part of the archive was unreachable.
+
+    A row is "settled" only once the board says LANDED, CANCELLED or
+    DIVERTED. But the board sheds the past continuously, so a flight it
+    drops while still showing SCHEDULED never becomes settled -- and then
+    sits in the archive unusable: not settled, so the cache re-asks; stale,
+    so it re-asks; and the source no longer publishes that day, so the
+    answer is nothing.
+
+    Found on HM9349, 26 September. Captured from the board at 08:00 that
+    morning, complete, with both airports. By the next day a customer was
+    told we could not identify a flight we had written down ourselves.
+
+    For a past day there is nobody left to ask, and a record from the
+    morning of the flight beats no record at all.
+    """
+    from datetime import date, timedelta
+
+    from app.db.session import create_all, create_db_engine, create_session_factory
+    from app.domain.models import FlightStatus
+    from app.providers.base import RawFlight
+    from app.providers.cache import CachingProvider
+
+    engine = create_db_engine("sqlite:///:memory:")
+    create_all(engine)
+    factory = create_session_factory(engine)
+
+    day = date(2026, 9, 26)
+    captured = RawFlight(
+        flight_number="HM9349",
+        flight_date=day,
+        status=FlightStatus.SCHEDULED,  # never settles: the board drops it first
+        provider="iaa",
+        airline_iata="HM",
+        origin_iata="TLV",
+        destination_iata="SEZ",
+        scheduled_departure=None,
+        scheduled_arrival=None,
+        actual_departure=None,
+        actual_arrival=None,
+        raw={},
+    )
+
+    class Source:
+        name = "iaa"
+        calls = 0
+
+        async def fetch(self, number, flight_date):  # type: ignore[no-untyped-def]
+            Source.calls += 1
+            # First the board has it; afterwards it has shed the day.
+            return [captured] if Source.calls == 1 else []
+
+    # A zero TTL, so the stored row is stale the instant it is written --
+    # exactly the state a day-old SCHEDULED row is in.
+    cache = CachingProvider(Source(), factory, ttl=timedelta(0))
+
+    assert len(await cache.fetch("HM9349", day)) == 1, "captured while published"
+
+    recovered = await cache.fetch("HM9349", day)
+
+    assert len(recovered) == 1, "the archive still holds it"
+    assert recovered[0].origin_iata == "TLV"
+    assert recovered[0].destination_iata == "SEZ"
+
+
+async def test_a_genuine_absence_is_still_reported_as_absent() -> None:
+    """The fix must not turn "no such flight" into a permanent yes.
+
+    Nothing was ever stored, so there is nothing to fall back to and the
+    empty answer stands.
+    """
+    from datetime import date, timedelta
+
+    from app.db.session import create_all, create_db_engine, create_session_factory
+    from app.providers.cache import CachingProvider
+
+    engine = create_db_engine("sqlite:///:memory:")
+    create_all(engine)
+
+    class Empty:
+        name = "iaa"
+
+        async def fetch(self, number, flight_date):  # type: ignore[no-untyped-def]
+            return []
+
+    cache = CachingProvider(Empty(), create_session_factory(engine), ttl=timedelta(0))
+
+    assert await cache.fetch("ZZ999", date(2026, 9, 26)) == []

@@ -105,6 +105,35 @@ class CachingProvider:
                 return _decode(row.flights, self.name)
 
         flights = await self._inner.fetch(number, flight_date)
+
+        # NOTHING CAME BACK, AND WE HAVE SOMETHING OLD. Serve the old thing.
+        #
+        # This is the difference between an archive that works and one that
+        # merely accumulates. A row is only "settled" once the board says
+        # LANDED, CANCELLED or DIVERTED -- but the board sheds the past
+        # continuously, and a flight it drops while still showing SCHEDULED
+        # never becomes settled. It stays in the archive, unreachable:
+        # unsettled and stale, so the cache goes back to the source, and the
+        # source no longer publishes that day.
+        #
+        # Found on HM9349, 26 September. The row was captured from the board
+        # at 08:00 that morning, complete, with both airports. By the next
+        # day the board had dropped the date, the refetch returned nothing,
+        # and a customer was told we could not identify a flight we had
+        # written down ourselves.
+        #
+        # So an empty answer from the source does not overwrite what we
+        # already hold. For a past day there is nobody left to ask, and a
+        # record from the morning of the flight beats no record at all.
+        if not flights and stored is not None:
+            row, _ = stored
+            flow.line(
+                "← remembered",
+                f"{len(row.flights)} flight(s) · {self.name} · the source no "
+                f"longer has this day · seen {_ago(row.observed_at)}",
+            )
+            return _decode(row.flights, self.name)
+
         self._write(number, flight_date, flights)
         return flights
 
