@@ -830,8 +830,19 @@ function Head({ title, body }: { title: string; body: string }) {
  * when it is actually useful: after you have seen the field.
  */
 function Label({ text }: { text: string }) {
+  /* Not `uppercase`, and not micro.
+   *
+   * The labels are Hebrew. Hebrew has no case, so `uppercase` does nothing
+   * -- but the 0.08em tracking that comes with that size does, and
+   * tracked-out Hebrew at 11px is hard to read on a phone. The label of a
+   * field somebody is filling in with a passport number should not be the
+   * smallest text on the screen.
+   */
   return (
-    <span className="text-micro uppercase" style={{ color: "var(--text-muted)" }}>
+    <span
+      className="block text-caption font-bold"
+      style={{ color: "var(--text-muted)" }}
+    >
       {text}
     </span>
   );

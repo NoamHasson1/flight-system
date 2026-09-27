@@ -32,7 +32,7 @@ export default function HowPage() {
               data-delay={String(i + 1)}
               className={`${s.step} press rounded-2xl p-7`}
             >
-              <span className={`${s.stepNum} ${s.code}`}>{step.n}</span>
+              <span className={s.stepNum}>{step.n}</span>
               <h2 className="mt-4 text-heading" style={{ color: "var(--text-strong)" }}>
                 {step.title}
               </h2>

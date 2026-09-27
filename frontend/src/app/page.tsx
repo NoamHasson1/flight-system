@@ -361,7 +361,7 @@ function HowItWorks() {
           {h.steps.map((step, i) => (
             <li key={step.n} data-reveal data-delay={String(i + 1)} className={`${s.step} press rounded-2xl p-7`}>
               <div className="flex items-start justify-between">
-                <span className={`${s.stepNum} ${s.code}`}>{step.n}</span>
+                <span className={s.stepNum}>{step.n}</span>
               </div>
               <h3 className="mt-4 text-heading" style={{ color: "var(--text-strong)" }}>
                 {step.title}

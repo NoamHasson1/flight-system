@@ -208,7 +208,7 @@ export function CheckForm() {
                    nothing is scrolled past to reach it -- so the cursor
                    starting in it saves everyone a click. */
                 autoFocus
-                className={`${s.field} tabular mt-2 w-full px-4 py-3.5 text-subhead uppercase`}
+                className={`${s.field} tabular w-full px-4 py-3.5 text-subhead uppercase`}
               />
             </Field>
 
@@ -224,7 +224,7 @@ export function CheckForm() {
                 onChange={(e) => setFlightDate(e.target.value)}
                 onBlur={() => setTouched((t) => ({ ...t, flightDate: true }))}
                 aria-invalid={touched.flightDate && !!dateError}
-                className={`${s.field} tabular mt-2 w-full px-4 py-3.5 text-subhead`}
+                className={`${s.field} tabular w-full px-4 py-3.5 text-subhead`}
               />
             </Field>
           </div>
@@ -288,8 +288,20 @@ function Field({
 }) {
   return (
     <label className="block">
+      {/* BLOCK, not inline.
+       *
+       * A <span> is inline, so it shares a line box with whatever follows
+       * and sits on the input's own baseline -- which on a narrow screen
+       * reads as the label resting on top of the field's border. It looked
+       * fine at desktop width only because the two-column grid gave each
+       * field enough room to hide it.
+       *
+       * Also not `uppercase`: the labels are Hebrew, which has no case, so
+       * the property does nothing but the 0.08em tracking that comes with
+       * this size does -- and tracked-out Hebrew at 11px is hard to read.
+       */}
       <span
-        className="text-micro uppercase"
+        className="mb-1 block text-caption font-bold"
         style={{ color: "var(--text-muted)" }}
       >
         {label}

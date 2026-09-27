@@ -160,6 +160,18 @@
   box-shadow: var(--shadow-card);
 }
 
+/* The numbered circle.
+ *
+ * SELF-CONTAINED ON PURPOSE. It used to be written as `stepNum code`, and
+ * `.code` sets `display: inline-block` -- which, being later in this file,
+ * beat `display: grid` and silently turned off `place-items: center`. The
+ * number then sat in the corner of its own circle, and only on the narrow
+ * layout where the circle is the widest thing in the row.
+ *
+ * Two classes fighting over `display` is not a thing to fix with
+ * specificity; it is a thing to stop doing. The monospace figures this
+ * needs are declared here instead, so nothing has to be composed with it.
+ */
 .stepNum {
   display: grid;
   place-items: center;
@@ -170,6 +182,12 @@
   color: #fff;
   font-weight: 700;
   font-size: 0.875rem;
+  font-family: var(--font-code-stack);
+  font-variant-numeric: tabular-nums;
+  /* No letter-spacing. Tracking adds space AFTER the last glyph too, which
+     pushes a centred two-character label off-centre by half of it. */
+  letter-spacing: 0;
+  direction: ltr;
 }
 
 /* --- Entrance -------------------------------------------------------------
@@ -886,4 +904,27 @@
 .radioCard:has(input:focus-visible) {
   outline: 2px solid var(--color-teal-400);
   outline-offset: 2px;
+}
+
+
+/* --- native date inputs on iOS -------------------------------------------
+ *
+ * Safari gives `input[type=date]` an intrinsic minimum width and will not
+ * shrink it: inside a flex or grid child it pushes past its container
+ * instead, which is the field sitting outside the card on a phone.
+ *
+ * `min-width: 0` lets it shrink -- the one declaration that actually fixes
+ * it -- and `appearance: none` stops iOS imposing its own control chrome on
+ * top of the padding and border already set here.
+ *
+ * `text-align: start` because an empty date input on iOS otherwise renders
+ * its placeholder against the wrong edge in an RTL document.
+ */
+input[type="date"].field,
+.field[type="date"] {
+  min-width: 0;
+  max-width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  text-align: start;
 }
