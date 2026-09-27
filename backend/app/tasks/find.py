@@ -92,10 +92,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--route", help="e.g. TLV-SEZ, either direction")
     parser.add_argument("--days", type=int, default=14, help="how far back to look")
     parser.add_argument("--raw", action="store_true", help="print the source payload")
+    parser.add_argument(
+        "--day", type=date.fromisoformat, metavar="YYYY-MM-DD",
+        help="list EVERY flight held for one day, the way the board published it",
+    )
     args = parser.parse_args(argv)
 
-    if not args.flight_number and not args.route:
-        parser.error("give a flight number, or --route")
+    if not (args.flight_number or args.route or args.day):
+        parser.error("give a flight number, --route, or --day")
+
+    if args.day:
+        return _whole_day(args.day)
 
     _, session_factory = build_engine_and_factory(get_settings())
     earliest = date.today() - timedelta(days=args.days)
@@ -135,6 +142,61 @@ def main(argv: list[str] | None = None) -> int:
     print(f"\n  {len(rows)} row(s) in the archive:")
     for row in rows:
         _show(row, raw=args.raw)
+    print()
+    return 0
+
+
+def _whole_day(day: date) -> int:
+    """Everything the archive holds for one date, as a list a person can read.
+
+    This is the answer to "how do I know I am seeing everything?". Counts
+    prove a day is the right SIZE; only the list proves a particular flight
+    is in it. Somebody who suspects a flight is missing can look, rather
+    than being told a percentage.
+
+    Sorted by scheduled time, like a departures board, because that is the
+    order somebody scanning for their own flight expects.
+    """
+    _, session_factory = build_engine_and_factory(get_settings())
+    with session_factory() as session:
+        rows = list(
+            session.scalars(
+                select(FlightLookup)
+                .where(FlightLookup.flight_date == day)
+                .order_by(FlightLookup.flight_number)
+            )
+        )
+
+    seen: dict[str, tuple[str, str, str]] = {}
+    empty: list[str] = []
+    for row in rows:
+        flights = _decode(row.flights, row.provider)
+        if not flights:
+            empty.append(f"{row.flight_number} [{row.provider}]")
+            continue
+        for flight in flights:
+            when = (
+                flight.scheduled_departure or flight.scheduled_arrival
+            )
+            seen[row.flight_number] = (
+                f"{when:%H:%M}" if when else "  --  ",
+                f"{flight.origin_iata or '???'} → {flight.destination_iata or '???'}",
+                str(flight.status),
+            )
+
+    print(f"\n  {day}: {len(seen)} flights held in the archive\n")
+    for number, (when, route, status) in sorted(seen.items(), key=lambda kv: kv[1][0]):
+        mark = "  *" if status in {"CANCELLED", "DIVERTED"} else "   "
+        print(f"  {when}  {number:9} {route:14} {status}{mark}")
+
+    if empty:
+        # A row that exists and holds nothing. Either the source genuinely
+        # had nothing, or an empty answer overwrote a real one -- which is a
+        # bug that existed until 27 September and is worth seeing.
+        print(f"\n  {len(empty)} row(s) present but EMPTY:")
+        for name in empty:
+            print(f"    {name}")
+
     print()
     return 0
 
