@@ -338,7 +338,7 @@ def _board_row(**overrides):  # type: ignore[no-untyped-def]
     return row
 
 
-def test_a_declared_delay_becomes_a_departure_time() -> None:
+def test_a_revised_time_becomes_a_departure_time() -> None:
     """THE case. The airport published a new time and labelled it DELAYED."""
     from datetime import date
 
@@ -370,6 +370,34 @@ def test_an_on_time_flight_never_gets_an_actual() -> None:
     flight = _to_raw_flight(_board_row(), "A45024", date(2026, 9, 26), "iaa")
 
     assert flight.actual_departure is None
+
+
+def test_the_label_on_the_gate_does_not_decide_this() -> None:
+    """THE generalisation, and the reason the first fix was not enough.
+
+    A45023 and WZ4311 from Sochi on 26 September were published with
+    CHRMINE "FINAL" and revised times sixteen and eighteen hours later. The
+    first version of this rule only accepted "DELAYED", so both were skipped
+    -- two real claims, missed because of a word.
+
+    "FINAL" and "NOT FINAL" describe whether the GATE is settled, not the
+    flight. The board revising its own published time is the statement,
+    whatever it calls the gate.
+    """
+    from datetime import date
+
+    from app.providers.iaa import _to_raw_flight
+
+    flight = _to_raw_flight(
+        _board_row(CHPTOL="2026-09-27T14:20:00", CHRMINE="FINAL"),
+        "A45023",
+        date(2026, 9, 26),
+        "iaa",
+    )
+
+    assert flight.actual_departure is not None
+    delay = (flight.actual_departure - flight.scheduled_departure).total_seconds() / 3600
+    assert 15 < delay < 17, delay
 
 
 def test_delayed_but_not_actually_later_says_nothing() -> None:

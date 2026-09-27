@@ -102,48 +102,49 @@ _STATUS: Final[Mapping[str, FlightStatus]] = {
 _SETTLED: Final = frozenset({"DEPARTED", "LANDED"})
 
 
-def _departure_time(
+def _operative_time(
     raw_status: str, scheduled: datetime | None, best: str | None
 ) -> datetime | None:
     """When the board says the flight actually goes, if it says anything.
 
     CHPTOL is "the current best time". For a flight that has not moved it is
-    usually just a copy of CHSTOL, and reading that as an actual would
-    manufacture a perfectly punctual record for tomorrow's schedule. That is
-    why only DEPARTED and LANDED used to produce a time here.
+    usually a copy of CHSTOL, and reading that as an actual would manufacture
+    a perfectly punctual record for tomorrow's schedule -- a wrong
+    NOT_ELIGIBLE, which is the one failure this system exists to avoid. That
+    is why, for a long time, only DEPARTED and LANDED produced a time.
 
-    THAT WAS TOO BLUNT, AND IT COST REAL CLAIMS.
+    THE RULE IS ABOUT THE TIMES, NOT ABOUT THE LABEL.
 
-    A45024 to Sochi on 26 September was published as:
+    This was first loosened for CHRMINE = "DELAYED", which was still too
+    narrow, and the next two flights proved it within the hour:
 
-        CHSTOL   2026-09-26 22:35     scheduled
-        CHPTOL   2026-09-27 15:20     revised
-        CHRMINE  DELAYED
+        A45024  CHRMINE DELAYED  22:35 -> 15:20 next day   found
+        A45023  CHRMINE FINAL    21:35 -> 14:20 next day   MISSED
+        WZ4311  CHRMINE FINAL    20:00 -> 14:52 next day   MISSED
 
-    Sixteen hours and forty-five minutes, declared by the airport, in
-    writing. Under Israeli law anything past eight hours is treated as a
-    cancellation and pays -- and we threw the number away and asked a human
-    to look at it, because the flight had not been marked departed yet.
+    Sixteen and eighteen hours, published by the airport, and skipped because
+    of a word. "FINAL" and "NOT FINAL" describe whether the GATE is settled,
+    not the flight -- the module docstring has always said so, and the code
+    still keyed off the label.
 
-    A revised time carrying an explicit DELAYED label is not a guess about a
-    punctual flight. It is the airport publishing a new departure time. The
-    danger the old rule guarded against was inventing punctuality, and that
-    danger only exists when the revised time is NOT later than the schedule
-    -- which is exactly the case still excluded here.
+    So the label is no longer consulted. The board revising its own published
+    time IS the statement, whatever it calls the gate. The only thing that
+    ever made CHPTOL dangerous was it being equal to -- or earlier than --
+    the schedule, and that case is still refused.
 
-    The flight keeps its SCHEDULED status, so the row is never marked settled
-    and the estimate is refreshed until the aircraft really moves. The verdict
-    that follows is LIKELY_ELIGIBLE with the question still open, not a
-    promise.
+    The flight keeps its unsettled status, so the row is never marked final
+    and the estimate keeps refreshing until the aircraft really moves. What
+    follows is LIKELY_ELIGIBLE with the question open, not a promise.
     """
     parsed = _parse_local(best)
     if parsed is None:
         return None
     if raw_status in _SETTLED:
         return parsed
-    # Declared late, and the revised time actually is later. A "DELAYED" whose
-    # revised time equals the schedule says nothing and is ignored.
-    if raw_status == "DELAYED" and scheduled is not None and parsed > scheduled:
+    # A revision is a later time. Equal or earlier says nothing, and reading
+    # it as fact is how a punctual record gets invented for a flight that has
+    # not happened.
+    if scheduled is not None and parsed > scheduled:
         return parsed
     return None
 
@@ -350,7 +351,7 @@ def _to_raw_flight(
     status = _STATUS.get(raw_status, FlightStatus.UNKNOWN)
 
     scheduled = _parse_local(record.get("CHSTOL"))
-    actual = _departure_time(raw_status, scheduled, record.get("CHPTOL"))
+    actual = _operative_time(raw_status, scheduled, record.get("CHPTOL"))
 
     other = str(record.get("CHLOC1") or "").strip().upper() or None
     departing = str(record.get("CHAORD") or "").strip().upper() == "D"
