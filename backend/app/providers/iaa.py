@@ -102,6 +102,52 @@ _STATUS: Final[Mapping[str, FlightStatus]] = {
 _SETTLED: Final = frozenset({"DEPARTED", "LANDED"})
 
 
+def _departure_time(
+    raw_status: str, scheduled: datetime | None, best: str | None
+) -> datetime | None:
+    """When the board says the flight actually goes, if it says anything.
+
+    CHPTOL is "the current best time". For a flight that has not moved it is
+    usually just a copy of CHSTOL, and reading that as an actual would
+    manufacture a perfectly punctual record for tomorrow's schedule. That is
+    why only DEPARTED and LANDED used to produce a time here.
+
+    THAT WAS TOO BLUNT, AND IT COST REAL CLAIMS.
+
+    A45024 to Sochi on 26 September was published as:
+
+        CHSTOL   2026-09-26 22:35     scheduled
+        CHPTOL   2026-09-27 15:20     revised
+        CHRMINE  DELAYED
+
+    Sixteen hours and forty-five minutes, declared by the airport, in
+    writing. Under Israeli law anything past eight hours is treated as a
+    cancellation and pays -- and we threw the number away and asked a human
+    to look at it, because the flight had not been marked departed yet.
+
+    A revised time carrying an explicit DELAYED label is not a guess about a
+    punctual flight. It is the airport publishing a new departure time. The
+    danger the old rule guarded against was inventing punctuality, and that
+    danger only exists when the revised time is NOT later than the schedule
+    -- which is exactly the case still excluded here.
+
+    The flight keeps its SCHEDULED status, so the row is never marked settled
+    and the estimate is refreshed until the aircraft really moves. The verdict
+    that follows is LIKELY_ELIGIBLE with the question still open, not a
+    promise.
+    """
+    parsed = _parse_local(best)
+    if parsed is None:
+        return None
+    if raw_status in _SETTLED:
+        return parsed
+    # Declared late, and the revised time actually is later. A "DELAYED" whose
+    # revised time equals the schedule says nothing and is ignored.
+    if raw_status == "DELAYED" and scheduled is not None and parsed > scheduled:
+        return parsed
+    return None
+
+
 class IsraelAirportsProvider:
     """Fetches flight data from the Ben Gurion board. Satisfies
     `FlightDataProvider`."""
@@ -304,8 +350,7 @@ def _to_raw_flight(
     status = _STATUS.get(raw_status, FlightStatus.UNKNOWN)
 
     scheduled = _parse_local(record.get("CHSTOL"))
-    # Only a settled flight has a real time. See quirk 1 in the module docstring.
-    actual = _parse_local(record.get("CHPTOL")) if raw_status in _SETTLED else None
+    actual = _departure_time(raw_status, scheduled, record.get("CHPTOL"))
 
     other = str(record.get("CHLOC1") or "").strip().upper() or None
     departing = str(record.get("CHAORD") or "").strip().upper() == "D"

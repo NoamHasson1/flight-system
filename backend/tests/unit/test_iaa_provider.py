@@ -307,3 +307,96 @@ async def test_a_two_character_number_is_still_refused() -> None:
     flight number, and asking the board about it is wasted.
     """
     assert await _fetch("X1", date(2026, 9, 19), []) == ()
+
+
+# --- a delay the board declares in writing -----------------------------------
+#
+# CHPTOL is "the current best time", and for a flight that has not moved it is
+# usually a copy of CHSTOL -- reading that as an actual would manufacture a
+# punctual record for tomorrow's schedule. So only DEPARTED and LANDED used to
+# produce a time.
+#
+# That was too blunt and it cost real claims. A45024 to Sochi on 26 September
+# was published with CHSTOL 22:35, CHPTOL 15:20 the NEXT DAY, and CHRMINE
+# "DELAYED": sixteen hours and forty-five minutes, declared by the airport in
+# writing. Under Israeli law anything past eight hours pays -- and the number
+# was thrown away.
+
+
+def _board_row(**overrides):  # type: ignore[no-untyped-def]
+    row = {
+        "CHOPER": "A4",
+        "CHFLTN": "5024",
+        "CHOPERD": "AZIMUTH AIRLINES",
+        "CHSTOL": "2026-09-26T22:35:00",
+        "CHPTOL": "2026-09-26T22:35:00",
+        "CHAORD": "D",
+        "CHLOC1": "AER",
+        "CHRMINE": "ON TIME",
+    }
+    row.update(overrides)
+    return row
+
+
+def test_a_declared_delay_becomes_a_departure_time() -> None:
+    """THE case. The airport published a new time and labelled it DELAYED."""
+    from datetime import date
+
+    from app.providers.iaa import _to_raw_flight
+
+    flight = _to_raw_flight(
+        _board_row(CHPTOL="2026-09-27T15:20:00", CHRMINE="DELAYED"),
+        "A45024",
+        date(2026, 9, 26),
+        "iaa",
+    )
+
+    assert flight.actual_departure is not None
+    delay = (flight.actual_departure - flight.scheduled_departure).total_seconds() / 3600
+    assert 16 < delay < 17, delay
+
+
+def test_an_on_time_flight_never_gets_an_actual() -> None:
+    """The danger the old rule guarded against, and still must.
+
+    A future flight carries CHPTOL == CHSTOL. Read as an actual it is a
+    perfectly punctual flight that has not happened yet -- and a punctual
+    record is a wrong NOT_ELIGIBLE waiting to be served.
+    """
+    from datetime import date
+
+    from app.providers.iaa import _to_raw_flight
+
+    flight = _to_raw_flight(_board_row(), "A45024", date(2026, 9, 26), "iaa")
+
+    assert flight.actual_departure is None
+
+
+def test_delayed_but_not_actually_later_says_nothing() -> None:
+    """A "DELAYED" whose revised time equals the schedule carries no
+    information, and must not read as a departure that happened on time."""
+    from datetime import date
+
+    from app.providers.iaa import _to_raw_flight
+
+    flight = _to_raw_flight(
+        _board_row(CHRMINE="DELAYED"), "A45024", date(2026, 9, 26), "iaa"
+    )
+
+    assert flight.actual_departure is None
+
+
+def test_a_settled_flight_still_reports_its_time() -> None:
+    """The original behaviour, unchanged: DEPARTED and LANDED are facts."""
+    from datetime import date
+
+    from app.providers.iaa import _to_raw_flight
+
+    flight = _to_raw_flight(
+        _board_row(CHPTOL="2026-09-26T23:10:00", CHRMINE="DEPARTED"),
+        "A45024",
+        date(2026, 9, 26),
+        "iaa",
+    )
+
+    assert flight.actual_departure is not None
