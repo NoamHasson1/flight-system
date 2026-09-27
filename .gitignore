@@ -50,3 +50,4 @@ test-results/
 frontend/.next/
 frontend/out/
 frontend/next-env.d.ts
+.env.production

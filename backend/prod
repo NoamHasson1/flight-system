@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Run a maintenance task against the LIVE archive on Render.
+#
+#   ./prod find BZ887 --date 2026-09-25
+#   ./prod find --day 2026-09-25
+#   ./prod coverage
+#   ./prod refusals --days 14
+#
+# The tasks default to the local SQLite file, which is a stale copy from when
+# the archive ran on this laptop. Anything you want to believe has to come
+# from the database the website actually answers from, and that is on Render.
+#
+# The connection string lives in .env.production, which is gitignored --
+# it carries the database password and this repository is public.
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+secrets="$here/.env.production"
+
+if [[ ! -f "$secrets" ]]; then
+  cat >&2 <<'MISSING'
+No .env.production found.
+
+Create it next to this script with one line:
+
+  DATABASE_URL=<the External Database URL from the Render dashboard>
+
+Render → flight-db → "External Database URL" → copy. It begins
+postgresql:// and the task rewrites it for the driver itself.
+MISSING
+  exit 1
+fi
+
+# shellcheck disable=SC1090
+set -a; source "$secrets"; set +a
+
+if [[ $# -eq 0 ]]; then
+  echo "usage: ./prod <task> [options]    e.g. ./prod find BZ887 --date 2026-09-25" >&2
+  exit 2
+fi
+
+task="$1"; shift
+exec uv run python -m "app.tasks.$task" "$@"
