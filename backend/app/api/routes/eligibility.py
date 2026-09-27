@@ -24,6 +24,8 @@ from app.api.deps import (
 from app.config import Settings
 from app.email.base import EmailSender
 from app.observability import flow
+from app.db.repositories import result_detail
+from app.services.reevaluate import current_result, has_changed
 from app.services.notifications import (
     notify_ops_check,
     ops_wants_this_check,
@@ -166,11 +168,28 @@ def read_check(
     check_id: UUID,
     session: Annotated[Session, Depends(get_session)],
 ) -> EligibilityResponse:
-    """Read back a stored check.
+    """Read back a stored check, answered with TODAY's rules.
 
-    Rebuilt from the stored snapshot rather than by asking the provider again:
-    the answer must be the one the customer was actually given, not a fresh
-    lookup that might now say something different.
+    The flight data is the stored snapshot, never a fresh lookup: the facts
+    of a flight in the past do not change, and re-asking a vendor would cost
+    money to be told the same thing.
+
+    THE RULES, HOWEVER, ARE RE-RUN.
+
+    A verdict used to be written once and never revisited, so every rule
+    improvement left everybody holding an older link seeing the older answer.
+    Two hours apart on 27 September:
+
+        07:15  WZ4312  NEEDS_REVIEW
+        11:19  A45024  LIKELY_ELIGIBLE  ILS1,530
+
+    Same flights, same data, a corrected rule in between -- and anyone who
+    checked before lunch still had a page saying there was nothing here.
+
+    Nothing is written. A GET that mutates cannot be retried or cached
+    safely, and two tabs on one claim would race. Recording the change is
+    `app.tasks.reevaluate`, which reports what moved and can tell the people
+    affected.
     """
     row = get_check(session, check_id)
     if row is None:
@@ -182,21 +201,44 @@ def read_check(
     detail = row.result_detail or {}
     snapshot = row.flight_snapshot or {}
 
+    verdict = row.verdict
+    message = row.message
+    best_amount = row.best_amount
+    best_currency = row.best_currency
+    best_regulation = row.best_regulation
+
+    fresh = current_result(row)
+    if fresh is not None and has_changed(row, fresh):
+        logging.getLogger("flight_system.api").info(
+            "check %s: rules now say %s (stored: %s)", row.id, fresh.verdict.value, row.verdict
+        )
+        detail = result_detail(fresh) or {}
+        verdict = fresh.verdict.value
+        award = fresh.best_award
+        best_amount = award.amount if award else None
+        best_currency = award.currency.value if award else None
+        best_regulation = fresh.best_regulation
+        # The stored message described the OLD verdict -- "we could not
+        # decide this" above a page now showing 1,530 shekels. The interface
+        # writes its own headline from the verdict, so dropping it is
+        # correct rather than merely tidy.
+        message = None
+
     return EligibilityResponse(
         check_id=row.id,
         status=row.status,
-        verdict=row.verdict,
-        message=row.message,
+        verdict=verdict,
+        message=message,
         best_award=(
             MoneyOut(
-                amount=str(row.best_amount),
-                currency=row.best_currency or "",
-                formatted=_format(row.best_amount, row.best_currency),
+                amount=str(best_amount),
+                currency=best_currency or "",
+                formatted=_format(best_amount, best_currency),
             )
-            if row.best_amount is not None
+            if best_amount is not None
             else None
         ),
-        best_regulation=row.best_regulation,
+        best_regulation=best_regulation,
         flight=_flight_from_snapshot(snapshot),
         outcomes=[
             OutcomeOut(
