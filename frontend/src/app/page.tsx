@@ -82,7 +82,6 @@ export default function Home() {
       <Reviews />
       <Cases />
       <Faq />
-      <FinalCta />
       <SiteFooter />
     </>
   );
@@ -349,7 +348,7 @@ function Lawyer() {
   return (
     <section
       id="about"
-      className="fieldInk relative overflow-hidden px-5 py-20 sm:px-8 sm:py-28"
+      className="fieldInk relative px-5 py-20 sm:px-8 sm:py-28"
       style={{ color: "var(--text-on-ink)" }}
     >
       <div className="relative mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-2">
@@ -563,39 +562,6 @@ function Cases() {
           {c.unsure}
         </p>
         <p className={`${s.accent} text-heading font-black`}>{c.unsureBody}</p>
-      </div>
-    </section>
-  );
-}
-
-/* --- final call ----------------------------------------------------------- */
-
-function FinalCta() {
-  const f = strings.finalCta;
-
-  return (
-    <section
-      className="fieldInk relative overflow-hidden px-5 py-20 text-center sm:px-8 sm:py-28"
-      style={{ color: "var(--text-on-ink)" }}
-    >
-      <div className="relative mx-auto max-w-2xl">
-        <span
-          className="inline-block rounded-full px-3.5 py-1.5 text-caption"
-          style={{ background: "rgb(255 255 255 / 0.08)" }}
-        >
-          {f.badge}
-        </span>
-        <h2 className="mt-5 text-title">{f.title}</h2>
-        <p className={`${s.accent} mt-1 text-title`}>{f.lead}</p>
-        <p className="mt-5 text-body" style={{ color: "var(--text-on-ink-dim)" }}>
-          {f.body}
-        </p>
-        <div className="mt-8">
-          <a href="#check" className={`${s.ctaOnInk} ${s.ctaPill} press px-7 py-3.5 text-subhead`}>
-            {strings.hero.cta}
-            <ArrowIcon />
-          </a>
-        </div>
       </div>
     </section>
   );

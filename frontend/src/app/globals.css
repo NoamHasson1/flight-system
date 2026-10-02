@@ -268,10 +268,69 @@ html {
     linear-gradient(180deg, #f7fafb 0%, #ffffff 60%, #f5f7f9 100%);
 }
 
+/* A dark section, and the approach into it is softened.
+ *
+ * THE FADE LIVES ABOVE THE SECTION, NOT INSIDE IT.
+ *
+ * The first attempt ramped the section's own background from mist to ink
+ * over its top 4.5rem. That put the whole transition inside the dark
+ * section, which left two problems: the ramp had to be short enough to
+ * finish before the heading, and a short ramp between two extremes reads
+ * as a grey BAND with visible edges rather than as a fade.
+ *
+ * So it is a strip sitting entirely above the section, painted over the
+ * empty bottom padding of whatever is there. The dark section itself is
+ * solid ink from its first pixel -- headings are never at risk -- and the
+ * transition gets the room it needs.
+ *
+ * It also fades INK AT RISING OPACITY rather than interpolating from one
+ * colour to another. A mist-to-ink ramp travels through a stretch of
+ * muddy mid-grey that looks like dirt on the screen; the same ink laid on
+ * more and more thickly just looks like dusk.
+ *
+ * The stops hug the ends. Most of the distance is spent near fully
+ * transparent and near fully opaque, so neither join has an edge.
+ */
 .fieldInk {
+  position: relative;
   background:
     radial-gradient(90% 60% at 85% 0%, #16413d 0%, transparent 60%),
     linear-gradient(180deg, #151a22 0%, #10151c 100%);
+}
+
+.fieldInk::before,
+.inkFade::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  /* Entirely above the section it belongs to. */
+  bottom: 100%;
+  /* FOURTEEN REM, and it has to be.
+  
+     White to near-black is a jump of about 230 levels of brightness. At
+     7rem that is roughly 2 levels per pixel, which the eye resolves as a
+     grey BAND with a top and a bottom. At 14rem it is one level per
+     pixel, below the threshold where a smooth ramp reads as an edge.
+  
+     Being this tall is safe because the strip is nearly invisible for
+     its first half: at 50% it is 3% opaque. It can lie over the bottom
+     of the section above without touching how that section looks. */
+  height: 14rem;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgb(21 26 34 / 0) 0%,
+    rgb(21 26 34 / 0.01) 30%,
+    rgb(21 26 34 / 0.03) 50%,
+    rgb(21 26 34 / 0.08) 64%,
+    rgb(21 26 34 / 0.17) 74%,
+    rgb(21 26 34 / 0.32) 82%,
+    rgb(21 26 34 / 0.52) 88%,
+    rgb(21 26 34 / 0.73) 93%,
+    rgb(21 26 34 / 0.89) 96.5%,
+    rgb(21 26 34 / 0.97) 99%,
+    rgb(21 26 34 / 1) 100%
+  );
 }
 
 /* --- the flight path ------------------------------------------------------

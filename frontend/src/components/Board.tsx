@@ -164,7 +164,7 @@ export function FlightBoard() {
   const b = strings.board;
 
   return (
-    <section id="board" className={`${s.board} px-5 py-20 sm:px-8 sm:py-24`}>
+    <section id="board" className={`${s.board} inkFade px-5 py-20 sm:px-8 sm:py-24`}>
       <div className="mx-auto max-w-6xl">
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div>

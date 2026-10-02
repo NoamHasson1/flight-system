@@ -362,7 +362,12 @@
 .passTear::after { inset-inline-end: -11px; }
 
 /* --- the disruptions board ----------------------------------------------- */
+/* The disruption board. The approach into it is softened by `.inkFade`,
+   a strip declared in globals.css that sits in the empty padding of the
+   section ABOVE this one -- see the note there for why the fade cannot
+   live inside this section. */
 .board {
+  position: relative;
   background: var(--surface-ink);
   color: var(--text-on-ink);
 }
