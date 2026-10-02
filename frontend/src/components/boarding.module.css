@@ -1,0 +1,228 @@
+/* A fan of boarding passes.
+
+   The cards bleed off the bottom of their band on purpose. A fan that
+   fits entirely inside its box reads as three cards in a row; one cut off
+   by the edge reads as a pile on a desk, which is the whole effect.
+
+   Everything here is decoration: no pointer events, nothing announced. */
+
+.fan {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 100%;
+  pointer-events: none;
+  user-select: none;
+  /* The cards are laid out from the centre and then pushed apart, so the
+     middle one sits highest and the outer two tuck behind it. */
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 0;
+}
+
+.pass {
+  position: relative;
+  width: 17rem;
+  /* Cut off by the bottom of the band, but only just.
+  
+     The first attempt hid 5.5rem and took the perforation and the
+     barcode with it -- which left three cards showing a flight number
+     and a gate, and the two details that make a boarding pass instantly
+     recognisable sitting below the fold. The tear and the bars are the
+     silhouette; the text is the filler. */
+  margin-bottom: -2.25rem;
+  background: #fbfaf7;
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 2px 6px rgb(17 24 32 / 0.08),
+    0 18px 44px rgb(17 24 32 / 0.16);
+  /* A boarding pass is printed on cheap stock that never stays flat. The
+     tiny rotations are what stop this looking like a UI mockup. */
+  transform-origin: bottom center;
+  overflow: hidden;
+  /* Latin codes and digits inside a right-to-left document. Without this
+     "LHR 14:30" can render with its parts in a surprising order. */
+  direction: rtl;
+}
+
+/* The three positions. The middle card is forward and upright; the outer
+   two are rotated away and sit behind, which is how a handful of tickets
+   actually falls. */
+.pass0 {
+  transform: rotate(-7deg) translateY(1.6rem);
+  margin-inline-end: -3.5rem;
+  z-index: 1;
+}
+
+.pass1 {
+  transform: rotate(1.5deg) translateY(-0.6rem);
+  z-index: 3;
+}
+
+.pass2 {
+  transform: rotate(6deg) translateY(1.9rem);
+  margin-inline-start: -3.5rem;
+  z-index: 2;
+}
+
+/* A slow breath, each card on its own clock, so the pile looks like paper
+   resting rather than a frozen render. Four seconds apart and under two
+   degrees -- any more and it reads as a carousel. */
+.pass0 { animation: pass-drift-a 11s ease-in-out infinite alternate; }
+.pass1 { animation: pass-drift-b 13s ease-in-out infinite alternate; }
+.pass2 { animation: pass-drift-c 15s ease-in-out infinite alternate; }
+
+@keyframes pass-drift-a {
+  from { transform: rotate(-7deg) translateY(1.6rem); }
+  to   { transform: rotate(-8.2deg) translateY(1.1rem); }
+}
+@keyframes pass-drift-b {
+  from { transform: rotate(1.5deg) translateY(-0.6rem); }
+  to   { transform: rotate(0.4deg) translateY(-1.1rem); }
+}
+@keyframes pass-drift-c {
+  from { transform: rotate(6deg) translateY(1.9rem); }
+  to   { transform: rotate(7.1deg) translateY(1.4rem); }
+}
+
+.body {
+  padding: 1.15rem 1.25rem 0.9rem;
+  text-align: start;
+}
+
+.city {
+  margin: 0;
+  font-size: var(--text-caption);
+  color: #8a8a82;
+}
+
+.codeRow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.1rem;
+}
+
+.code {
+  font-size: 2.6rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: #17171a;
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+.arrow {
+  flex: 1 1 auto;
+  color: #b9b9b1;
+  display: flex;
+  /* The arrow points the way the journey goes, which in a right-to-left
+     layout means flipping the glyph rather than the meaning. */
+  transform: scaleX(-1);
+}
+
+.arrowSvg { width: 100%; max-width: 4rem; height: 10px; }
+
+.time {
+  margin: 0.55rem 0 0;
+  font-size: var(--text-subhead);
+  font-weight: 650;
+  color: #17171a;
+  direction: ltr;
+  unicode-bidi: isolate;
+  text-align: start;
+}
+
+.caret {
+  display: inline-block;
+  font-size: 0.7em;
+  color: #8a8a82;
+  background: #eceae3;
+  border-radius: var(--radius-pill);
+  padding: 0.1rem 0.3rem;
+  margin-inline-end: 0.2rem;
+}
+
+.date {
+  margin: 0.1rem 0 0;
+  font-size: var(--text-caption);
+  color: #8a8a82;
+  direction: ltr;
+  unicode-bidi: isolate;
+  text-align: start;
+}
+
+.rule {
+  height: 1px;
+  background: #e4e1d8;
+  margin: 0.85rem 0 0.7rem;
+}
+
+.meta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.meta dt {
+  margin: 0;
+  font-size: var(--text-micro);
+  color: #9a9a92;
+}
+
+.meta dd {
+  margin: 0.1rem 0 0;
+  font-size: var(--text-callout);
+  font-weight: 650;
+  color: #17171a;
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+/* The tear. Dots rather than a dashed border, because a real perforation
+   is holes punched through the card and that is what you see. */
+.perforation {
+  height: 10px;
+  background-image: radial-gradient(circle, #ded9ce 1.6px, transparent 1.7px);
+  background-size: 11px 10px;
+  background-repeat: repeat-x;
+  background-position: center;
+}
+
+.barcode {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 3.4rem;
+  padding: 0.5rem 1.25rem 0;
+  overflow: hidden;
+}
+
+.barcode span {
+  display: block;
+  height: 100%;
+  background: #1b1b1f;
+  flex: 0 0 auto;
+}
+
+/* --- Narrow screens -------------------------------------------------------- */
+
+/* Two cards, closer together, and smaller. Three at phone width either
+   overflow or shrink until the airport codes stop being readable -- and
+   an unreadable boarding pass is just a grey rectangle. */
+@media (max-width: 44rem) {
+  .pass { width: 13rem; margin-bottom: -2rem; }
+  .pass0 { margin-inline-end: -2.5rem; }
+  .pass2 { display: none; }
+  .code { font-size: 2rem; }
+  .barcode { height: 2.6rem; }
+}
+
+/* --- Reduced motion -------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .pass0, .pass1, .pass2 { animation: none; }
+}

@@ -1,9 +1,15 @@
 /**
  * Decoration that moves.
  *
- * Three pieces, in the same spirit as `FlightPath`: a cabin window with the
- * sun going down past it, a bank of clouds drifting, and two distant
- * aircraft crossing with their contrails behind them.
+ * Two pieces, in the same spirit as `FlightPath`: a cabin window with the
+ * sun going down past it, and a bank of clouds drifting.
+ *
+ * There was a third -- aircraft crossing the hero laying contrails -- and
+ * it is gone. Not because it did not work, but because it worked at the
+ * same time as the existing arc and two cabin windows, and three moving
+ * things in the first screenful is noise. The hero carries a headline, a
+ * promise and a button; decoration there competes with the only job the
+ * page has. It is in the history if it is ever wanted lower down.
  *
  * EVERY ONE OF THEM IS A SERVER COMPONENT. They are static SVG plus CSS
  * animations, so they cost no JavaScript at all -- which matters on a
@@ -159,73 +165,5 @@ function Puff({ x, y, r }: { x: number; y: number; r: number }) {
       <circle cx={x - r * 0.8} cy={y + r * 0.26} r={r * 0.6} />
       <rect x={x - r * 1.4} y={y} width={r * 2.4} height={r} />
     </g>
-  );
-}
-
-/**
- * Two aircraft crossing, high up, trailing vapour.
- *
- * The contrail is a dashed line whose dash offset animates, so it appears
- * to be drawn behind the aircraft rather than simply existing. One line of
- * CSS doing the work of a particle system.
- */
-export function Contrails({ className = "", style }: Decoration) {
-  return (
-    <div className={`${s.trails} ${className}`} style={style} aria-hidden>
-      <svg viewBox="0 0 1200 320" className={s.trailSvg} preserveAspectRatio="none">
-        <g className={s.trailOne}>
-          <path
-            className={s.trailLine}
-            d="M -60 250 C 300 210, 700 150, 1260 70"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
-          <g
-            className={s.jet}
-            style={{
-              offsetPath:
-                'path("M -60 250 C 300 210, 700 150, 1260 70")',
-            }}
-          >
-            <Jet />
-          </g>
-        </g>
-
-        <g className={s.trailTwo}>
-          <path
-            className={s.trailLine}
-            d="M -60 110 C 340 150, 760 190, 1260 200"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          />
-          <g
-            className={s.jet}
-            style={{
-              offsetPath:
-                'path("M -60 110 C 340 150, 760 190, 1260 200")',
-            }}
-          >
-            <Jet small />
-          </g>
-        </g>
-      </svg>
-    </div>
-  );
-}
-
-/** A silhouette, pointing along its path -- `offsetRotate: auto` in the
-    stylesheet turns it, so it is drawn nose-right at the origin. */
-function Jet({ small = false }: { small?: boolean }) {
-  const k = small ? 0.68 : 1;
-  return (
-    <path
-      transform={`scale(${k})`}
-      d="M 14 0 L -4 -5 L -4 -1.6 L -9 -1.6 L -11 -6 L -13 -6 L -12 -1.4 L -15 0 L -12 1.4 L -13 6 L -11 6 L -9 1.6 L -4 1.6 L -4 5 Z"
-      fill="currentColor"
-    />
   );
 }

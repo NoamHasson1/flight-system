@@ -2,7 +2,8 @@ import Image from "next/image";
 
 import { FlightBoard } from "@/components/Board";
 import { GoogleRating } from "@/components/GoogleRating";
-import { CabinWindow, Clouds, Contrails } from "@/components/Ambience";
+import { CabinWindow, Clouds } from "@/components/Ambience";
+import { BoardingPasses } from "@/components/BoardingPasses";
 import { FlightPath } from "@/components/FlightPath";
 import { Reveal } from "@/components/Reveal";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -107,23 +108,16 @@ function Hero() {
      * the entire message.
      */
     <section className="field relative overflow-hidden px-5 pb-24 pt-16 sm:px-8 sm:pb-32 sm:pt-24">
-      {/* Two layers of sky behind the hero: the existing arc with its
-          aeroplane, and higher up, distant traffic laying contrails. The
-          second reads as depth rather than as a second animation. */}
-      <Contrails className="opacity-70" style={{ color: "var(--color-teal-600)" }} />
-      <FlightPath />
-
-      {/* Cabin windows down both sides, where the hero's centred column
-          leaves real empty space. They were first put on the dark lawyer
-          section, which looked right in isolation and sat straight on top
-          of the copy at every width -- a two-column grid has no spare
-          room by definition.
+      {/* ONE arc, and nothing else.
       
-          Hidden below 52rem by the stylesheet: on a phone the only
-          choices are covering the text or showing an unrecognisable
-          sliver. */}
-      <CabinWindow className="end-[2vw] top-[22%] h-[330px] w-[240px] opacity-80 xl:end-[5vw]" />
-      <CabinWindow className="start-[2vw] top-[46%] h-[280px] w-[200px] opacity-65 xl:start-[5vw]" />
+          Cabin windows and contrails were both tried here and both came
+          out. The first screenful is the one place on the site that has
+          to be calm: it carries a headline, a promise, a button and the
+          reason to trust us, and three moving decorations behind that is
+          noise competing with the only thing the page needs to do. The
+          windows moved down the page, where there is room to enjoy
+          them. */}
+      <FlightPath />
 
       <div className="relative z-10 mx-auto max-w-3xl text-center">
         <span
@@ -380,7 +374,15 @@ function HowItWorks() {
   const h = strings.howItWorks;
 
   return (
-    <section id="how" className="px-5 py-20 sm:px-8 sm:py-24">
+    <section id="how" className="relative overflow-hidden px-5 py-20 sm:px-8 sm:py-24">
+      {/* Cabin windows at dusk, well down the page.
+      
+          They were in the hero and overloaded it. Here they sit beside a
+          centred column with real empty space either side, and arriving
+          at them partway down is a small reward rather than the first
+          thing anybody has to get past. Hidden below 52rem. */}
+      <CabinWindow className="end-[1vw] top-[12%] h-[300px] w-[215px] opacity-70 xl:end-[4vw]" />
+      <CabinWindow className="start-[1vw] bottom-[8%] h-[250px] w-[180px] opacity-55 xl:start-[4vw]" />
       <div className="mx-auto max-w-6xl">
         <div className="text-center">
           <h2 data-reveal className="text-title" style={{ color: "var(--text-strong)" }}>
@@ -532,10 +534,18 @@ function FinalCta() {
 
   return (
     <section
-      className="fieldInk relative overflow-hidden px-5 py-20 text-center sm:px-8 sm:py-28"
+      className="fieldInk relative overflow-hidden px-5 pb-56 pt-20 text-center sm:px-8 sm:pb-64 sm:pt-28"
       style={{ color: "var(--text-on-ink)" }}
     >
-      <div className="mx-auto max-w-2xl">
+      {/* A handful of boarding passes spilling off the bottom edge.
+      
+          Real routes out of Ben Gurion rather than the London-and-New-York
+          of a stock illustration: somebody reading this has flown one of
+          them, and recognising the route is what turns scenery into "this
+          is about me". */}
+      <BoardingPasses />
+
+      <div className="relative mx-auto max-w-2xl">
         <span
           className="inline-block rounded-full px-3.5 py-1.5 text-caption"
           style={{ background: "rgb(255 255 255 / 0.08)" }}

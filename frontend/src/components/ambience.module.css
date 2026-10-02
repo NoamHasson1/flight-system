@@ -1,6 +1,6 @@
 /* Decoration that moves.
 
-   Three rules govern everything in this file.
+   Two pieces, and three rules that govern both.
 
    NOTHING HERE MAY BE CLICKED. Every piece sits over or behind real
    content, and a decorative SVG that swallows a tap meant for the check
@@ -111,91 +111,16 @@
   to   { transform: translateX(-1200px); }
 }
 
-/* --- Contrails ------------------------------------------------------------- */
-
-.trails {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  user-select: none;
-  overflow: hidden;
-  z-index: 0;
-}
-
-.trailSvg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-/* The trail is DRAWN rather than merely present.
-
-   `stroke-dasharray` of the whole path length with the offset animating
-   from full to zero makes the line appear progressively, as though the
-   aircraft were laying it. It then fades and starts again. A particle
-   system's worth of effect from two properties. */
-.trailLine {
-  stroke-dasharray: 1400;
-  stroke-dashoffset: 1400;
-  opacity: 0.32;
-  animation: amb-draw 26s linear infinite;
-}
-
-@keyframes amb-draw {
-  0%        { stroke-dashoffset: 1400; opacity: 0; }
-  6%        { opacity: 0.32; }
-  70%       { stroke-dashoffset: 0; opacity: 0.32; }
-  92%, 100% { stroke-dashoffset: 0; opacity: 0; }
-}
-
-/* The aircraft travels the same path on the same clock, so it stays at the
-   head of its own trail. `offset-rotate: auto` points it along the curve,
-   which is why the silhouette is drawn nose-right at the origin. */
-.jet {
-  offset-rotate: auto;
-  offset-distance: 0%;
-  animation: amb-fly 26s linear infinite;
-  opacity: 0;
-}
-
-@keyframes amb-fly {
-  0%        { offset-distance: 0%;   opacity: 0; }
-  6%        { opacity: 0.55; }
-  70%       { offset-distance: 100%; opacity: 0.55; }
-  92%, 100% { offset-distance: 100%; opacity: 0; }
-}
-
-/* The second aircraft is offset in time so the two never cross together,
-   which would read as choreography rather than as sky. */
-.trailTwo .trailLine,
-.trailTwo .jet {
-  animation-delay: -13s;
-}
-
 /* --- Everything stops ------------------------------------------------------ */
 
-/* Not slowed, not shortened. Stopped, on a frame chosen to be the one
-   worth seeing: the trails fully drawn, the aircraft partway along, the
-   clouds where they started. */
+/* Not slowed, not shortened. Stopped, on the frame it starts from. */
 @media (prefers-reduced-motion: reduce) {
   .sun,
   .deck,
   .glare,
   .cloudFar,
-  .cloudNear,
-  .trailLine,
-  .jet {
+  .cloudNear {
     animation: none;
-  }
-
-  .trailLine {
-    stroke-dashoffset: 0;
-    opacity: 0.28;
-  }
-
-  .jet {
-    offset-distance: 72%;
-    opacity: 0.5;
   }
 }
 
