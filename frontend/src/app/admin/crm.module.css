@@ -1,0 +1,634 @@
+/* The operator's screen.
+
+   A DIFFERENT KIND OF PAGE FROM THE REST OF THE PRODUCT, on purpose.
+
+   The customer-facing pages are generous: big type, long measures, a lot of
+   air, one decision per screen. They are read once by somebody who is
+   anxious about a flight.
+
+   This one is read all day by somebody who already knows what everything
+   means, and the thing they are doing is SCANNING -- down a column of names,
+   looking for one. So it is denser, the type is smaller, the rhythm is
+   tighter, and the most valuable property is that a row is easy to track
+   with the eye across its full width.
+
+   Same tokens throughout, so it is unmistakably the same product. */
+
+.page {
+  min-height: 100vh;
+  background: var(--surface-mist);
+}
+
+/* --- The bar ------------------------------------------------------------- */
+
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgb(255 255 255 / 0.85);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.barInner {
+  max-width: 78rem;
+  margin: 0 auto;
+  padding: 0.875rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.title {
+  font-size: var(--text-heading);
+  font-weight: var(--text-heading--font-weight);
+  color: var(--text-strong);
+  margin: 0;
+  white-space: nowrap;
+}
+
+.spacer { flex: 1 1 auto; }
+
+/* --- Search -------------------------------------------------------------- */
+
+.search {
+  position: relative;
+  flex: 1 1 18rem;
+  min-width: 0;
+}
+
+.searchInput {
+  width: 100%;
+  font: inherit;
+  font-size: var(--text-callout);
+  color: var(--text-strong);
+  background: var(--surface-mist);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  /* Logical properties: the icon sits at the start, which is the RIGHT in
+     Hebrew and would be the left if this were ever shown in English. */
+  padding-block: 0.5rem;
+  padding-inline: 2.25rem 1rem;
+  transition:
+    background-color var(--duration-quick) var(--ease-out-soft),
+    border-color var(--duration-quick) var(--ease-out-soft);
+}
+.searchInput:focus {
+  background: var(--surface-page);
+  border-color: var(--border-focus);
+}
+.searchInput::placeholder { color: var(--text-muted); }
+
+.searchIcon {
+  position: absolute;
+  inset-inline-start: 0.8rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+  display: flex;
+}
+
+/* --- Segmented filter ----------------------------------------------------- */
+
+.segmented {
+  display: inline-flex;
+  background: var(--surface-mist);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  padding: 2px;
+}
+
+.segment {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 0.35rem 0.85rem;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color var(--duration-quick) var(--ease-out-soft),
+    color var(--duration-quick) var(--ease-out-soft);
+}
+.segment:hover { color: var(--text-strong); }
+.segmentOn {
+  background: var(--surface-page);
+  color: var(--text-strong);
+  box-shadow: var(--shadow-card);
+}
+
+/* --- Counters ------------------------------------------------------------- */
+
+/* Four numbers, because an operator opening this wants to know the shape of
+   the day before they read a single row. Deliberately not a chart: the
+   numbers are small enough to read and a chart would be decoration. */
+.counts {
+  max-width: 78rem;
+  margin: 0 auto;
+  padding: 1.25rem 1.25rem 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.75rem;
+}
+
+.count {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 0.85rem 1rem;
+}
+
+.countValue {
+  font-size: 1.5rem;
+  font-weight: 750;
+  line-height: 1.1;
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+.countValueYes { color: var(--verdict-yes); }
+.countValueReview { color: var(--verdict-review); }
+
+.countLabel {
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+
+/* --- The table ------------------------------------------------------------ */
+
+.sheet {
+  max-width: 78rem;
+  margin: 1.25rem auto 4rem;
+  padding-inline: 1.25rem;
+}
+
+.card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.scroll { overflow-x: auto; }
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-callout);
+}
+
+.th {
+  text-align: start;
+  font-size: var(--text-micro);
+  font-weight: var(--text-micro--font-weight);
+  letter-spacing: var(--text-micro--letter-spacing);
+  /* No `text-transform: uppercase` -- Hebrew has no case, and the rule would
+     only ever affect the few Latin strings, making them inconsistent with
+     everything beside them. */
+  color: var(--text-muted);
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+  background: var(--surface-page);
+  position: sticky;
+  top: 0;
+}
+
+.row {
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background-color var(--duration-instant) var(--ease-out-soft);
+  cursor: pointer;
+}
+.row:last-child { border-bottom: 0; }
+.row:hover { background: var(--surface-mist); }
+/* The whole row opens the customer, so it must look like a target when
+   focused by keyboard too -- an operator working a list uses the keyboard. */
+.row:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: -2px;
+  background: var(--surface-mist);
+}
+
+.td {
+  padding: 0.7rem 0.9rem;
+  color: var(--text-default);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.name {
+  color: var(--text-strong);
+  font-weight: 600;
+}
+
+.muted { color: var(--text-muted); }
+
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  /* Latin and digits inside an RTL row. Without this a flight number like
+     "BA165" next to Hebrew renders with its characters in a surprising
+     order. */
+  direction: ltr;
+  unicode-bidi: isolate;
+  display: inline-block;
+}
+
+.amount {
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  color: var(--text-strong);
+  direction: ltr;
+  unicode-bidi: isolate;
+  display: inline-block;
+}
+
+/* --- Verdict pills -------------------------------------------------------- */
+
+.pill {
+  display: inline-block;
+  font-size: var(--text-caption);
+  font-weight: 650;
+  padding: 0.2rem 0.65rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid;
+  white-space: nowrap;
+}
+.pillYes {
+  color: var(--verdict-yes);
+  background: var(--verdict-yes-fill);
+  border-color: var(--verdict-yes-edge);
+}
+.pillNo {
+  color: var(--verdict-no);
+  background: var(--verdict-no-fill);
+  border-color: var(--verdict-no-edge);
+}
+.pillReview {
+  color: var(--verdict-review);
+  background: var(--verdict-review-fill);
+  border-color: var(--verdict-review-edge);
+}
+
+/* A small count of attached files, so an operator can see at a glance which
+   rows have evidence without opening anything. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+
+/* --- Buttons -------------------------------------------------------------- */
+
+.primary {
+  appearance: none;
+  border: 0;
+  font: inherit;
+  font-size: var(--text-callout);
+  font-weight: 650;
+  color: #06201f;
+  background: var(--color-teal-400);
+  padding: 0.6rem 1.25rem;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-quick) var(--ease-out-soft),
+    transform var(--duration-instant) var(--ease-out-soft);
+}
+.primary:hover { background: #4fdbd2; }
+/* Feedback on press, not on release -- the moment a control waits for
+   mouse-up to acknowledge a click it stops feeling direct. */
+.primary:active { transform: scale(0.985); }
+.primary:disabled { opacity: 0.5; cursor: default; transform: none; }
+
+.ghost {
+  appearance: none;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-page);
+  font: inherit;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  color: var(--text-default);
+  padding: 0.4rem 0.9rem;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-quick) var(--ease-out-soft),
+    border-color var(--duration-quick) var(--ease-out-soft);
+}
+.ghost:hover { background: var(--surface-mist); border-color: var(--border-default); }
+.ghost:active { transform: scale(0.985); }
+
+.link {
+  appearance: none;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: inherit;
+  color: var(--color-teal-600);
+  cursor: pointer;
+  padding: 0;
+  text-decoration: none;
+}
+.link:hover { text-decoration: underline; }
+
+/* --- The detail panel ----------------------------------------------------- */
+
+/* A slide-over, not a separate page. The operator's place in the list is
+   kept -- scroll position, search, which filter -- because the common motion
+   is "open one, glance, close, open the next", and a page navigation loses
+   all of it every time. */
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgb(17 24 32 / 0.32);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  animation: fade var(--duration-base) var(--ease-out-soft);
+}
+
+.panel {
+  position: fixed;
+  z-index: 61;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: min(40rem, 100vw);
+  background: var(--surface-page);
+  box-shadow: var(--shadow-float);
+  overflow-y: auto;
+  animation: slideIn var(--duration-base) var(--ease-out-soft);
+}
+
+@keyframes fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideIn {
+  /* POSITIVE, because the document is right-to-left.
+     `inset-inline-start: 0` pins the panel to the START edge, which in
+     Hebrew is the RIGHT-hand side of the screen -- so it must begin off
+     the right edge and travel left. The first version used -100% and the
+     panel slid in from under the table instead of in from the edge: the
+     motion contradicted where the thing actually was. */
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+/* Somebody who has asked for less motion still needs to see the panel
+   arrive -- it just should not fly. A fade carries the same meaning
+   without the vestibular cost. */
+@media (prefers-reduced-motion: reduce) {
+  .panel { animation: fade var(--duration-quick) var(--ease-out-soft); }
+  .scrim { animation: none; }
+}
+
+.panelBar {
+  position: sticky;
+  top: 0;
+  background: rgb(255 255 255 / 0.9);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.panelBody { padding: 1.25rem 1.5rem 3rem; }
+
+.panelName {
+  font-size: var(--text-title);
+  font-weight: var(--text-title--font-weight);
+  line-height: var(--text-title--line-height);
+  color: var(--text-strong);
+  margin: 0;
+}
+
+.panelMeta {
+  margin: 0.35rem 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-callout);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.section { margin-top: 1.75rem; }
+
+.sectionTitle {
+  font-size: var(--text-micro);
+  font-weight: var(--text-micro--font-weight);
+  letter-spacing: var(--text-micro--letter-spacing);
+  color: var(--text-muted);
+  margin: 0 0 0.6rem;
+}
+
+/* A definition list, because that is what this is: a label and its value.
+   Using one means a screen reader announces the pairing rather than reading
+   twelve unrelated fragments. */
+.fields {
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(7rem, auto) 1fr;
+  gap: 0.4rem 1rem;
+  font-size: var(--text-callout);
+}
+.fieldLabel { color: var(--text-muted); margin: 0; }
+.fieldValue { color: var(--text-strong); margin: 0; overflow-wrap: anywhere; }
+
+.item {
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--text-callout);
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.item:last-child { border-bottom: 0; }
+
+.total {
+  margin-top: 0.6rem;
+  font-weight: 700;
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.file {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  text-align: start;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 0.4rem;
+  background: var(--surface-mist);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: var(--text-callout);
+  color: var(--text-strong);
+  cursor: pointer;
+  transition: border-color var(--duration-quick) var(--ease-out-soft);
+}
+.file:hover { border-color: var(--color-teal-200); background: var(--verdict-yes-fill); }
+.fileName { flex: 1 1 auto; overflow-wrap: anywhere; text-align: start; }
+.fileMeta { color: var(--text-muted); font-size: var(--text-caption); white-space: nowrap; }
+
+.empty {
+  padding: 3.5rem 1.25rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--text-callout);
+}
+
+.note {
+  background: var(--surface-mist);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.9rem 1rem;
+  color: var(--text-muted);
+  font-size: var(--text-callout);
+}
+
+.error { color: #b4232a; font-size: var(--text-caption); }
+
+/* --- The key gate --------------------------------------------------------- */
+
+.gate {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: var(--surface-mist);
+}
+
+.gateCard {
+  width: min(26rem, 100%);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+  padding: 2rem;
+}
+
+.gateTitle {
+  font-size: var(--text-heading);
+  font-weight: var(--text-heading--font-weight);
+  color: var(--text-strong);
+  margin: 0;
+}
+
+.gateText {
+  color: var(--text-muted);
+  font-size: var(--text-callout);
+  line-height: var(--text-callout--line-height);
+  margin: 0.6rem 0 1.5rem;
+}
+
+.label {
+  display: block;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  color: var(--text-default);
+  margin-bottom: 0.4rem;
+}
+
+.input {
+  width: 100%;
+  font: inherit;
+  font-size: var(--text-body);
+  color: var(--text-strong);
+  background: var(--surface-mist);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.7rem 0.9rem;
+  /* A key is Latin and often base64. Forcing LTR stops the cursor jumping
+     to the far end of the field in a right-to-left document. */
+  direction: ltr;
+  text-align: left;
+}
+.input:focus { background: var(--surface-page); border-color: var(--border-focus); }
+
+/* --- Loading -------------------------------------------------------------- */
+
+/* A skeleton rather than a spinner. The operator is about to read a table,
+   and showing the table's shape while it loads means their eye is already
+   in the right place when the rows arrive. */
+.skeleton {
+  height: 0.85rem;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--surface-mist) 25%,
+    #eceff1 37%,
+    var(--surface-mist) 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+
+@keyframes shimmer {
+  from { background-position: 100% 50%; }
+  to { background-position: 0 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+}
+
+/* --- Narrow screens -------------------------------------------------------- */
+
+/* The table stays a table and scrolls sideways rather than collapsing into
+   stacked cards. An operator on a phone is looking somebody up, and a
+   familiar layout they have to push sideways beats an unfamiliar one they
+   have to re-learn. */
+@media (max-width: 40rem) {
+  .counts { grid-template-columns: repeat(2, 1fr); }
+  .barInner { padding-inline: 1rem; }
+  .sheet { padding-inline: 0.75rem; }
+  .panelBody { padding: 1rem 1.1rem 3rem; }
+  .fields { grid-template-columns: 1fr; gap: 0.1rem 0; }
+  .fieldLabel { margin-top: 0.5rem; }
+}
+
+/* --- Footer row ----------------------------------------------------------- */
+
+.footer {
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.footerCount {
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Skeleton layout ------------------------------------------------------ */
+
+.skeletonWrap { padding: 1rem; }
+
+.skeletonRow {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr 2fr 1.2fr 1.2fr;
+  gap: 0.9rem;
+  padding: 0.65rem 0;
+}

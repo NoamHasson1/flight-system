@@ -715,3 +715,67 @@ def test_a_filter_narrows_to_the_people_who_filed(admin_client: TestClient) -> N
 
     assert [r["contact_email"] for r in with_claim["items"]] == ["filed@example.com"]
     assert [r["contact_email"] for r in without["items"]] == ["refused@example.com"]
+
+
+def test_the_counters_agree_with_the_list_they_filter(
+    admin_client: TestClient,
+) -> None:
+    """The counters are also the filters, so they must count the same rows.
+
+    They are computed by a different query from the list -- aggregated in
+    SQL, because counting ten thousand ORM objects to show four numbers
+    would make the screen slower the more successful the business gets. Two
+    queries over one definition is exactly where a drift starts, so the
+    visibility rule is shared and this asserts the result.
+    """
+    filed = _customer(admin_client, "BA165", contact_email="filed@example.com")
+    _claim_for(admin_client, filed, contact_email="filed@example.com")
+    _customer(admin_client, "XX999", contact_email="refused@example.com")
+    # Nobody to contact: must be counted by neither.
+    admin_client.post(
+        "/api/v1/eligibility/check",
+        json={"flight_number": "BA165", "flight_date": AUG_14},
+    )
+
+    stats = admin_client.get("/api/v1/admin/customers/stats", headers=AUTH).json()
+    listed = admin_client.get("/api/v1/admin/customers", headers=AUTH).json()
+
+    assert stats["total"] == listed["total"] == 2
+    assert stats["claims"] == 1
+    assert stats["eligible"] == 1
+
+
+def test_the_counters_follow_the_anonymous_toggle(admin_client: TestClient) -> None:
+    """Flip the toggle and both numbers must move together.
+
+    Written because the easy mistake is to pass the flag to the list and
+    forget it on the counters, which leaves a header saying 1,000 above a
+    table of 12 and no way to tell which is lying.
+    """
+    admin_client.post(
+        "/api/v1/eligibility/check",
+        json={"flight_number": "BA165", "flight_date": AUG_14},
+    )
+
+    without = admin_client.get("/api/v1/admin/customers/stats", headers=AUTH).json()
+    with_them = admin_client.get(
+        "/api/v1/admin/customers/stats?include_anonymous=true", headers=AUTH
+    ).json()
+
+    assert without["total"] == 0
+    assert with_them["total"] == 1
+
+
+def test_stats_is_not_mistaken_for_a_customer_id(admin_client: TestClient) -> None:
+    """Route order, asserted.
+
+    `/customers/stats` and `/customers/{check_id}` both match the same
+    shape. Declared the other way round, a request for the counters is
+    handed to the detail route, which tries to parse "stats" as a UUID and
+    answers 422 -- a baffling failure for something that plainly should
+    work.
+    """
+    response = admin_client.get("/api/v1/admin/customers/stats", headers=AUTH)
+
+    assert response.status_code == 200
+    assert "total" in response.json()

@@ -39,6 +39,33 @@ export function resolveBackendOrigin(
   if (/^https?:\/\//.test(raw)) return raw.replace(/\/$/, "");
 
   const hostname = raw.split("/")[0].split(":")[0];
-  const scheme = hostname.includes(".") ? "https" : "http";
-  return `${scheme}://${raw}`.replace(/\/$/, "");
+  return `${isLocal(hostname) ? "http" : "https"}://${raw}`.replace(/\/$/, "");
+}
+
+/**
+ * Hosts that are reached without TLS.
+ *
+ * The rule used to be "a dot means public means https", which is right for
+ * every value Render produces -- `flight-backend-vzuh` has no dot and is
+ * private, `flight-backend-vzuh.onrender.com` has dots and is public.
+ *
+ * IT IS WRONG FOR AN IP ADDRESS. `127.0.0.1` is full of dots and is the
+ * least public host there is, so pointing a local frontend at a local
+ * backend produced an https request to a plain HTTP server, a failed TLS
+ * handshake, and a page saying the service was temporarily unavailable.
+ * Nothing in that chain mentions the scheme, which is what made it worth
+ * fixing rather than remembering.
+ *
+ * Loopback and the private IPv4 ranges, plus the usual local names.
+ */
+function isLocal(hostname: string): boolean {
+  if (!hostname.includes(".")) return true;
+  if (hostname === "localhost" || hostname.endsWith(".localhost")) return true;
+  if (hostname === "[::1]" || hostname === "::1") return true;
+  return (
+    /^127\./.test(hostname) ||
+    /^10\./.test(hostname) ||
+    /^192\.168\./.test(hostname) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(hostname)
+  );
 }

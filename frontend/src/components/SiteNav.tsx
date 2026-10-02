@@ -47,6 +47,20 @@ export function SiteNav() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // The operator console is not part of the website.
+  //
+  // It is a different product for a different person: nobody working a
+  // customer list needs a link to "how it works", and the marketing header
+  // above a table of personal data makes the page look like something a
+  // customer might stumble into. Checked here rather than with a route
+  // group, which would mean moving every public page into a folder to fix
+  // one line.
+  //
+  // Hooks run above this return, never below it -- an early return before
+  // useState or useEffect changes the hook order between renders, which
+  // React treats as a different component.
+  if (pathname?.startsWith("/admin")) return null;
+
   const n = strings.nav;
   const tabs = [
     { href: "/rights", label: n.rights },

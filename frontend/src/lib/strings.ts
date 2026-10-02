@@ -953,11 +953,21 @@ export const strings = {
     signOut: "יציאה",
 
     searchPlaceholder: "שם, אימייל, מספר טיסה או מספר תביעה",
+    filterGroup: "סינון הרשימה",
     filters: {
       all: "הכול",
       withClaim: "הגישו תביעה",
       withoutClaim: "לא הגישו",
+      review: "לבדיקה ידנית",
       anonymous: "כולל בדיקות בלי פרטים",
+    },
+
+    /* Four numbers read before any row -- the shape of the day. */
+    counts: {
+      total: "לקוחות",
+      eligible: "זכאים",
+      review: "ממתינים לבדיקה",
+      claims: "תביעות פתוחות",
     },
 
     columns: {
@@ -968,7 +978,7 @@ export const strings = {
       phone: "טלפון",
       verdict: "סטטוס",
       amount: "סכום",
-      actions: "",
+      files: "קבצים",
     },
 
     /* The verdicts, as a person would say them. */
@@ -985,7 +995,35 @@ export const strings = {
     noFiles: "אין קבצים",
     noClaim: "לא הגיש תביעה",
 
+    /* Expense categories and document kinds arrive as codes. An operator
+       should not have to translate HOTEL or BOOKING in their head. */
+    categories: {
+      HOTEL: "מלון",
+      MEAL: "אוכל",
+      TRANSPORT: "הסעות",
+      COMMUNICATION: "שיחות",
+      OTHER: "אחר",
+    } as Record<string, string>,
+    kinds: {
+      BOOKING: "אישור הזמנה",
+      BOARDING_PASS: "כרטיס עלייה",
+      RECEIPT: "קבלה",
+      CORRESPONDENCE: "התכתבות",
+      OTHER: "אחר",
+    } as Record<string, string>,
+    notice: {
+      NEVER_TOLD: "לא הודיעו כלל",
+      ON_THE_DAY: "ביום הטיסה",
+      UNDER_A_WEEK: "פחות משבוע לפני",
+      ONE_TO_TWO_WEEKS: "שבוע עד שבועיים לפני",
+      OVER_TWO_WEEKS: "יותר משבועיים לפני",
+      CANNOT_REMEMBER: "לא זוכר",
+    } as Record<string, string>,
+
     detail: {
+      title: "פרטי לקוח",
+      close: "סגירה",
+      state: "מצב",
       back: "חזרה לרשימה",
       contact: "פרטי קשר",
       claim: "התביעה",

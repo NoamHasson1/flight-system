@@ -199,3 +199,17 @@ class CustomerDetail(CustomerRow):
     # a customer rings up to argue with it.
     result_detail: dict[str, Any] | None = None
     flight_snapshot: dict[str, Any] | None = None
+
+
+class CustomerCounts(BaseModel):
+    """Four numbers an operator reads before any row.
+
+    Counted under the same rule as the list, because on the screen they are
+    also the filters -- a counter that disagrees with what it filters to is
+    worse than no counter.
+    """
+
+    total: int
+    eligible: int
+    review: int
+    claims: int

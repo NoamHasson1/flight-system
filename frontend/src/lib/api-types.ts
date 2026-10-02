@@ -354,6 +354,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/customers/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The four numbers above the list
+         * @description Declared BEFORE `/customers/{check_id}`.
+         *
+         *     FastAPI matches routes in declaration order. The other way round, a
+         *     request for /customers/stats is handed to the detail route, which tries
+         *     to parse "stats" as a UUID and answers 422 -- a confusing failure for
+         *     something that looks like it should obviously work.
+         */
+        get: operations["customer_stats_api_v1_admin_customers_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/customers/{check_id}": {
         parameters: {
             query?: never;
@@ -724,6 +749,24 @@ export interface components {
          * @enum {string}
          */
         ClaimStatus: "DRAFT" | "SUBMITTED" | "IN_REVIEW" | "SENT_TO_AIRLINE" | "AWAITING_AIRLINE" | "SETTLED" | "REJECTED" | "WITHDRAWN";
+        /**
+         * CustomerCounts
+         * @description Four numbers an operator reads before any row.
+         *
+         *     Counted under the same rule as the list, because on the screen they are
+         *     also the filters -- a counter that disagrees with what it filters to is
+         *     worse than no counter.
+         */
+        CustomerCounts: {
+            /** Total */
+            total: number;
+            /** Eligible */
+            eligible: number;
+            /** Review */
+            review: number;
+            /** Claims */
+            claims: number;
+        };
         /**
          * CustomerDetail
          * @description Everything the customer actually submitted, on one screen.
@@ -1891,6 +1934,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Page_CustomerRow_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    customer_stats_api_v1_admin_customers_stats_get: {
+        parameters: {
+            query?: {
+                include_anonymous?: boolean;
+            };
+            header?: {
+                "x-admin-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerCounts"];
                 };
             };
             /** @description Validation Error */

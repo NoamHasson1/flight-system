@@ -34,7 +34,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import date
 
-from sqlalchemy import Select, func, or_, select
+from sqlalchemy import ColumnElement, Select, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.db.models import Claim, Document, EligibilityCheck, Passenger
@@ -78,6 +78,21 @@ class CustomerRecord:
         return self.claim.contact_phone if self.claim else None
 
 
+def _is_a_customer() -> ColumnElement[bool]:
+    """Somebody we could actually contact, or who filed.
+
+    Defined once because the LIST and the COUNTERS both need it, and the
+    counters double as filters on the screen -- a number that disagrees with
+    the list it filters to is worse than showing no number at all. Sharing
+    the predicate is what makes them move together.
+    """
+    return or_(
+        EligibilityCheck.contact_email.is_not(None),
+        EligibilityCheck.contact_name.is_not(None),
+        Claim.id.is_not(None),
+    )
+
+
 def _base(include_anonymous: bool) -> Select[tuple[EligibilityCheck, Claim | None]]:
     """Every check, with its claim attached when there is one.
 
@@ -94,13 +109,7 @@ def _base(include_anonymous: bool) -> Select[tuple[EligibilityCheck, Claim | Non
         )
     )
     if not include_anonymous:
-        stmt = stmt.where(
-            or_(
-                EligibilityCheck.contact_email.is_not(None),
-                EligibilityCheck.contact_name.is_not(None),
-                Claim.id.is_not(None),
-            )
-        )
+        stmt = stmt.where(_is_a_customer())
     return stmt
 
 
@@ -218,3 +227,41 @@ def first_checked_on(session: Session) -> date | None:
     """The oldest check we hold, for the screen's "since" line."""
     value = session.scalar(select(func.min(EligibilityCheck.created_at)))
     return value.date() if value else None
+
+
+def customer_counts(
+    session: Session, *, include_anonymous: bool = False
+) -> dict[str, int]:
+    """The shape of the day, in one query.
+
+    Aggregated in SQL rather than by walking the rows in Python: the whole
+    point of a counter is that it stays instant when the table does not, and
+    counting ten thousand ORM objects to display four numbers would make the
+    screen slower the more successful the business gets.
+
+    The same `_is_a_customer` predicate as the list, so the counters and the
+    rows beneath them can never tell different stories.
+    """
+    pays = EligibilityCheck.verdict.in_(("ELIGIBLE", "LIKELY_ELIGIBLE"))
+    stmt = (
+        select(
+            func.count().label("total"),
+            func.count().filter(pays).label("eligible"),
+            func.count()
+            .filter(EligibilityCheck.verdict == "NEEDS_REVIEW")
+            .label("review"),
+            func.count(Claim.id).label("claims"),
+        )
+        .select_from(EligibilityCheck)
+        .outerjoin(Claim, Claim.check_id == EligibilityCheck.id)
+    )
+    if not include_anonymous:
+        stmt = stmt.where(_is_a_customer())
+
+    row = session.execute(stmt).one()
+    return {
+        "total": row.total or 0,
+        "eligible": row.eligible or 0,
+        "review": row.review or 0,
+        "claims": row.claims or 0,
+    }

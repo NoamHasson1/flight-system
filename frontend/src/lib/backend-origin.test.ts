@@ -67,3 +67,50 @@ describe("resolveBackendOrigin", () => {
     expect(resolveBackendOrigin("   ")).toBe("http://127.0.0.1:8010");
   });
 });
+
+describe("local addresses", () => {
+  /**
+   * The rule "a dot means public means https" is right for every hostname
+   * Render produces and wrong for every IP address. Found by pointing a
+   * local frontend at a local backend: the request went out as https, the
+   * TLS handshake failed against a plain HTTP server, and the page reported
+   * the service as unavailable -- with nothing anywhere mentioning a scheme.
+   */
+  it("uses http for loopback, which is full of dots", () => {
+    expect(resolveBackendOrigin("127.0.0.1:8000")).toBe("http://127.0.0.1:8000");
+  });
+
+  it("uses http for a private LAN address", () => {
+    /** Testing the app from a phone on the same wifi hits this. */
+    expect(resolveBackendOrigin("192.168.1.42:8000")).toBe(
+      "http://192.168.1.42:8000",
+    );
+    expect(resolveBackendOrigin("10.0.0.5:8000")).toBe("http://10.0.0.5:8000");
+    expect(resolveBackendOrigin("172.16.0.3:8000")).toBe(
+      "http://172.16.0.3:8000",
+    );
+  });
+
+  it("still uses https for a public address that merely starts with a digit", () => {
+    /**
+     * The guard must key on the private RANGES, not on "looks like an IP".
+     * 172.15 and 172.32 are public, and so is anything in a real domain.
+     */
+    expect(resolveBackendOrigin("172.15.0.1:8000")).toBe(
+      "https://172.15.0.1:8000",
+    );
+    expect(resolveBackendOrigin("8host.example.com")).toBe(
+      "https://8host.example.com",
+    );
+  });
+
+  it("keeps treating Render's two shapes as it always did", () => {
+    /** The regression this must not cause. */
+    expect(resolveBackendOrigin("flight-backend-vzuh:8000")).toBe(
+      "http://flight-backend-vzuh:8000",
+    );
+    expect(resolveBackendOrigin("flight-backend-vzuh.onrender.com")).toBe(
+      "https://flight-backend-vzuh.onrender.com",
+    );
+  });
+});

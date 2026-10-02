@@ -318,6 +318,7 @@ export const __testing = { describeValidationError };
 export type CustomerRow = components["schemas"]["CustomerRow"];
 export type CustomerDetail = components["schemas"]["CustomerDetail"];
 export type CustomerPage = components["schemas"]["Page_CustomerRow_"];
+export type CustomerCounts = components["schemas"]["CustomerCounts"];
 
 export type CustomerQuery = {
   search?: string;
@@ -341,6 +342,27 @@ export async function listCustomers(
   params.set("offset", String(query.offset ?? 0));
 
   return request<CustomerPage>(`/api/v1/admin/customers?${params}`, {
+    method: "GET",
+    headers: adminHeaders(key),
+    cache: "no-store",
+  });
+}
+
+/**
+ * The four counters above the list.
+ *
+ * A separate call from the list, and deliberately not recomputed on every
+ * keystroke: these are what the filters narrow FROM, so they do not change
+ * when the operator types. Folding them into the page response would make
+ * the search re-count the whole table on each character.
+ */
+export async function customerStats(
+  key: string,
+  includeAnonymous = false,
+): Promise<ApiResult<CustomerCounts>> {
+  const params = new URLSearchParams();
+  if (includeAnonymous) params.set("include_anonymous", "true");
+  return request<CustomerCounts>(`/api/v1/admin/customers/stats?${params}`, {
     method: "GET",
     headers: adminHeaders(key),
     cache: "no-store",

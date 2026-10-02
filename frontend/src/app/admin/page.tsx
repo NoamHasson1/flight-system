@@ -6,89 +6,99 @@
  * It is a view over the same database the application writes to. It is NOT
  * a second service that listens and keeps its own copy.
  *
- * That was the instinct, and it is worth writing down why it was not built:
- * a copy can be stale, can miss rows while it restarts, and can disagree
- * with the original -- so the question "have we captured everything?" would
- * stop being a fact about the database and start being a question about
- * whether some process was running last Tuesday. Reading the rows directly
- * cannot be behind, because there is nothing to be behind.
+ * A copy can be stale, can miss rows while it restarts, and can disagree
+ * with the original -- so "have we captured everything?" would stop being a
+ * fact about the database and become a question about whether some process
+ * was running last Tuesday. Reading the rows directly cannot be behind,
+ * because there is nothing to be behind.
+ *
+ * HOW IT IS BUILT TO BE USED
+ *
+ * The motion this screen is designed around is not "read one customer". It
+ * is "scan the list, open one, glance, close, open the next" -- so the
+ * detail is a slide-over rather than a page, and closing it returns the
+ * operator to the same scroll position, the same search and the same
+ * filter. A page navigation would throw all three away every time.
  *
  * Rendered entirely in the browser, and the shell is a STATIC file on
- * purpose. Every row is fetched client-side with the operator's key, so the
- * HTML that Next prerenders and any CDN caches contains no customer data and
- * no secret -- it is an empty page with a password box. Making it dynamic
- * would gain nothing and put the rendering on a server that has no key.
- *
- * (A `dynamic` export here would be ignored anyway: route segment config is
- * only read from server components, and this one is "use client".)
+ * purpose: every row is fetched client-side with the operator's key, so the
+ * prerendered HTML holds no customer data and no secret. It is an empty
+ * page with a password box.
  */
 
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-
-import { useAdminKey } from "@/lib/session-key";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
+  customerStats,
   downloadDocument,
   listCustomers,
   readCustomer,
+  type CustomerCounts,
   type CustomerDetail,
   type CustomerRow,
 } from "@/lib/api";
+import { useAdminKey } from "@/lib/session-key";
 import { strings } from "@/lib/strings";
+import s from "./crm.module.css";
 
 const PAGE = 50;
 
 export default function AdminPage() {
   const [key, setKey] = useAdminKey();
-
   if (key === null) return <KeyGate onKey={setKey} />;
-  return <Customers adminKey={key} onSignOut={() => setKey(null)} />;
+  return <Console adminKey={key} onSignOut={() => setKey(null)} />;
 }
+
+// --- the gate ----------------------------------------------------------------
 
 /** Nothing is fetched until a key is present -- not even the row count. */
 function KeyGate({ onKey }: { onKey: (key: string) => void }) {
   const t = strings.admin;
   const [value, setValue] = useState("");
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmed = value.trim();
-    if (trimmed) onKey(trimmed);
-  }
-
   return (
-    <main className="mx-auto max-w-md px-4 py-20">
-      <h1 className="text-headline">{t.title}</h1>
-      <p className="mt-3 text-body" style={{ color: "var(--text-muted)" }}>
-        {t.keyExplain}
-      </p>
-      <form onSubmit={submit} className="mt-8">
-        <label className="block text-label" htmlFor="admin-key">
-          {t.keyPrompt}
-        </label>
-        <input
-          id="admin-key"
-          type="password"
-          autoComplete="off"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          className="mt-2 w-full rounded-xl px-4 py-3"
-          style={{
-            background: "var(--surface-mist)",
-            border: "1px solid var(--border-subtle)",
+    <main className={s.gate}>
+      <div className={s.gateCard}>
+        <h1 className={s.gateTitle}>{t.title}</h1>
+        <p className={s.gateText}>{t.keyExplain}</p>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const trimmed = value.trim();
+            if (trimmed) onKey(trimmed);
           }}
-        />
-        <button type="submit" className="btn-primary mt-4 w-full">
-          {t.enter}
-        </button>
-      </form>
+        >
+          <label className={s.label} htmlFor="admin-key">
+            {t.keyPrompt}
+          </label>
+          <input
+            id="admin-key"
+            className={s.input}
+            type="password"
+            autoComplete="off"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+          />
+          <button
+            type="submit"
+            className={s.primary}
+            style={{ marginTop: "1rem", width: "100%" }}
+          >
+            {t.enter}
+          </button>
+        </form>
+      </div>
     </main>
   );
 }
 
-function Customers({
+// --- the console -------------------------------------------------------------
+
+type Filter = "all" | "claim" | "noClaim" | "review";
+
+function Console({
   adminKey,
   onSignOut,
 }: {
@@ -97,29 +107,36 @@ function Customers({
 }) {
   const t = strings.admin;
   const [rows, setRows] = useState<CustomerRow[]>([]);
+  const [counts, setCounts] = useState<CustomerCounts | null>(null);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"all" | "claim" | "noClaim">("all");
+  const [filter, setFilter] = useState<Filter>("all");
   const [anonymous, setAnonymous] = useState(false);
-  const [busy, setBusy] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
 
   const load = useCallback(
     async (offset: number) => {
-      setBusy(true);
+      setLoading(true);
       const result = await listCustomers(adminKey, {
-        search: search || undefined,
-        hasClaim: filter === "all" ? undefined : filter === "claim",
+        search: search.trim() || undefined,
+        verdict: filter === "review" ? "NEEDS_REVIEW" : undefined,
+        hasClaim:
+          filter === "claim" ? true : filter === "noClaim" ? false : undefined,
         includeAnonymous: anonymous,
         limit: PAGE,
         offset,
       });
-      setBusy(false);
+      setLoading(false);
       if (!result.ok) {
-        // A wrong key must send the operator back to the gate rather than
-        // showing an empty table, which reads as "no customers".
-        if (result.failure.kind === "notFound" || result.failure.kind === "refused") {
+        // A rejected key sends the operator back to the gate. Showing an
+        // empty table instead would read as "there are no customers",
+        // which is the most misleading thing this screen could say.
+        if (
+          result.failure.kind === "refused" ||
+          result.failure.kind === "notFound"
+        ) {
           return onSignOut();
         }
         return setFailed(true);
@@ -133,361 +150,524 @@ function Customers({
     [adminKey, search, filter, anonymous, onSignOut],
   );
 
-  // Debounced, because this fires on every keystroke in the search box and
-  // each one is a database query over two joined tables.
+  // Debounced: this fires on every keystroke, and each one is a query over
+  // two joined tables.
   useEffect(() => {
-    const timer = setTimeout(() => void load(0), 250);
+    const timer = setTimeout(() => void load(0), 220);
     return () => clearTimeout(timer);
   }, [load]);
 
-  if (open) {
-    return (
-      <CustomerDetailView
-        adminKey={adminKey}
-        checkId={open}
-        onBack={() => setOpen(null)}
-      />
-    );
-  }
+  // The counters do not depend on the search or the filter -- they are what
+  // the filters narrow FROM -- so they are fetched per visibility setting
+  // rather than on every keystroke.
+  useEffect(() => {
+    void customerStats(adminKey, anonymous).then((r) => {
+      if (r.ok) setCounts(r.data);
+    });
+  }, [adminKey, anonymous]);
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-12">
-      <header className="flex items-baseline justify-between gap-4">
-        <div>
-          <h1 className="text-headline">{t.title}</h1>
-          <p className="mt-1 text-body" style={{ color: "var(--text-muted)" }}>
-            {t.lead}
-          </p>
-        </div>
-        <button onClick={onSignOut} className="text-label underline">
-          {t.signOut}
-        </button>
-      </header>
+    <div className={s.page}>
+      <header className={s.bar}>
+        <div className={s.barInner}>
+          <h1 className={s.title}>{t.title}</h1>
 
-      <div className="mt-8 flex flex-wrap items-center gap-3">
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={t.searchPlaceholder}
-          className="min-w-0 flex-1 rounded-xl px-4 py-2.5"
-          style={{
-            background: "var(--surface-mist)",
-            border: "1px solid var(--border-subtle)",
-          }}
-        />
-        {(
-          [
-            ["all", t.filters.all],
-            ["claim", t.filters.withClaim],
-            ["noClaim", t.filters.withoutClaim],
-          ] as const
-        ).map(([value, label]) => (
-          <button
-            key={value}
-            onClick={() => setFilter(value)}
-            className="rounded-full px-4 py-2 text-label"
-            style={{
-              background:
-                filter === value ? "var(--accent)" : "var(--surface-mist)",
-              color: filter === value ? "white" : "var(--text-muted)",
-            }}
-          >
-            {label}
-          </button>
-        ))}
-        <label className="flex items-center gap-2 text-label">
-          <input
-            type="checkbox"
-            checked={anonymous}
-            onChange={(e) => setAnonymous(e.target.checked)}
-          />
-          {t.filters.anonymous}
-        </label>
-      </div>
-
-      {failed && (
-        <p className="mt-8 text-body" style={{ color: "var(--verdict-no)" }}>
-          {t.failed}
-        </p>
-      )}
-
-      {!failed && rows.length === 0 && !busy && (
-        <p className="mt-10 text-body" style={{ color: "var(--text-muted)" }}>
-          {t.empty}
-        </p>
-      )}
-
-      {rows.length > 0 && (
-        <>
-          <div className="mt-8 overflow-x-auto">
-            <table className="w-full text-start">
-              <thead>
-                <tr style={{ color: "var(--text-muted)" }}>
-                  {[
-                    t.columns.customer,
-                    t.columns.flight,
-                    t.columns.date,
-                    t.columns.email,
-                    t.columns.phone,
-                    t.columns.verdict,
-                    t.columns.amount,
-                    t.columns.actions,
-                  ].map((label, i) => (
-                    <th key={i} className="px-3 py-2 text-start text-label">
-                      {label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <Row
-                    key={row.check_id}
-                    row={row}
-                    onOpen={() => setOpen(row.check_id)}
-                  />
-                ))}
-              </tbody>
-            </table>
+          <div className={s.search}>
+            <span className={s.searchIcon} aria-hidden>
+              <SearchIcon />
+            </span>
+            <input
+              className={s.searchInput}
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t.searchPlaceholder}
+              aria-label={t.searchPlaceholder}
+            />
           </div>
 
-          <p className="mt-6 text-label" style={{ color: "var(--text-muted)" }}>
-            {t.showing(rows.length, total)}
-          </p>
-          {rows.length < total && (
-            <button
-              onClick={() => void load(rows.length)}
-              disabled={busy}
-              className="btn-secondary mt-3"
-            >
-              {t.loadMore}
-            </button>
+          <div className={s.segmented} role="group" aria-label={t.filterGroup}>
+            {(
+              [
+                ["all", t.filters.all],
+                ["claim", t.filters.withClaim],
+                ["noClaim", t.filters.withoutClaim],
+                ["review", t.filters.review],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={filter === value}
+                className={`${s.segment} ${filter === value ? s.segmentOn : ""}`}
+                onClick={() => setFilter(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <button type="button" className={s.ghost} onClick={onSignOut}>
+            {t.signOut}
+          </button>
+        </div>
+      </header>
+
+      <div className={s.counts}>
+        <Count label={t.counts.total} value={counts?.total} />
+        <Count label={t.counts.eligible} value={counts?.eligible} tone="yes" />
+        <Count label={t.counts.review} value={counts?.review} tone="review" />
+        <Count label={t.counts.claims} value={counts?.claims} />
+      </div>
+
+      <main className={s.sheet}>
+        <div className={s.card}>
+          {failed ? (
+            <p className={s.empty}>{t.failed}</p>
+          ) : loading && rows.length === 0 ? (
+            <SkeletonTable />
+          ) : rows.length === 0 ? (
+            <p className={s.empty}>{t.empty}</p>
+          ) : (
+            <div className={s.scroll}>
+              <table className={s.table}>
+                <thead>
+                  <tr>
+                    <th className={s.th}>{t.columns.customer}</th>
+                    <th className={s.th}>{t.columns.flight}</th>
+                    <th className={s.th}>{t.columns.date}</th>
+                    <th className={s.th}>{t.columns.email}</th>
+                    <th className={s.th}>{t.columns.phone}</th>
+                    <th className={s.th}>{t.columns.verdict}</th>
+                    <th className={s.th}>{t.columns.amount}</th>
+                    <th className={s.th}>{t.columns.files}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <Row
+                      key={row.check_id}
+                      row={row}
+                      onOpen={() => setOpen(row.check_id)}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
-        </>
+        </div>
+
+        {rows.length > 0 && (
+          <div className={s.footer}>
+            <span className={s.footerCount}>{t.showing(rows.length, total)}</span>
+            {rows.length < total && (
+              <button
+                type="button"
+                className={s.ghost}
+                disabled={loading}
+                onClick={() => void load(rows.length)}
+              >
+                {t.loadMore}
+              </button>
+            )}
+            <span className={s.spacer} />
+            <label className={s.chip}>
+              <input
+                type="checkbox"
+                checked={anonymous}
+                onChange={(e) => setAnonymous(e.target.checked)}
+              />
+              {t.filters.anonymous}
+            </label>
+          </div>
+        )}
+      </main>
+
+      {open && (
+        <DetailPanel
+          adminKey={adminKey}
+          checkId={open}
+          onClose={() => setOpen(null)}
+        />
       )}
-    </main>
+    </div>
   );
 }
 
-function Row({
-  row,
-  onOpen,
+function Count({
+  label,
+  value,
+  tone,
 }: {
-  row: CustomerRow;
-  onOpen: () => void;
+  label: string;
+  value: number | undefined;
+  tone?: "yes" | "review";
 }) {
-  const t = strings.admin;
+  const toneClass =
+    tone === "yes" ? s.countValueYes : tone === "review" ? s.countValueReview : "";
   return (
-    <tr style={{ borderTop: "1px solid var(--border-subtle)" }}>
-      <td className="px-3 py-3">{row.contact_name || "—"}</td>
-      <td className="px-3 py-3 tabular">{row.flight_number}</td>
-      <td className="px-3 py-3 tabular">{row.flight_date}</td>
-      <td className="px-3 py-3">{row.contact_email || "—"}</td>
-      <td className="px-3 py-3 tabular">{row.contact_phone || "—"}</td>
-      <td className="px-3 py-3">
-        <Verdict verdict={row.verdict} />
+    <div className={s.count}>
+      <div className={`${s.countValue} ${toneClass}`}>
+        {/* An em dash while loading, never 0. A zero that becomes 47 is a
+            number the operator has already read and believed. */}
+        {value === undefined ? "—" : value.toLocaleString("he-IL")}
+      </div>
+      <div className={s.countLabel}>{label}</div>
+    </div>
+  );
+}
+
+function Row({ row, onOpen }: { row: CustomerRow; onOpen: () => void }) {
+  return (
+    <tr
+      className={s.row}
+      tabIndex={0}
+      role="button"
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        // The whole row is the target, so it needs the keyboard behaviour a
+        // real button would have had for free.
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+    >
+      <td className={`${s.td} ${s.name}`}>{row.contact_name || "—"}</td>
+      <td className={s.td}>
+        <span className={s.num}>{row.flight_number}</span>
       </td>
-      <td className="px-3 py-3 tabular">
-        {row.best_amount ? `${row.best_amount} ${row.best_currency ?? ""}` : "—"}
+      <td className={s.td}>
+        <span className={s.num}>{row.flight_date}</span>
       </td>
-      <td className="px-3 py-3">
-        <div className="flex gap-2">
-          <button onClick={onOpen} className="text-label underline">
-            {t.viewDetails}
-          </button>
-          {row.document_count > 0 && (
-            <button onClick={onOpen} className="text-label underline">
-              {t.viewFiles(row.document_count)}
-            </button>
-          )}
-        </div>
+      <td className={s.td}>{row.contact_email || <Dash />}</td>
+      <td className={s.td}>
+        {row.contact_phone ? (
+          <span className={s.num}>{row.contact_phone}</span>
+        ) : (
+          <Dash />
+        )}
+      </td>
+      <td className={s.td}>
+        <Pill verdict={row.verdict} />
+      </td>
+      <td className={s.td}>
+        {row.best_amount ? (
+          <span className={s.amount}>
+            {money(row.best_amount, row.best_currency)}
+          </span>
+        ) : (
+          <Dash />
+        )}
+      </td>
+      <td className={s.td}>
+        {row.document_count > 0 ? (
+          <span className={s.chip}>
+            <ClipIcon /> {row.document_count}
+          </span>
+        ) : (
+          <Dash />
+        )}
       </td>
     </tr>
   );
 }
 
-function Verdict({ verdict }: { verdict: string | null }) {
+function Dash() {
+  return <span className={s.muted}>—</span>;
+}
+
+function Pill({ verdict }: { verdict: string | null }) {
   const t = strings.admin;
-  if (!verdict) {
-    return <span style={{ color: "var(--text-muted)" }}>{t.noVerdict}</span>;
-  }
-  const pays = verdict === "ELIGIBLE" || verdict === "LIKELY_ELIGIBLE";
+  if (!verdict)
+    return <span className={`${s.pill} ${s.pillNo}`}>{t.noVerdict}</span>;
+  const tone =
+    verdict === "ELIGIBLE" || verdict === "LIKELY_ELIGIBLE"
+      ? s.pillYes
+      : verdict === "NEEDS_REVIEW"
+        ? s.pillReview
+        : s.pillNo;
   return (
-    <span
-      style={{
-        color: pays
-          ? "var(--verdict-yes)"
-          : verdict === "NEEDS_REVIEW"
-            ? "var(--verdict-maybe)"
-            : "var(--text-muted)",
-        fontWeight: pays ? 600 : 400,
-      }}
-    >
-      {t.verdicts[verdict] ?? verdict}
-    </span>
+    <span className={`${s.pill} ${tone}`}>{t.verdicts[verdict] ?? verdict}</span>
   );
 }
 
-function CustomerDetailView({
+const SYMBOL: Record<string, string> = { EUR: "€", GBP: "£", ILS: "₪" };
+
+function money(amount: string, currency: string | null): string {
+  const symbol = currency ? (SYMBOL[currency] ?? `${currency} `) : "";
+  return `${symbol}${Number(amount).toLocaleString("he-IL", {
+    minimumFractionDigits: 2,
+  })}`;
+}
+
+function SkeletonTable() {
+  return (
+    <div className={s.skeletonWrap}>
+      {Array.from({ length: 8 }, (_, i) => (
+        <div key={i} className={s.skeletonRow}>
+          {Array.from({ length: 6 }, (_, j) => (
+            <div key={j} className={s.skeleton} />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// --- the detail panel --------------------------------------------------------
+
+function DetailPanel({
   adminKey,
   checkId,
-  onBack,
+  onClose,
 }: {
   adminKey: string;
   checkId: string;
-  onBack: () => void;
+  onClose: () => void;
 }) {
   const t = strings.admin;
   const [data, setData] = useState<CustomerDetail | null>(null);
   const [failed, setFailed] = useState(false);
+  const panel = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    void (async () => {
-      const result = await readCustomer(adminKey, checkId);
-      if (result.ok) setData(result.data);
-      else setFailed(true);
-    })();
+    void readCustomer(adminKey, checkId).then((r) =>
+      r.ok ? setData(r.data) : setFailed(true),
+    );
   }, [adminKey, checkId]);
 
-  if (failed) {
-    return (
-      <main className="mx-auto max-w-3xl px-4 py-12">
-        <button onClick={onBack} className="text-label underline">
-          {t.detail.back}
-        </button>
-        <p className="mt-6" style={{ color: "var(--verdict-no)" }}>
-          {t.failed}
-        </p>
-      </main>
-    );
-  }
-  if (!data) return <main className="mx-auto max-w-3xl px-4 py-12" />;
+  // Escape closes it, and focus moves in when it opens. An operator working
+  // a list reaches for Escape before the mouse, and a panel that ignores it
+  // feels stuck; moving focus is also what makes a screen reader announce
+  // the thing that just appeared.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    panel.current?.focus();
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-12">
-      <button onClick={onBack} className="text-label underline">
-        {t.detail.back}
-      </button>
+    <>
+      <div className={s.scrim} onClick={onClose} aria-hidden />
+      <aside
+        ref={panel}
+        className={s.panel}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t.detail.title}
+        tabIndex={-1}
+      >
+        <div className={s.panelBar}>
+          <button type="button" className={s.ghost} onClick={onClose}>
+            {t.detail.close}
+          </button>
+        </div>
 
-      <h1 className="mt-6 text-headline">{data.contact_name || "—"}</h1>
-      <p className="mt-1 text-body" style={{ color: "var(--text-muted)" }}>
-        {data.flight_number} · {data.flight_date} · <Verdict verdict={data.verdict} />
-      </p>
-
-      <Section title={t.detail.contact}>
-        <Field label={strings.admin.columns.email} value={data.contact_email} />
-        <Field label={strings.admin.columns.phone} value={data.contact_phone} />
-      </Section>
-
-      {data.claim_id ? (
-        <>
-          <Section title={t.detail.claim}>
-            <Field label={t.detail.reference} value={data.claim_reference} />
-            <Field
-              label={t.detail.bookingReference}
-              value={data.booking_reference}
-            />
-            <Field label={t.detail.airlineReason} value={data.airline_reason} />
-            <Field
-              label={t.detail.cancellationNotice}
-              value={data.cancellation_notice}
-            />
-            <Field
-              label=""
-              value={
-                data.claim_submitted_at
-                  ? t.detail.submitted
-                  : t.detail.notSubmitted
-              }
-            />
-          </Section>
-
-          {data.passengers.length > 0 && (
-            <Section title={t.detail.passengers}>
-              {data.passengers.map((p, i) => (
-                <p key={i} className="py-1">
-                  {p.full_name}
-                  {p.national_id && (
-                    <span style={{ color: "var(--text-muted)" }}>
-                      {" · "}
-                      {t.detail.nationalId} {p.national_id}
-                    </span>
-                  )}
-                  {p.is_minor && (
-                    <span style={{ color: "var(--text-muted)" }}>
-                      {" · "}
-                      {t.detail.minor}
-                    </span>
-                  )}
-                </p>
-              ))}
-            </Section>
+        <div className={s.panelBody}>
+          {failed && <p className={s.error}>{t.failed}</p>}
+          {!failed && !data && (
+            <>
+              <div
+                className={s.skeleton}
+                style={{ height: "2rem", width: "60%" }}
+              />
+              <div
+                className={s.skeleton}
+                style={{ height: "1rem", width: "40%", marginTop: "0.75rem" }}
+              />
+            </>
           )}
-
-          {data.expenses.length > 0 && (
-            <Section title={t.detail.expenses}>
-              {data.expenses.map((e) => (
-                <p key={e.id} className="py-1">
-                  <span className="tabular">
-                    {e.amount} {e.currency}
-                  </span>
-                  {" · "}
-                  {e.category}
-                  {e.description && (
-                    <span style={{ color: "var(--text-muted)" }}>
-                      {" · "}
-                      {e.description}
-                    </span>
-                  )}
-                </p>
-              ))}
-              {Object.entries(data.expense_totals).map(([currency, total]) => (
-                <p key={currency} className="pt-2 font-semibold tabular">
-                  {t.detail.total}: {total} {currency}
-                </p>
-              ))}
-            </Section>
-          )}
-
-          <Section title={t.detail.documents}>
-            {data.documents.length === 0 && (
-              <p style={{ color: "var(--text-muted)" }}>{t.noFiles}</p>
-            )}
-            {data.documents.map((d) => (
-              <DocumentLink key={d.id} adminKey={adminKey} document={d} />
-            ))}
-          </Section>
-        </>
-      ) : (
-        <p className="mt-8 text-body" style={{ color: "var(--text-muted)" }}>
-          {t.detail.nothingSubmitted}
-        </p>
-      )}
-    </main>
+          {data && <Detail data={data} adminKey={adminKey} />}
+        </div>
+      </aside>
+    </>
   );
 }
 
-function DocumentLink({
+function Detail({ data, adminKey }: { data: CustomerDetail; adminKey: string }) {
+  const t = strings.admin;
+  return (
+    <>
+      <h2 className={s.panelName}>{data.contact_name || "—"}</h2>
+      <p className={s.panelMeta}>
+        <span className={s.num}>{data.flight_number}</span>
+        <span aria-hidden>·</span>
+        <span className={s.num}>{data.flight_date}</span>
+        <Pill verdict={data.verdict} />
+        {data.best_amount && (
+          <span className={s.amount}>
+            {money(data.best_amount, data.best_currency)}
+          </span>
+        )}
+      </p>
+
+      <section className={s.section}>
+        <h3 className={s.sectionTitle}>{t.detail.contact}</h3>
+        <dl className={s.fields}>
+          {data.contact_email && (
+            <>
+              <dt className={s.fieldLabel}>{t.columns.email}</dt>
+              <dd className={s.fieldValue}>
+                {/* A real mailto. The next thing an operator does after
+                    reading this row is write to the person. */}
+                <a className={s.link} href={`mailto:${data.contact_email}`}>
+                  {data.contact_email}
+                </a>
+              </dd>
+            </>
+          )}
+          {data.contact_phone && (
+            <>
+              <dt className={s.fieldLabel}>{t.columns.phone}</dt>
+              <dd className={s.fieldValue}>
+                <a className={s.link} href={`tel:${data.contact_phone}`}>
+                  <span className={s.num}>{data.contact_phone}</span>
+                </a>
+              </dd>
+            </>
+          )}
+        </dl>
+      </section>
+
+      {!data.claim_id ? (
+        <section className={s.section}>
+          <p className={s.note}>{t.detail.nothingSubmitted}</p>
+        </section>
+      ) : (
+        <>
+          <section className={s.section}>
+            <h3 className={s.sectionTitle}>{t.detail.claim}</h3>
+            <dl className={s.fields}>
+              <Field label={t.detail.reference} value={data.claim_reference} mono />
+              <Field
+                label={t.detail.bookingReference}
+                value={data.booking_reference}
+                mono
+              />
+              <Field label={t.detail.airlineReason} value={data.airline_reason} />
+              <Field
+                label={t.detail.cancellationNotice}
+                value={
+                  data.cancellation_notice
+                    ? (t.notice[data.cancellation_notice] ??
+                      data.cancellation_notice)
+                    : null
+                }
+              />
+              <Field
+                label={t.detail.state}
+                value={
+                  data.claim_submitted_at
+                    ? t.detail.submitted
+                    : t.detail.notSubmitted
+                }
+              />
+            </dl>
+          </section>
+
+          {data.passengers.length > 0 && (
+            <section className={s.section}>
+              <h3 className={s.sectionTitle}>
+                {t.detail.passengers} ({data.passengers.length})
+              </h3>
+              {data.passengers.map((p, i) => (
+                <div key={i} className={s.item}>
+                  <strong>{p.full_name}</strong>
+                  {p.national_id && (
+                    <span className={s.muted}>
+                      {t.detail.nationalId}{" "}
+                      <span className={s.num}>{p.national_id}</span>
+                    </span>
+                  )}
+                  {p.is_minor && <span className={s.muted}>{t.detail.minor}</span>}
+                </div>
+              ))}
+            </section>
+          )}
+
+          {data.expenses.length > 0 && (
+            <section className={s.section}>
+              <h3 className={s.sectionTitle}>{t.detail.expenses}</h3>
+              {data.expenses.map((e) => (
+                <div key={e.id} className={s.item}>
+                  <span className={s.amount}>{money(e.amount, e.currency)}</span>
+                  <span>{t.categories[e.category] ?? e.category}</span>
+                  {e.description && (
+                    <span className={s.muted}>{e.description}</span>
+                  )}
+                </div>
+              ))}
+              {Object.entries(data.expense_totals).map(([currency, sum]) => (
+                <p key={currency} className={s.total}>
+                  {t.detail.total} {money(sum, currency)}
+                </p>
+              ))}
+            </section>
+          )}
+
+          <section className={s.section}>
+            <h3 className={s.sectionTitle}>
+              {t.detail.documents} ({data.documents.length})
+            </h3>
+            {data.documents.length === 0 ? (
+              <p className={s.note}>{t.noFiles}</p>
+            ) : (
+              data.documents.map((d) => (
+                <FileButton key={d.id} adminKey={adminKey} file={d} />
+              ))
+            )}
+          </section>
+        </>
+      )}
+    </>
+  );
+}
+
+function Field({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value: string | null;
+  mono?: boolean;
+}) {
+  if (!value) return null;
+  return (
+    <>
+      <dt className={s.fieldLabel}>{label}</dt>
+      <dd className={s.fieldValue}>
+        {mono ? <span className={s.num}>{value}</span> : value}
+      </dd>
+    </>
+  );
+}
+
+function FileButton({
   adminKey,
-  document: doc,
+  file,
 }: {
   adminKey: string;
-  document: CustomerDetail["documents"][number];
+  file: CustomerDetail["documents"][number];
 }) {
   const t = strings.admin;
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   return (
-    <p className="py-1">
+    <>
       <button
-        className="text-label underline"
+        type="button"
+        className={s.file}
         disabled={busy}
         onClick={() => {
           setBusy(true);
           setError(null);
-          void downloadDocument(adminKey, doc.id, doc.original_filename).then(
+          void downloadDocument(adminKey, file.id, file.original_filename).then(
             (r) => {
               setBusy(false);
               if (!r.ok) {
@@ -501,44 +681,47 @@ function DocumentLink({
           );
         }}
       >
-        {doc.original_filename}
+        <ClipIcon />
+        <span className={s.fileName}>{file.original_filename}</span>
+        <span className={s.fileMeta}>
+          {t.kinds[file.kind] ?? file.kind} ·{" "}
+          {Math.max(1, Math.round(file.size_bytes / 1024))}KB
+        </span>
       </button>
-      <span style={{ color: "var(--text-muted)" }}>
-        {" · "}
-        {doc.kind} · {Math.round(doc.size_bytes / 1024)}KB · {t.detail.download}
-      </span>
-      {error && (
-        <span style={{ color: "var(--verdict-no)" }}>{" · "}{error}</span>
-      )}
-    </p>
+      {error && <p className={s.error}>{error}</p>}
+    </>
   );
 }
 
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+// --- icons -------------------------------------------------------------------
+//
+// Inline rather than an icon package: there are two of them, and a
+// dependency for two paths is a dependency to keep updated forever.
+
+function SearchIcon() {
   return (
-    <section className="mt-8">
-      <h2 className="text-label" style={{ color: "var(--text-muted)" }}>
-        {title}
-      </h2>
-      <div className="mt-2">{children}</div>
-    </section>
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <circle cx="7" cy="7" r="4.75" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="M10.5 10.5 14 14"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
 
-function Field({ label, value }: { label: string; value: string | null }) {
-  if (!value) return null;
+function ClipIcon() {
   return (
-    <p className="py-1">
-      {label && (
-        <span style={{ color: "var(--text-muted)" }}>{label}: </span>
-      )}
-      {value}
-    </p>
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path
+        d="M10.5 4.5 5.9 9.1a1.6 1.6 0 0 0 2.3 2.3l4.9-4.9a3 3 0 0 0-4.3-4.3L3.6 7.4a4.5 4.5 0 0 0 6.4 6.4l4.2-4.2"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

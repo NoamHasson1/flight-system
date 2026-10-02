@@ -31,6 +31,7 @@ from app.schemas.admin import (
     CheckDetail,
     CheckRow,
     ClaimRow,
+    CustomerCounts,
     CustomerDetail,
     CustomerRow,
     DocumentRow,
@@ -249,6 +250,27 @@ def list_customers(
         ),
         limit=limit,
         offset=offset,
+    )
+
+
+@router.get(
+    "/customers/stats",
+    response_model=CustomerCounts,
+    summary="The four numbers above the list",
+)
+def customer_stats(
+    session: Annotated[Session, Depends(get_session)],
+    include_anonymous: bool = False,
+) -> CustomerCounts:
+    """Declared BEFORE `/customers/{check_id}`.
+
+    FastAPI matches routes in declaration order. The other way round, a
+    request for /customers/stats is handed to the detail route, which tries
+    to parse "stats" as a UUID and answers 422 -- a confusing failure for
+    something that looks like it should obviously work.
+    """
+    return CustomerCounts(
+        **crm_repo.customer_counts(session, include_anonymous=include_anonymous)
     )
 
 
