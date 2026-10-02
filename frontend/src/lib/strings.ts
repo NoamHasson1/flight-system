@@ -1144,6 +1144,13 @@ export const strings = {
       } as Record<string, string>,
       usableYes: "כן",
       usableNo: "לא",
+      /* For a flight that has not happened yet, the board's revised time is
+         a FORECAST. Showing it in a column headed "בפועל" states it as a
+         fact, which on a screen built to settle data arguments is exactly
+         the wrong thing to do. */
+      estimate: "צפי",
+      estimateTitle:
+        "הטיסה טרם התרחשה — זהו הזמן המעודכן שהלוח מפרסם, לא זמן בפועל.",
       /* The three facts that settle a data argument, shown on the row that
          is expanded. */
       seen: "נקלט",

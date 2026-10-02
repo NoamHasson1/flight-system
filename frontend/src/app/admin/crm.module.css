@@ -987,3 +987,20 @@
   min-width: 0;
 }
 .dateInput:focus { background: var(--surface-page); border-color: var(--border-focus); }
+
+/* A revised time on a flight that has not happened yet. The board
+   publishes these a day ahead, and they belong in the "actual" column
+   because that is what the rules read -- but they are a forecast, and a
+   screen built to settle data arguments must not state one as a fact. */
+.estimate {
+  font-size: var(--text-micro);
+  font-weight: 700;
+  letter-spacing: var(--text-micro--letter-spacing);
+  color: var(--verdict-review);
+  background: var(--verdict-review-fill);
+  border: 1px solid var(--verdict-review-edge);
+  border-radius: var(--radius-sm);
+  padding: 0 0.25rem;
+  margin-inline-start: 0.3rem;
+  white-space: nowrap;
+}

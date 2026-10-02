@@ -125,6 +125,14 @@ function Console({
   const [cursor, setCursor] = useState(-1);
   const toast = useToast();
   const searchBox = useRef<HTMLInputElement>(null);
+  /**
+   * Which request is the current one. The same race as on the archive
+   * screen: one request per keystroke, answers arriving out of order, and
+   * a stale failure landing after a fresh success. Here it is worse --
+   * the stale path can call `onSignOut` and throw the operator back to
+   * the key gate while they are mid-search.
+   */
+  const latest = useRef(0);
 
   /**
    * Change what the list shows, and drop the selection with it.
@@ -147,6 +155,7 @@ function Console({
 
   const load = useCallback(
     async (offset: number) => {
+      const ticket = ++latest.current;
       setLoading(true);
       const result = await listCustomers(adminKey, {
         search: search.trim() || undefined,
@@ -158,6 +167,7 @@ function Console({
         limit: PAGE,
         offset,
       });
+      if (ticket !== latest.current) return;
       setLoading(false);
       if (!result.ok) {
         // A rejected key sends the operator back to the gate. Showing an

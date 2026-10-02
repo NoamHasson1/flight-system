@@ -25,7 +25,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { searchArchive, type ArchivedFlight } from "@/lib/api";
 import { useAdminKey } from "@/lib/session-key";
@@ -66,7 +66,23 @@ function Archive({ adminKey }: { adminKey: string }) {
   const [failed, setFailed] = useState(false);
   const [openRaw, setOpenRaw] = useState<string | null>(null);
 
+  /**
+   * Which request is the current one.
+   *
+   * Typing fires a request per keystroke and they do NOT come back in
+   * order -- a browse over a week scans thousands of rows while a flight
+   * number returns in milliseconds. Without this, a slow earlier answer
+   * lands last and overwrites the newer one.
+   *
+   * Seen while testing: two requests in flight, the stale one failed and
+   * set the error AFTER the good one had already rendered, so the page
+   * showed "we could not load the list" over data it had successfully
+   * fetched.
+   */
+  const latest = useRef(0);
+
   const load = useCallback(async () => {
+    const ticket = ++latest.current;
     setLoading(true);
     const result = await searchArchive(adminKey, {
       number: number.trim() || undefined,
@@ -77,6 +93,8 @@ function Archive({ adminKey }: { adminKey: string }) {
       disruptedOnly: number.trim() ? false : disruptedOnly,
       limit: 150,
     });
+    // Anything but the newest request is thrown away, successful or not.
+    if (ticket !== latest.current) return;
     setLoading(false);
     if (!result.ok) return setFailed(true);
     setFailed(false);
@@ -255,13 +273,21 @@ function Row({
           <Clock at={row.scheduled_departure} />
         </td>
         <td className={s.td}>
-          <Clock at={row.actual_departure} delay={row.departure_delay_minutes} />
+          <Clock
+            at={row.actual_departure}
+            delay={row.departure_delay_minutes}
+            settled={settled(row.status)}
+          />
         </td>
         <td className={s.td}>
           <Clock at={row.scheduled_arrival} />
         </td>
         <td className={s.td}>
-          <Clock at={row.actual_arrival} delay={row.arrival_delay_minutes} />
+          <Clock
+            at={row.actual_arrival}
+            delay={row.arrival_delay_minutes}
+            settled={settled(row.status)}
+          />
         </td>
         <td className={s.td}>
           {t.flights.statuses[row.status] ?? row.status}
@@ -319,7 +345,16 @@ function Row({
  * this screen can say, and a blank space says it too quietly to notice
  * while scanning.
  */
-function Clock({ at, delay }: { at: string | null; delay?: number | null }) {
+function Clock({
+  at,
+  delay,
+  settled: isSettled = true,
+}: {
+  at: string | null;
+  delay?: number | null;
+  /** False while the flight is still to come: the time is a forecast. */
+  settled?: boolean;
+}) {
   const t = strings.admin;
   if (!at) return <span className={`${s.clock} ${s.clockNone}`}>—</span>;
 
@@ -342,8 +377,29 @@ function Clock({ at, delay }: { at: string | null; delay?: number | null }) {
       {delay != null && Math.abs(delay) >= 1 && (
         <span className={s.delay}>{t.flights.delayShort(delay)}</span>
       )}
+      {/* IZ606 on 3 October carried an arrival of 05:15 in a column headed
+          "actual" while the flight was still a day away. The board
+          republishes CHPTOL as a revised ESTIMATE long before anything
+          takes off, and the rules are right to read it -- but a diagnostic
+          screen that calls a forecast a fact is lying in the one place
+          somebody has come to check the facts. */}
+      {!isSettled && (
+        <span className={s.estimate} title={t.flights.estimateTitle}>
+          {t.flights.estimate}
+        </span>
+      )}
     </>
   );
+}
+
+/**
+ * Has this flight finished? Only then is a time a fact.
+ *
+ * Mirrors `app.providers.cache.SETTLED`, which is the same distinction the
+ * cache uses to decide whether a stored answer may be reused forever.
+ */
+function settled(status: string): boolean {
+  return status === "LANDED" || status === "CANCELLED" || status === "DIVERTED";
 }
 
 function addDays(iso: string, days: number): string {
