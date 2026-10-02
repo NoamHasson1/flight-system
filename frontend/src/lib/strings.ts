@@ -932,6 +932,87 @@ export const strings = {
     },
   },
 
+  /**
+   * The operator's screen.
+   *
+   * Hebrew like the rest of the product, with one deliberate exception: the
+   * verdict codes are shown translated, never raw. An operator reading
+   * "NEEDS_REVIEW" has to remember what the system means by it; one reading
+   * "צריך בדיקה ידנית" does not.
+   */
+  admin: {
+    title: "לקוחות",
+    lead: "כל מי שבדק טיסה אצלנו, מהחדש לישן.",
+    keyPrompt: "מפתח גישה",
+    keyExplain:
+      "המסך הזה מציג שמות, כתובות ומסמכים של לקוחות. הזינו את מפתח הניהול " +
+      "כדי להיכנס. המפתח נשמר רק בלשונית הזו ונמחק כשסוגרים אותה.",
+    enter: "כניסה",
+    badKey: "המפתח שגוי, או שהגישה לא מוגדרת בשרת.",
+    fileGone: "הקובץ רשום אצלנו אבל התוכן שלו חסר.",
+    signOut: "יציאה",
+
+    searchPlaceholder: "שם, אימייל, מספר טיסה או מספר תביעה",
+    filters: {
+      all: "הכול",
+      withClaim: "הגישו תביעה",
+      withoutClaim: "לא הגישו",
+      anonymous: "כולל בדיקות בלי פרטים",
+    },
+
+    columns: {
+      customer: "לקוח",
+      flight: "טיסה",
+      date: "תאריך",
+      email: "אימייל",
+      phone: "טלפון",
+      verdict: "סטטוס",
+      amount: "סכום",
+      actions: "",
+    },
+
+    /* The verdicts, as a person would say them. */
+    verdicts: {
+      ELIGIBLE: "זכאי",
+      LIKELY_ELIGIBLE: "כנראה זכאי",
+      NOT_ELIGIBLE: "לא זכאי",
+      NEEDS_REVIEW: "צריך בדיקה ידנית",
+    } as Record<string, string>,
+    noVerdict: "לא נמצאה טיסה",
+
+    viewDetails: "פרטים מלאים",
+    viewFiles: (n: number) => (n === 1 ? "קובץ אחד" : `${n} קבצים`),
+    noFiles: "אין קבצים",
+    noClaim: "לא הגיש תביעה",
+
+    detail: {
+      back: "חזרה לרשימה",
+      contact: "פרטי קשר",
+      claim: "התביעה",
+      passengers: "נוסעים",
+      expenses: "הוצאות",
+      documents: "קבצים",
+      reasoning: "למה המערכת החליטה כך",
+      reference: "מספר תביעה",
+      bookingReference: "מספר הזמנה",
+      airlineReason: "מה חברת התעופה אמרה",
+      cancellationNotice: "מתי הודיעו על הביטול",
+      nationalId: "ת״ז",
+      minor: "קטין",
+      total: "סה״כ",
+      submitted: "הוגשה",
+      notSubmitted: "טיוטה — עדיין לא הוגשה",
+      nothingSubmitted:
+        "הלקוח הזה בדק זכאות ולא המשיך לתביעה, ולכן אין נוסעים, הוצאות או קבצים.",
+      download: "הורדה",
+    },
+
+    empty: "אין עדיין לקוחות שתואמים את החיפוש.",
+    showing: (shown: number, total: number) => `מוצגים ${shown} מתוך ${total}`,
+    loadMore: "טעינת עוד",
+    failed: "לא הצלחנו לטעון את הרשימה.",
+  },
+
   legal: {
     disclaimer: "זו הערכה אוטומטית ואינה ייעוץ משפטי.",
   },

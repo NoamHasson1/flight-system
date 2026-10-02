@@ -75,11 +75,28 @@ export interface paths {
         };
         /**
          * Retrieve a previous check
-         * @description Read back a stored check.
+         * @description Read back a stored check, answered with TODAY's rules.
          *
-         *     Rebuilt from the stored snapshot rather than by asking the provider again:
-         *     the answer must be the one the customer was actually given, not a fresh
-         *     lookup that might now say something different.
+         *     The flight data is the stored snapshot, never a fresh lookup: the facts
+         *     of a flight in the past do not change, and re-asking a vendor would cost
+         *     money to be told the same thing.
+         *
+         *     THE RULES, HOWEVER, ARE RE-RUN.
+         *
+         *     A verdict used to be written once and never revisited, so every rule
+         *     improvement left everybody holding an older link seeing the older answer.
+         *     Two hours apart on 27 September:
+         *
+         *         07:15  WZ4312  NEEDS_REVIEW
+         *         11:19  A45024  LIKELY_ELIGIBLE  ILS1,530
+         *
+         *     Same flights, same data, a corrected rule in between -- and anyone who
+         *     checked before lunch still had a page saying there was nothing here.
+         *
+         *     Nothing is written. A GET that mutates cannot be retried or cached
+         *     safely, and two tabs on one claim would race. Recording the change is
+         *     `app.tasks.reevaluate`, which reports what moved and can tell the people
+         *     affected.
          */
         get: operations["read_check_api_v1_eligibility_checks__check_id__get"];
         put?: never;
@@ -192,6 +209,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/disruptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recently disrupted flights
+         * @description Cancellations and long delays from the archive, worst first.
+         *
+         *     THE CACHE LIVES ON THE APP, NOT IN THIS MODULE.
+         *
+         *     A module-level global would be the shorter spelling and is wrong in a way
+         *     that is invisible until it is not: it outlives the application object, so
+         *     a second app in the same process -- a test, a worker reusing an
+         *     interpreter, a script importing the routes -- inherits the first one's
+         *     answers about a database it has never seen. It was written that way first,
+         *     and the tests below caught it immediately by getting an empty board back
+         *     from a database that had rows in it.
+         *
+         *     Hung off `app.state`, it is created with the app and dies with it.
+         */
+        get: operations["board_api_v1_disruptions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/regulations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What each law pays
+         * @description The thresholds and amounts the engine applies, for the page that
+         *     explains them.
+         */
+        get: operations["regulations_api_v1_regulations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/summary": {
         parameters: {
             query?: never;
@@ -267,10 +337,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Everyone who has asked us about a flight */
+        get: operations["list_customers_api_v1_admin_customers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/customers/{check_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Everything one customer submitted
+         * @description Keyed on the CHECK, not the claim.
+         *
+         *     Every customer has a check; only some have a claim. Keying on the claim
+         *     would mean the detail button works for the people who got through and
+         *     404s for everybody who was refused -- who are the majority, and the ones
+         *     worth revisiting when a rule changes.
+         */
+        get: operations["read_customer_api_v1_admin_customers__check_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/documents/{document_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download one uploaded file
+         * @description The bytes of a receipt or a boarding pass.
+         *
+         *     THE KEY TRAVELS IN A HEADER, WHICH SHAPES HOW THIS IS USED. A browser
+         *     cannot put a header on an `<a href>`, so the operator's screen fetches
+         *     this with the key and hands the blob to the browser. That is deliberate:
+         *     the alternative is a token in the URL, and URLs are written to server
+         *     logs, proxy logs and browser history. A link to somebody's passport scan
+         *     should not be sitting in three logs.
+         *
+         *     `Content-Disposition: attachment` and a fixed content type, because the
+         *     bytes are customer-uploaded and rendering them inline in the operator's
+         *     own origin would make an uploaded SVG or HTML file a script running on
+         *     the admin page. The upload path already restricts types; this is the
+         *     second lock on the same door.
+         */
+        get: operations["read_document_api_v1_admin_documents__document_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * BandOut
+         * @description One distance band and what it pays.
+         */
+        BandOut: {
+            /**
+             * Up To Km
+             * @description Upper bound of the band. Null for the top band, which has none.
+             */
+            up_to_km: number | null;
+            /** Amount */
+            amount: string;
+            /** Currency */
+            currency: string;
+        };
+        /** BoardOut */
+        BoardOut: {
+            /** Updated At */
+            updated_at: string;
+            /** Days */
+            days: number;
+            /** Rows */
+            rows: components["schemas"]["DisruptionOut"][];
+        };
         /** Body_upload_document_api_v1_claims__claim_id__documents_post */
         Body_upload_document_api_v1_claims__claim_id__documents_post: {
             /**
@@ -556,6 +725,181 @@ export interface components {
          */
         ClaimStatus: "DRAFT" | "SUBMITTED" | "IN_REVIEW" | "SENT_TO_AIRLINE" | "AWAITING_AIRLINE" | "SETTLED" | "REJECTED" | "WITHDRAWN";
         /**
+         * CustomerDetail
+         * @description Everything the customer actually submitted, on one screen.
+         *
+         *     The point of the button. An operator about to write to an airline needs
+         *     the passengers, the receipts and the two answers no database holds, and
+         *     needs them without opening four tabs.
+         */
+        CustomerDetail: {
+            /**
+             * Check Id
+             * Format: uuid
+             */
+            check_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Contact Name */
+            contact_name: string | null;
+            /** Contact Email */
+            contact_email: string | null;
+            /** Contact Phone */
+            contact_phone: string | null;
+            /** Flight Number */
+            flight_number: string;
+            /**
+             * Flight Date
+             * Format: date
+             */
+            flight_date: string;
+            /** Verdict */
+            verdict: string | null;
+            /** Status */
+            status: string;
+            /** Best Amount */
+            best_amount: string | null;
+            /** Best Currency */
+            best_currency: string | null;
+            /** Claim Id */
+            claim_id: string | null;
+            /** Claim Reference */
+            claim_reference: string | null;
+            /** Claim Status */
+            claim_status: string | null;
+            /** Claim Submitted At */
+            claim_submitted_at: string | null;
+            /** Passenger Count */
+            passenger_count: number;
+            /** Document Count */
+            document_count: number;
+            /** Booking Reference */
+            booking_reference: string | null;
+            /** Airline Reason */
+            airline_reason: string | null;
+            /** Cancellation Notice */
+            cancellation_notice: string | null;
+            /** Notes */
+            notes: string | null;
+            /**
+             * Passengers
+             * @default []
+             */
+            passengers: components["schemas"]["PassengerRow"][];
+            /**
+             * Expenses
+             * @default []
+             */
+            expenses: components["schemas"]["ExpenseRow"][];
+            /**
+             * Documents
+             * @default []
+             */
+            documents: components["schemas"]["DocumentRow"][];
+            /**
+             * Expense Totals
+             * @default {}
+             */
+            expense_totals: {
+                [key: string]: string;
+            };
+            /** Result Detail */
+            result_detail?: {
+                [key: string]: unknown;
+            } | null;
+            /** Flight Snapshot */
+            flight_snapshot?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /**
+         * CustomerRow
+         * @description One person, as an operator needs to see them in a list.
+         *
+         *     Everything here answers "who is this and what do I do about them". The
+         *     evidence -- snapshots, payloads, rule outcomes -- deliberately is not:
+         *     it belongs on the detail screen, and putting it in the list would make
+         *     a page that takes a second to load and cannot be scanned.
+         */
+        CustomerRow: {
+            /**
+             * Check Id
+             * Format: uuid
+             */
+            check_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Contact Name */
+            contact_name: string | null;
+            /** Contact Email */
+            contact_email: string | null;
+            /** Contact Phone */
+            contact_phone: string | null;
+            /** Flight Number */
+            flight_number: string;
+            /**
+             * Flight Date
+             * Format: date
+             */
+            flight_date: string;
+            /** Verdict */
+            verdict: string | null;
+            /** Status */
+            status: string;
+            /** Best Amount */
+            best_amount: string | null;
+            /** Best Currency */
+            best_currency: string | null;
+            /** Claim Id */
+            claim_id: string | null;
+            /** Claim Reference */
+            claim_reference: string | null;
+            /** Claim Status */
+            claim_status: string | null;
+            /** Claim Submitted At */
+            claim_submitted_at: string | null;
+            /** Passenger Count */
+            passenger_count: number;
+            /** Document Count */
+            document_count: number;
+        };
+        /**
+         * DisruptionOut
+         * @description One row of the board.
+         */
+        DisruptionOut: {
+            /** Flight Number */
+            flight_number: string;
+            /** Flight Date */
+            flight_date: string;
+            /** Origin */
+            origin: string;
+            /** Destination */
+            destination: string;
+            /** Airline */
+            airline: string;
+            /**
+             * Status
+             * @description CANCELLED or DELAYED
+             */
+            status: string;
+            /** Delay Hours */
+            delay_hours: number | null;
+            /** Verdict */
+            verdict: string;
+            /**
+             * Amount
+             * @description Formatted band amount, e.g. ₪1,530. Null when the data cannot support a figure -- which is most inbound flights, because the board knows only the Ben Gurion end.
+             */
+            amount: string | null;
+        };
+        /**
          * DocumentKind
          * @enum {string}
          */
@@ -582,6 +926,32 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * DocumentRow
+         * @description A file, described well enough to decide whether to open it.
+         */
+        DocumentRow: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Original Filename */
+            original_filename: string;
+            /** Content Type */
+            content_type: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Expense Id */
+            expense_id: string | null;
         };
         /** DocumentUploadResponse */
         DocumentUploadResponse: {
@@ -728,6 +1098,22 @@ export interface components {
             /** Document Count */
             document_count: number;
         };
+        /** ExpenseRow */
+        ExpenseRow: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Category */
+            category: string;
+            /** Amount */
+            amount: string;
+            /** Currency */
+            currency: string;
+            /** Description */
+            description: string | null;
+        };
         /**
          * FlightOptionOut
          * @description One of several flights sharing a number on a date.
@@ -739,7 +1125,7 @@ export interface components {
             route: string;
             /**
              * Label
-             * @example DUB → STN, departing 16:00 UTC
+             * @example LCA → TLV, יוצאת ב-07:30
              */
             label: string;
             /** Scheduled Departure */
@@ -890,6 +1276,17 @@ export interface components {
             /** Offset */
             offset: number;
         };
+        /** Page[CustomerRow] */
+        Page_CustomerRow_: {
+            /** Items */
+            items: components["schemas"]["CustomerRow"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
         /** PassengerIn */
         PassengerIn: {
             /** Full Name */
@@ -916,6 +1313,15 @@ export interface components {
             /** Is Minor */
             is_minor: boolean;
         };
+        /** PassengerRow */
+        PassengerRow: {
+            /** Full Name */
+            full_name: string;
+            /** National Id */
+            national_id: string | null;
+            /** Is Minor */
+            is_minor: boolean;
+        };
         /** Readiness */
         Readiness: {
             /**
@@ -927,6 +1333,25 @@ export interface components {
             checks: {
                 [key: string]: string;
             };
+        };
+        /** RegulationOut */
+        RegulationOut: {
+            /** Key */
+            key: string;
+            /** Threshold Hours */
+            threshold_hours: number;
+            /**
+             * Measured At
+             * @description departure or arrival
+             */
+            measured_at: string;
+            /** Bands */
+            bands: components["schemas"]["BandOut"][];
+        };
+        /** RegulationsOut */
+        RegulationsOut: {
+            /** Regulations */
+            regulations: components["schemas"]["RegulationOut"][];
         };
         /**
          * Summary
@@ -1246,6 +1671,57 @@ export interface operations {
             };
         };
     };
+    board_api_v1_disruptions_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    regulations_api_v1_regulations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegulationsOut"];
+                };
+            };
+        };
+    };
     summary_api_v1_admin_summary_get: {
         parameters: {
             query?: never;
@@ -1374,6 +1850,112 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Page_ClaimRow_"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_customers_api_v1_admin_customers_get: {
+        parameters: {
+            query?: {
+                /** @description ELIGIBLE | LIKELY_ELIGIBLE | NOT_ELIGIBLE | NEEDS_REVIEW */
+                verdict?: string | null;
+                /** @description Name, email, flight number or claim reference */
+                search?: string | null;
+                /** @description Only those who filed, or only those who did not */
+                has_claim?: boolean | null;
+                /** @description Include checks with no name and no email -- people who typed a flight number and left. Off by default: there is nobody to contact, and thousands of them would bury the rest. */
+                include_anonymous?: boolean;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                "x-admin-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_CustomerRow_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_customer_api_v1_admin_customers__check_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-admin-key"?: string | null;
+            };
+            path: {
+                check_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_document_api_v1_admin_documents__document_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-admin-key"?: string | null;
+            };
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

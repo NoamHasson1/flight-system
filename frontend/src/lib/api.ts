@@ -301,3 +301,103 @@ function describeValidationError(d: {
  * going through the network layer to construct it would obscure that.
  */
 export const __testing = { describeValidationError };
+
+// --- the operator's screen ---------------------------------------------------
+//
+// Separate from everything above because the auth model is different: every
+// call carries a shared secret the operator types in, and none of these are
+// ever reached by a customer.
+//
+// THE KEY IS NEVER PUT IN A URL. It travels as a header, so it does not land
+// in the Next.js proxy's logs, Render's request logs, or the operator's own
+// browser history. That constraint is what makes downloading a document
+// awkward -- a browser cannot put a header on an `<a href>` -- and the
+// awkwardness is worth it: the alternative leaves links to passport scans
+// sitting in three logs.
+
+export type CustomerRow = components["schemas"]["CustomerRow"];
+export type CustomerDetail = components["schemas"]["CustomerDetail"];
+export type CustomerPage = components["schemas"]["Page_CustomerRow_"];
+
+export type CustomerQuery = {
+  search?: string;
+  verdict?: string;
+  hasClaim?: boolean;
+  includeAnonymous?: boolean;
+  limit?: number;
+  offset?: number;
+};
+
+export async function listCustomers(
+  key: string,
+  query: CustomerQuery = {},
+): Promise<ApiResult<CustomerPage>> {
+  const params = new URLSearchParams();
+  if (query.search) params.set("search", query.search);
+  if (query.verdict) params.set("verdict", query.verdict);
+  if (query.hasClaim !== undefined) params.set("has_claim", String(query.hasClaim));
+  if (query.includeAnonymous) params.set("include_anonymous", "true");
+  params.set("limit", String(query.limit ?? 50));
+  params.set("offset", String(query.offset ?? 0));
+
+  return request<CustomerPage>(`/api/v1/admin/customers?${params}`, {
+    method: "GET",
+    headers: adminHeaders(key),
+    cache: "no-store",
+  });
+}
+
+export async function readCustomer(
+  key: string,
+  checkId: string,
+): Promise<ApiResult<CustomerDetail>> {
+  return request<CustomerDetail>(
+    `/api/v1/admin/customers/${encodeURIComponent(checkId)}`,
+    { method: "GET", headers: adminHeaders(key), cache: "no-store" },
+  );
+}
+
+/**
+ * Fetch a document and hand the bytes to the browser as a download.
+ *
+ * Done in JavaScript rather than with a link because the key is a header.
+ * The blob URL is revoked immediately afterwards -- it is a live handle to
+ * a customer's document inside the page, and leaving it alive means every
+ * document an operator opens in a session stays reachable from the tab.
+ */
+export async function downloadDocument(
+  key: string,
+  documentId: string,
+  filename: string,
+): Promise<ApiResult<null>> {
+  let response: Response;
+  try {
+    response = await fetch(
+      `/api/v1/admin/documents/${encodeURIComponent(documentId)}`,
+      { headers: adminHeaders(key), cache: "no-store" },
+    );
+  } catch {
+    return { ok: false, failure: { kind: "unreachable" } };
+  }
+
+  if (response.status === 401 || response.status === 403) {
+    return { ok: false, failure: { kind: "refused", message: strings.admin.badKey } };
+  }
+  if (response.status === 410) {
+    return { ok: false, failure: { kind: "refused", message: strings.admin.fileGone } };
+  }
+  if (!response.ok) return { ok: false, failure: { kind: "unreachable" } };
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+  return { ok: true, data: null };
+}
+
+function adminHeaders(key: string): Record<string, string> {
+  return { "X-Admin-Key": key };
+}

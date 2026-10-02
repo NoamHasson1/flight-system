@@ -106,3 +106,96 @@ class Summary(BaseModel):
     # and a single "pipeline value" would be a number nobody could defend.
     eligible_value_by_currency: dict[str, str]
     needs_review: int = Field(description="The size of the queue right now.")
+
+
+# --- the CRM -----------------------------------------------------------------
+
+
+class CustomerRow(BaseModel):
+    """One person, as an operator needs to see them in a list.
+
+    Everything here answers "who is this and what do I do about them". The
+    evidence -- snapshots, payloads, rule outcomes -- deliberately is not:
+    it belongs on the detail screen, and putting it in the list would make
+    a page that takes a second to load and cannot be scanned.
+    """
+
+    check_id: UUID
+    created_at: datetime
+
+    contact_name: str | None
+    contact_email: str | None
+    contact_phone: str | None
+
+    flight_number: str
+    flight_date: date
+
+    # The check's own verdict, unchanged, plus the money. An operator sorts
+    # by "is there anything here" before anything else.
+    verdict: str | None
+    status: str
+    best_amount: str | None
+    best_currency: str | None
+
+    # Present only when they went on to file. `claim_id` is what the detail
+    # button needs; the rest is what makes the row worth clicking.
+    claim_id: UUID | None
+    claim_reference: str | None
+    claim_status: str | None
+    claim_submitted_at: datetime | None
+    passenger_count: int
+    document_count: int
+
+
+class DocumentRow(BaseModel):
+    """A file, described well enough to decide whether to open it."""
+
+    id: UUID
+    kind: str
+    original_filename: str
+    content_type: str
+    size_bytes: int
+    created_at: datetime
+    # Which expense this receipt evidences, when it evidences one. A booking
+    # confirmation belongs to the claim as a whole and has none.
+    expense_id: UUID | None
+
+
+class PassengerRow(BaseModel):
+    full_name: str
+    # Decrypted on the way out. The operator needs it to file with the
+    # airline, which is the only reason it was ever collected.
+    national_id: str | None
+    is_minor: bool
+
+
+class ExpenseRow(BaseModel):
+    id: UUID
+    category: str
+    amount: str
+    currency: str
+    description: str | None
+
+
+class CustomerDetail(CustomerRow):
+    """Everything the customer actually submitted, on one screen.
+
+    The point of the button. An operator about to write to an airline needs
+    the passengers, the receipts and the two answers no database holds, and
+    needs them without opening four tabs.
+    """
+
+    booking_reference: str | None
+    airline_reason: str | None
+    cancellation_notice: str | None
+    notes: str | None
+
+    passengers: list[PassengerRow] = []
+    expenses: list[ExpenseRow] = []
+    documents: list[DocumentRow] = []
+    expense_totals: dict[str, str] = {}
+
+    # Why the system decided what it decided, in the operator's hands when
+    # a customer rings up to argue with it.
+    result_detail: dict[str, Any] | None = None
+    flight_snapshot: dict[str, Any] | None = None
