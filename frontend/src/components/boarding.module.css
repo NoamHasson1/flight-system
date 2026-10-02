@@ -32,21 +32,19 @@
      recognisable sitting below the fold. The tear and the bars are the
      silhouette; the text is the filler. */
   margin-bottom: -2.25rem;
-  background:
-    repeating-linear-gradient(
-      100deg,
-      rgb(0 0 0 / 0.012) 0 2px,
-      transparent 2px 5px
-    ),
-    #faf8f3;
-  border-radius: var(--radius-lg);
-  box-shadow:
-    0 2px 6px rgb(17 24 32 / 0.08),
-    0 18px 44px rgb(17 24 32 / 0.16);
+  /* The CARD itself is transparent. The two printed pieces inside it
+     carry the paper; the gap between them is the tear, and the band
+     behind shows through it. */
+  background: transparent;
+  /* `drop-shadow`, not `box-shadow`: box-shadow would draw a rectangle
+     including the gap, which is the thing we just cut out. drop-shadow
+     follows the actual painted shape. */
+  filter:
+    drop-shadow(0 2px 4px rgb(17 24 32 / 0.18))
+    drop-shadow(0 14px 30px rgb(17 24 32 / 0.26));
   /* A boarding pass is printed on cheap stock that never stays flat. The
      tiny rotations are what stop this looking like a UI mockup. */
   transform-origin: bottom center;
-  overflow: hidden;
   /* Latin codes and digits inside a right-to-left document. Without this
      "LHR 14:30" can render with its parts in a surprising order. */
   direction: rtl;
@@ -90,6 +88,25 @@
 @keyframes pass-drift-c {
   from { transform: rotate(6deg) translateY(1.9rem); }
   to   { transform: rotate(7.1deg) translateY(1.4rem); }
+}
+
+/* The paper. Two pieces, each printed on the same warm stock, with the
+   faintest grain so the surface does not read as a flat div. */
+.upper,
+.stub {
+  background:
+    repeating-linear-gradient(
+      100deg,
+      rgb(0 0 0 / 0.012) 0 2px,
+      transparent 2px 5px
+    ),
+    #faf8f3;
+}
+
+.upper {
+  border-start-start-radius: var(--radius-lg);
+  border-start-end-radius: var(--radius-lg);
+  overflow: hidden;
 }
 
 /* --- The masthead --------------------------------------------------------- */
@@ -224,41 +241,28 @@
 
 /* --- The tear ------------------------------------------------------------- */
 
-/* Two punched notches with holes between them. That silhouette is the
-   single most recognisable thing about a boarding pass -- more so than
-   any of the text -- and the first version had only the holes. */
+/* Empty space. The gap between the two printed pieces IS the tear, so it
+   shows whatever the band behind it happens to be -- flat, gradient or
+   photograph -- and never has to be told. */
 .tear {
-  display: flex;
-  align-items: center;
-  height: 14px;
-  margin: 0.15rem 0;
-}
-
-.notch {
-  flex: 0 0 auto;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  /* The colour of whatever is behind the card, so it reads as a hole
-     punched through rather than a grey dot printed on. */
-  background: var(--surface-ink);
-}
-
-.notch:first-child { margin-inline-start: -7px; }
-.notch:last-child { margin-inline-end: -7px; }
-
-.holes {
-  flex: 1 1 auto;
-  height: 14px;
-  background-image: radial-gradient(circle, #d9d5ca 1.5px, transparent 1.6px);
-  background-size: 10px 14px;
-  background-repeat: repeat-x;
-  background-position: center;
+  height: 9px;
 }
 
 /* --- The stub ------------------------------------------------------------- */
 
-.stub { padding: 0.35rem 1.1rem 0.9rem; }
+.stub {
+  padding: 0.65rem 1.1rem 0.9rem;
+  border-end-start-radius: var(--radius-lg);
+  border-end-end-radius: var(--radius-lg);
+  /* The torn edge, on the piece that keeps it. A row of shallow scallops
+     rather than a straight cut: paper does not tear in a line. */
+  -webkit-mask-image: radial-gradient(circle 5px at 9px 0, transparent 99%, #000 100%);
+  -webkit-mask-size: 18px 100%;
+  -webkit-mask-repeat: repeat-x;
+  mask-image: radial-gradient(circle 5px at 9px 0, transparent 99%, #000 100%);
+  mask-size: 18px 100%;
+  mask-repeat: repeat-x;
+}
 
 .barcode {
   display: flex;

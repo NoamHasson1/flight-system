@@ -72,8 +72,8 @@ export default function Home() {
       <Hero />
       <TrustStrip />
       <CheckSection />
-      <TicketBand />
       <FlightBoard />
+      <TicketBand />
       <Bands />
       <Frameworks />
       <Lawyer />
@@ -269,24 +269,36 @@ function CheckSection() {
 /* --- the ticket band ------------------------------------------------------ */
 
 /**
- * A fan of boarding passes, high up the page.
+ * A fan of boarding passes, directly under the disruption board.
  *
- * It was at the very bottom, above the footer, where almost nobody
- * scrolls. It sits here instead -- fourth section, straight after the
- * check form -- because it is the clearest statement on the page of what
- * this site is about, and that argument is worth making before somebody
- * decides whether to keep reading.
+ * IT IS A BRIDGE, WHICH IS WHY IT HAS NO COLOUR OF ITS OWN.
  *
- * No heading and no second button. The check form is directly above it
- * and the hero has a button of its own; a third call to action in the
- * same screenful would be nagging. The cards carry the meaning on their
- * own.
+ * The band sits between the board, which is near-black, and the
+ * compensation bands below, which are near-white. Given a flat
+ * background it has to pick one of them and butt hard against the
+ * other -- the first version did exactly that and left a seam you could
+ * cut yourself on.
+ *
+ * So it is a gradient from one neighbour to the other. The top edge is
+ * the board's own ink and the bottom edge is the next section's mist, so
+ * neither boundary exists. The cards bleed off the bottom into a colour
+ * identical to what follows, which is what makes them look like they are
+ * sliding underneath it rather than being cut off by it.
+ *
+ * No heading and no button: the board above has its own and the hero has
+ * one, and a third call to action in the same scroll is nagging. The
+ * cards say what they are.
  */
 function TicketBand() {
   return (
     <section
-      className="fieldInk relative overflow-hidden px-5 pb-0 pt-14 sm:px-8 sm:pt-16"
-      style={{ color: "var(--text-on-ink)", height: "clamp(19rem, 34vw, 25rem)" }}
+      className="relative overflow-hidden"
+      style={{
+        height: "clamp(17rem, 30vw, 23rem)",
+        background:
+          "linear-gradient(180deg, var(--surface-ink) 0%," +
+          " var(--surface-ink) 38%, #1d2a33 62%, var(--surface-mist) 100%)",
+      }}
       aria-hidden
     >
       <BoardingPasses />

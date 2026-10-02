@@ -96,6 +96,7 @@ export function BoardingPasses({ className = "" }: { className?: string }) {
           {/* The masthead every real pass has: who is flying you, and
               what this piece of card is. Without it the thing reads as a
               receipt. */}
+          <div className={s.upper}>
           <header className={s.head}>
             <span className={s.airline}>{pass.airline}</span>
             <span className={s.kind}>BOARDING PASS</span>
@@ -152,14 +153,20 @@ export function BoardingPasses({ className = "" }: { className?: string }) {
             </dl>
           </div>
 
-          {/* The tear: two punched notches at the edges and a line of
-              holes between them. That silhouette is the single most
-              recognisable thing about a boarding pass. */}
-          <div className={s.tear}>
-            <span className={s.notch} />
-            <span className={s.holes} />
-            <span className={s.notch} />
           </div>
+
+          {/* A REAL GAP, not a drawn one.
+          
+              The first version faked the punched notches by filling two
+              circles with the section's background colour. That works
+              for exactly as long as the section is one flat colour --
+              and the moment the band became a gradient, two dark discs
+              appeared floating on the card.
+          
+              So the pass is now two printed pieces with daylight between
+              them. Whatever is behind shows through the tear by itself,
+              on any background, for ever. */}
+          <div className={s.tear} />
 
           <div className={s.stub}>
             <Barcode />
