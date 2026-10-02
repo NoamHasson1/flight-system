@@ -190,7 +190,7 @@ class Claim(Base):
     )
 
     # --- what the customer tells us ---
-    booking_reference: Mapped[str | None] = mapped_column(String(20))
+    booking_reference: Mapped[str | None] = mapped_column(String(64))
     contact_name: Mapped[str] = mapped_column(String(200), nullable=False)
     contact_email: Mapped[str] = mapped_column(String(320), nullable=False, index=True)
     contact_phone: Mapped[str | None] = mapped_column(String(40))

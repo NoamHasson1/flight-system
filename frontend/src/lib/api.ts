@@ -14,6 +14,8 @@
  * whatever the happy path renders.
  */
 
+import { strings } from "@/lib/strings";
+
 import type { components } from "./api-types";
 import { resolveBackendOrigin } from "./backend-origin";
 
@@ -238,17 +240,64 @@ async function detailMessage(response: Response): Promise<string> {
  * `Value error, ` prefix Pydantic adds is stripped, because it is noise to
  * everyone who is not a Python developer.
  */
+/**
+ * Turn FastAPI's validation errors into sentences a customer can act on.
+ *
+ * This used to keep `msg` and throw `loc` away, which produced
+ *
+ *     String should have at most 20 characters
+ *
+ * in English, in the middle of a Hebrew form, on the costs step, about a
+ * booking reference typed three steps earlier. A customer cannot fix that:
+ * it does not say which field, and it is not in their language.
+ *
+ * `loc` is the field path, and the last segment is the field itself
+ * (`["body", "passengers", 0, "full_name"]`). Naming it is most of the
+ * repair. Pydantic's own wording is then translated where it is one of the
+ * handful of constraints we actually set, and passed through otherwise --
+ * an untranslated sentence after the right field name is still useful,
+ * while a translation that guesses at an unfamiliar message is not.
+ */
 async function validationMessages(response: Response): Promise<string[]> {
   try {
     const body = (await response.json()) as {
-      detail?: Array<{ msg?: string }> | string;
+      detail?: Array<{ msg?: string; loc?: Array<string | number> }> | string;
     };
     if (typeof body.detail === "string") return [body.detail];
     if (!Array.isArray(body.detail)) return [];
-    return body.detail
-      .map((d) => (d.msg ?? "").replace(/^Value error,\s*/, "").trim())
-      .filter(Boolean);
+    return body.detail.map(describeValidationError).filter(Boolean);
   } catch {
     return [];
   }
 }
+
+function describeValidationError(d: {
+  msg?: string;
+  loc?: Array<string | number>;
+}): string {
+  const raw = (d.msg ?? "").replace(/^Value error,\s*/, "").trim();
+  if (!raw) return "";
+
+  // The last string in `loc` is the field. Numbers are list indices, and
+  // "body" is the envelope -- neither is a field name.
+  const key = [...(d.loc ?? [])]
+    .reverse()
+    .find((part): part is string => typeof part === "string" && part !== "body");
+  const field = (key && strings.errors.fieldNames[key]) || "";
+
+  const tooLong = raw.match(/at most (\d+) characters/);
+  if (tooLong && field) return strings.errors.tooLong(field, Number(tooLong[1]));
+
+  return field ? `${field}: ${raw}` : raw;
+}
+
+
+/**
+ * Exported for tests only.
+ *
+ * `describeValidationError` is the piece that failed in front of a
+ * customer, so it is worth testing directly rather than through a mocked
+ * fetch -- the interesting input is the shape of FastAPI's `detail`, and
+ * going through the network layer to construct it would obscure that.
+ */
+export const __testing = { describeValidationError };

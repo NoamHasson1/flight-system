@@ -323,6 +323,24 @@ export const strings = {
      * nobody will ever know about. It has to say, explicitly, that this is
      * not an answer about their flight.
      */
+    /* A rejection that does not say WHICH field is barely better than
+       silence. "String should have at most 20 characters" was shown to a
+       customer on the costs step, in English, about a booking reference
+       typed three steps earlier. Shared rather than claim-specific:
+       api.ts raises these for every endpoint. */
+    tooLong: (field: string, max: number) => `${field}: עד ${max} תווים.`,
+    fieldNames: {
+      contact_name: "שם",
+      contact_email: "אימייל",
+      contact_phone: "טלפון",
+      booking_reference: "מספר הזמנה",
+      airline_reason: "מה חברת התעופה אמרה",
+      description: "תיאור",
+      amount: "סכום",
+      currency: "מטבע",
+      full_name: "שם הנוסע",
+      national_id: "תעודת זהות",
+    } as Record<string, string>,
     unreachable:
       "לא הצלחנו להגיע למאגר הטיסות כרגע. זו תקלה אצלנו והיא לא אומרת " +
       "כלום על הטיסה שלכם — נסו שוב עוד רגע, ואל תניחו שאין לכם תביעה.",
@@ -819,7 +837,9 @@ export const strings = {
       add: "הוספת נוסע",
       remove: "הסרה",
       reference: "מספר הזמנה (PNR) — משותף לכל הנוסעים",
-      referenceHint: "שישה תווים על הכרטיס, למשל ABC123.",
+      referenceHint:
+        "בדרך כלל שישה תווים על הכרטיס, למשל ABC123. אם קניתם דרך אתר " +
+        "השוואה, המספר עשוי להיות ארוך יותר — העתיקו אותו כמו שהוא.",
       anythingElse: "עוד משהו שכדאי שנדע? (לא חובה)",
       anythingElseHint:
         "תארו במילים שלכם פרטים נוספים על השיבוש, אם יש.",

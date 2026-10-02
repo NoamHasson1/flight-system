@@ -87,6 +87,18 @@ function blankDraft(passengers = 1): Draft {
   };
 }
 
+/**
+ * Mirrors `BOOKING_REFERENCE_MAX` in app/schemas/claims.py.
+ *
+ * Duplicated deliberately rather than generated: it is one integer, and the
+ * alternative is a build step for a number that changes once a decade. The
+ * API types are generated from OpenAPI, which does carry the constraint, so
+ * a mismatch is caught the moment anyone regenerates them -- and the server
+ * is still the authority either way. This copy exists so the customer finds
+ * out while typing instead of three steps later.
+ */
+const BOOKING_REFERENCE_MAX = 64;
+
 export function ClaimWizard({ check }: { check: EligibilityResponse }) {
   const storageKey = `claim-draft:${check.check_id}`;
 
@@ -181,6 +193,21 @@ export function ClaimWizard({ check }: { check: EligibilityResponse }) {
     if (step === 1) {
       const named = draft.passengers.filter((p) => p.fullName.trim());
       if (!named.length) return setError(t.errors.needPassenger);
+      // Checked HERE, where it is typed, not at submit.
+      //
+      // The claim is only created at the end of the costs step, so a server
+      // rejection about this field used to surface two steps later, after
+      // the passengers and every receipt had been entered. The customer saw
+      // an English sentence with no field name and no way back to the thing
+      // that caused it.
+      if (draft.bookingReference.trim().length > BOOKING_REFERENCE_MAX) {
+        return setError(
+          strings.errors.tooLong(
+            strings.errors.fieldNames.booking_reference,
+            BOOKING_REFERENCE_MAX,
+          ),
+        );
+      }
       patch({ passengers: named });
       return setStep(2);
     }

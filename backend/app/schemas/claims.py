@@ -50,12 +50,24 @@ class ExpenseIn(BaseModel):
         return value.strip().upper()
 
 
+# How long a booking reference may be.
+#
+# An airline PNR is six characters, which is where 20 came from and why it
+# looked generous. It is not: an e-ticket number is 13 digits, and an online
+# travel agent's itinerary reference can be longer still and often carries a
+# prefix. A real customer hit the limit on the first day the form was used.
+#
+# The cost of being wrong is asymmetric. Too long and we store a few extra
+# bytes; too short and somebody who is owed money cannot finish the form.
+BOOKING_REFERENCE_MAX = 64
+
+
 class ClaimCreate(BaseModel):
     check_id: UUID = Field(description="From the eligibility check.")
     contact_name: str = Field(..., min_length=1, max_length=200)
     contact_email: EmailStr
     contact_phone: str | None = Field(default=None, max_length=40)
-    booking_reference: str | None = Field(default=None, max_length=20)
+    booking_reference: str | None = Field(default=None, max_length=BOOKING_REFERENCE_MAX)
 
     # The two questions no flight database can answer. Both decide eligibility
     # and both can only come from the person who was actually there.
