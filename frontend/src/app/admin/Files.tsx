@@ -40,6 +40,17 @@ export function Files({
 }) {
   const t = strings.admin;
   const [urls, setUrls] = useState<Record<string, string>>({});
+  /**
+   * Why a thumbnail has no image.
+   *
+   * Without this the tile said "loading" forever when a fetch failed --
+   * which is exactly what happened to every file uploaded before the
+   * backend got a persistent disk. A spinner that never resolves is the
+   * worst possible report of a permanent failure: the operator waits,
+   * reloads, waits again, and never learns that the bytes are gone and
+   * the customer needs to be asked for them again.
+   */
+  const [failures, setFailures] = useState<Record<string, "gone" | "error">>({});
   const [lightbox, setLightbox] = useState<number | null>(null);
   // Held in a ref as well as state: the cleanup runs after the last render
   // and needs the final set, not the one captured when the effect ran.
@@ -49,16 +60,18 @@ export function Files({
     let cancelled = false;
     void (async () => {
       for (const doc of documents.filter(isImage)) {
-        const url = await documentObjectUrl(adminKey, doc.id);
+        const result = await documentObjectUrl(adminKey, doc.id);
         if (cancelled) {
           // The panel closed mid-fetch. Release immediately rather than
           // leaking one handle per file the operator did not wait for.
-          if (url) URL.revokeObjectURL(url);
+          if (result.ok) URL.revokeObjectURL(result.url);
           return;
         }
-        if (url) {
-          created.current.push(url);
-          setUrls((prev) => ({ ...prev, [doc.id]: url }));
+        if (result.ok) {
+          created.current.push(result.url);
+          setUrls((prev) => ({ ...prev, [doc.id]: result.url }));
+        } else {
+          setFailures((prev) => ({ ...prev, [doc.id]: result.reason }));
         }
       }
     })();
@@ -90,6 +103,12 @@ export function Files({
                    bytes exist only in this tab and never had a URL. */
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={urls[doc.id]} alt={doc.original_filename} />
+              ) : failures[doc.id] ? (
+                <span className={s.thumbGone}>
+                  {failures[doc.id] === "gone"
+                    ? t.files.gone
+                    : t.files.loadFailed}
+                </span>
               ) : (
                 <span className={s.thumbLoading}>{t.files.loading}</span>
               )}
@@ -105,7 +124,7 @@ export function Files({
 
       {lightbox !== null && (
         <Lightbox
-          images={images}
+          images={images.filter((d) => !failures[d.id])}
           urls={urls}
           index={lightbox}
           onIndex={setLightbox}
@@ -197,7 +216,7 @@ function Lightbox({
             onClick={(e) => e.stopPropagation()}
           />
         ) : (
-          <span className={s.thumbLoading}>{t.files.loading}</span>
+          <span className={s.thumbGone}>{t.files.gone}</span>
         )}
       </div>
     </div>,

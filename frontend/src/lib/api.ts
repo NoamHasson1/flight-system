@@ -481,19 +481,30 @@ export async function setClaimStatus(
  * document held in the tab; leaving them alive means every receipt an
  * operator glances at stays in memory and reachable for the whole session.
  */
+export type DocumentFetch =
+  | { ok: true; url: string }
+  /** The row exists and the bytes do not. A real, specific answer. */
+  | { ok: false; reason: "gone" }
+  | { ok: false; reason: "error" };
+
 export async function documentObjectUrl(
   key: string,
   documentId: string,
-): Promise<string | null> {
+): Promise<DocumentFetch> {
   try {
     const response = await fetch(
       `/api/v1/admin/documents/${encodeURIComponent(documentId)}`,
       { headers: adminHeaders(key), cache: "no-store" },
     );
-    if (!response.ok) return null;
-    return URL.createObjectURL(await response.blob());
+    // 410 is the backend saying the record exists and the file does not.
+    // Distinguished from every other failure because it is the one with a
+    // cause the operator can be told: the bytes are not coming back, and
+    // the customer has to be asked to upload it again.
+    if (response.status === 410) return { ok: false, reason: "gone" };
+    if (!response.ok) return { ok: false, reason: "error" };
+    return { ok: true, url: URL.createObjectURL(await response.blob()) };
   } catch {
-    return null;
+    return { ok: false, reason: "error" };
   }
 }
 

@@ -1080,6 +1080,10 @@ export const strings = {
       download: "הורדה",
       notAnImage: "קובץ שאינו תמונה — אפשר להוריד אותו",
       loading: "טוען…",
+      /* The row exists and the bytes do not. Said plainly, with what to
+         do about it, because there is nothing to retry. */
+      gone: "הקובץ אינו זמין — צריך לבקש מהלקוח להעלות שוב",
+      loadFailed: "לא הצלחנו לטעון את הקובץ",
       close: "סגירה",
       prev: "הקודם",
       next: "הבא",

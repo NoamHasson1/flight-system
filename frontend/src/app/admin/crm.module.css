@@ -867,3 +867,13 @@
 @media (max-width: 60rem) {
   .hint { display: none; }
 }
+
+/* A tile whose bytes are missing. Muted amber rather than red: it is a
+   fact about our storage, not something the operator did wrong. */
+.thumbGone {
+  color: var(--verdict-review);
+  font-size: var(--text-caption);
+  text-align: center;
+  padding: 0.5rem;
+  line-height: 1.35;
+}

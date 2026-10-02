@@ -161,7 +161,45 @@ services:
     # at once the moment there is more than one instance, and a half-applied
     # schema is worse than a late deploy.
     preDeployCommand: alembic upgrade head
+
+    # WITHOUT THIS, EVERY UPLOADED DOCUMENT IS DESTROYED ON EVERY DEPLOY.
+    #
+    # A container's filesystem on Render is ephemeral: it is rebuilt from
+    # the image each time the service deploys or restarts. `upload_dir`
+    # defaulted to `storage/uploads`, a path inside that container, so a
+    # customer's receipts and boarding passes survived exactly until the
+    # next push -- and the claim they were evidence for was left pointing
+    # at bytes that no longer existed.
+    #
+    # Found when the operator console tried to show a thumbnail and the
+    # backend answered 410. Nothing had ever read a file back before, so
+    # the loss had been silent since documents were first implemented.
+    #
+    # TWO CONSEQUENCES, both accepted deliberately:
+    #
+    #   A service with a disk cannot run more than one instance, because
+    #   the disk attaches to exactly one. This application is a single
+    #   instance anyway, and the alternative is object storage.
+    #
+    #   Deploys are no longer zero-downtime -- the old container must
+    #   release the disk before the new one can mount it. A few seconds of
+    #   downtime on deploy is a far better trade than losing evidence.
+    #
+    # The real long-term answer is object storage, which `FileStorage` was
+    # written as a protocol to allow: "local disk now, object storage
+    # later" is in its docstring. That is a provider, a bucket and
+    # credentials; this is one block of YAML and it stops the bleeding now.
+    disk:
+      name: uploads
+      mountPath: /var/uploads
+      sizeGB: 1
+
     envVars:
+      # Absolute, and on the mounted disk. A relative path is relative to
+      # the working directory inside the image, which is the thing that
+      # gets thrown away.
+      - key: UPLOAD_DIR
+        value: /var/uploads
       - key: DATABASE_URL
         fromDatabase:
           name: flight-db

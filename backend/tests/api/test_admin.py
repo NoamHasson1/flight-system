@@ -981,3 +981,55 @@ def test_an_invented_status_is_refused(admin_client: TestClient) -> None:
     )
 
     assert response.status_code == 422
+
+
+def test_a_document_whose_bytes_are_gone_answers_410_not_500(
+    admin_client: TestClient, admin_settings
+) -> None:  # type: ignore[no-untyped-def]
+    """The exact failure a customer hit, reproduced.
+
+    `upload_dir` defaulted to a path inside the container, and a container
+    on Render is rebuilt from its image on every deploy -- so every
+    receipt a customer uploaded was destroyed by the next push. Nothing
+    noticed, because until the operator console nothing had ever read a
+    file back.
+
+    410 and not 404: the record exists and is correct. 410 and not 500:
+    this is a known state of the world, not a crash, and the operator
+    needs to be told which document to ask for again rather than shown a
+    stack trace.
+    """
+    check_id = _customer(admin_client)
+    claim = _claim_for(admin_client, check_id)
+    admin_client.post(
+        f"/api/v1/claims/{claim['id']}/documents",
+        files={"file": ("x.jpg", io.BytesIO(JPEG), "image/jpeg")},
+        data={"kind": "RECEIPT"},
+    )
+    document_id = admin_client.get(
+        f"/api/v1/admin/customers/{check_id}", headers=AUTH
+    ).json()["documents"][0]["id"]
+    assert (
+        admin_client.get(
+            f"/api/v1/admin/documents/{document_id}", headers=AUTH
+        ).status_code
+        == 200
+    )
+
+    # Exactly what a deploy does to an ephemeral filesystem.
+    for path in admin_settings.upload_dir.rglob("*"):
+        if path.is_file():
+            path.unlink()
+
+    response = admin_client.get(
+        f"/api/v1/admin/documents/{document_id}", headers=AUTH
+    )
+
+    assert response.status_code == 410
+    # The row survives. It is still the evidence that the customer sent us
+    # something, and deleting it would destroy the only record that they
+    # did.
+    detail = admin_client.get(
+        f"/api/v1/admin/customers/{check_id}", headers=AUTH
+    ).json()
+    assert detail["document_count"] == 1
