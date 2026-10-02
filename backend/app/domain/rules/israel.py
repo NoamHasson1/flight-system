@@ -26,6 +26,7 @@ from app.domain.models import Currency, FlightFacts, FlightStatus, Money, Verdic
 from app.domain.rules.base import (
     OpenQuestion,
     RegulationOutcome,
+    describe_delay,
     distance_band,
     format_hours,
 )
@@ -45,6 +46,19 @@ BAND_1_KM = 2000.0  # note: NOT 1,500 -- the European figure
 BAND_2_KM = 4500.0  # note: NOT 3,500
 
 MINIMUM_DEPARTURE_DELAY_HOURS = 8.0
+
+# The most time an aircraft could conceivably make up in the air.
+#
+# Used only to rule a claim OUT when the departure time is unknown: a
+# departure delay is the arrival delay plus whatever was recovered en route,
+# so an arrival delay this far below the threshold cannot hide a qualifying
+# departure delay.
+#
+# Deliberately absurd. Real recovery is minutes -- schedules are padded, and
+# an aircraft that is already late is not given a better routing. Three hours
+# is far beyond anything any flight achieves, which is the point: the number
+# has to be wrong by a wide margin before it can produce a wrong "no".
+MAX_TIME_MADE_UP_HOURS = 3.0
 
 COMPENSATION: tuple[Money, Money, Money] = (
     Money.of("1530", Currency.ILS),  # 2,000 km or less
@@ -142,6 +156,50 @@ def evaluate(flight: FlightFacts) -> RegulationOutcome:
 
     departure_delay = flight.departure_delay_hours
     if departure_delay is None:
+        # NO DEPARTURE TIME -- BUT THAT DOES NOT ALWAYS MEAN WE CANNOT ANSWER.
+        #
+        # This is the ordinary case for a flight INTO Ben Gurion, not an
+        # oddity: the IAA board reports what happened at its own airport, so
+        # an arrival has an arrival time and no departure time at all. The
+        # law measures at departure, so the rule used to give up on every
+        # single inbound flight.
+        #
+        # It does not have to. A departure delay cannot exceed the arrival
+        # delay plus whatever time the aircraft made up in the air, and an
+        # aircraft cannot make up eight hours. So when the arrival delay is
+        # known and is far enough below the threshold that no plausible
+        # recovery could close the gap, the answer is a confident no.
+        #
+        # 6H502 from Heraklion on 1 October landed SIX MINUTES EARLY and was
+        # still sent for manual review, because the board had no departure
+        # time for it. For that to have been an eight-hour departure delay,
+        # the aircraft would have had to make up eight hours on a 971 km
+        # flight.
+        #
+        # Only ever turns "ask a person" into "no". A flight close enough to
+        # the threshold that recovery could matter still goes to review, so
+        # the one failure this system exists to avoid -- a wrong no -- is not
+        # reachable from here.
+        arrival_delay = flight.arrival_delay_hours
+        if (
+            arrival_delay is not None
+            and arrival_delay + MAX_TIME_MADE_UP_HOURS
+            < MINIMUM_DEPARTURE_DELAY_HOURS
+        ):
+            return _outcome(
+                Verdict.NOT_ELIGIBLE,
+                applies=True,
+                reason=(
+                    f"{LABEL} covers this flight, and it measures the delay at "
+                    f"departure. We have no departure time for it -- the Israeli "
+                    f"airport authority records what happens at Ben Gurion, and "
+                    f"this flight departed elsewhere. It arrived "
+                    f"{describe_delay(arrival_delay)}, though, and no aircraft "
+                    f"makes up the "
+                    f"{format_hours(MINIMUM_DEPARTURE_DELAY_HOURS)} that would "
+                    f"have to be made up for this to be a claim."
+                ),
+            )
         return _review(
             "the flight has no recorded departure time, so the delay cannot be "
             "measured"
@@ -153,7 +211,7 @@ def evaluate(flight: FlightFacts) -> RegulationOutcome:
             applies=True,
             reason=(
                 f"{LABEL} covers this flight, but it departed "
-                f"{format_hours(departure_delay)} late, below the "
+                f"{describe_delay(departure_delay)}, below the "
                 f"{format_hours(MINIMUM_DEPARTURE_DELAY_HOURS)} threshold. Note that "
                 f"this law measures the delay at departure, not at arrival."
             ),

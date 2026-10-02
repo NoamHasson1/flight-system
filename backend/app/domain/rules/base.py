@@ -187,6 +187,26 @@ def format_hours(hours: float) -> str:
     return f"{sign}{total_minutes // 60}h {total_minutes % 60:02d}m"
 
 
+def describe_delay(hours: float) -> str:
+    """Say what the clock actually did: "4h 15m late", "6m early", "on time".
+
+    `format_hours` renders a magnitude, and every caller used to staple the
+    word "late" after it. That is right until the number is negative, and
+    then it produces sentences like "it arrived -0h 06m late" -- which was
+    shown to a customer about 6H502 from Heraklion, a flight that landed six
+    minutes EARLY.
+
+    Arriving early is common and completely normal; airlines pad schedules.
+    A rule that can only say "late" will mis-describe those flights every
+    time, and a passenger reading "0h 06m late" next to a refusal has been
+    told something untrue about their own flight.
+    """
+    minutes = round(abs(hours) * 60)
+    if minutes == 0:
+        return "exactly on time"
+    return f"{format_hours(abs(hours))} {'late' if hours > 0 else 'early'}"
+
+
 # --- United Kingdom ----------------------------------------------------------
 
 UK_TERRITORIES: frozenset[str] = frozenset({"GB"})
@@ -367,7 +387,7 @@ class ArrivalDelayRegulation:
                 applies=True,
                 reason=(
                     f"{self.code} covers this flight, but it arrived "
-                    f"{format_hours(delay)} late, below the "
+                    f"{describe_delay(delay)}, below the "
                     f"{format_hours(self.minimum_arrival_delay_hours)} threshold."
                 ),
             )

@@ -359,7 +359,22 @@ function Caveat() {
   );
 }
 
+/**
+ * Describe what the clock did, which is not always "late".
+ *
+ * This took the absolute value and then appended "late" unconditionally, so
+ * 6H502 from Heraklion -- which landed SIX MINUTES EARLY -- was shown to a
+ * customer as "0h 06m late" beside a refusal. Both halves were wrong: the
+ * sign had been thrown away, and the word was never checked against it.
+ *
+ * Arriving early is ordinary. Airlines pad schedules, and a good share of
+ * flights land ahead of them.
+ */
 function late(value: number): string {
   const total = Math.round(Math.abs(value) * 60);
-  return `${Math.floor(total / 60)}h ${String(total % 60).padStart(2, "0")}m late`;
+  if (total === 0) return strings.check.onTime;
+  const clock = `${Math.floor(total / 60)}h ${String(total % 60).padStart(2, "0")}m`;
+  return value > 0
+    ? `${clock} ${strings.check.late}`
+    : `${clock} ${strings.check.early}`;
 }

@@ -239,6 +239,14 @@ export const strings = {
     stripBrand: "SKYCLAIM AIR",
     stripSub: "BOARDING PASS · ELIGIBILITY CHECK",
     stripFree: "FREE",
+    /* The flight card keeps the boarding-pass pastiche, so its labels stay
+       English alongside Flight / Route / Distance / Arrived. These three are
+       the only part of it that states a fact rather than decorating one, so
+       they are here rather than inline: "early" existed nowhere until a
+       flight that landed ahead of schedule was described as late. */
+    late: "late",
+    early: "early",
+    onTime: "on time",
     eyebrow: "בדיקת זכאות — חינם, בלי הרשמה",
     lead: "מזינים את פרטי הטיסה, ומקבלים תשובה תוך דקה.",
     /* Under the form, not over it. Somebody at this point has decided to

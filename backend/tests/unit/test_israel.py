@@ -11,6 +11,8 @@ exactly what a copy-paste from ec261.py would destroy:
   4. A 50% reduction that is real, and keyed to the ARRIVAL delay
 """
 
+from dataclasses import replace
+
 import pytest
 
 from app.domain.models import Currency, FlightStatus, Money, Verdict
@@ -251,12 +253,86 @@ def test_a_cancelled_flight_is_priced_at_the_full_band_amount() -> None:
     )
 
 
-def test_no_departure_time_needs_review() -> None:
+def test_no_departure_time_and_no_arrival_time_needs_review() -> None:
+    """Nothing to measure at either end. The only honest answer is a person."""
     outcome = israel.evaluate(
         a_flight(origin_country="IL", status=FlightStatus.SCHEDULED,
                  departure_delay_hours=None, arrival_delay_hours=None)
     )
     assert outcome.verdict is Verdict.NEEDS_REVIEW
+
+
+def test_an_early_arrival_is_refused_outright_despite_no_departure_time() -> None:
+    """6H502 from Heraklion, 1 October. It landed six minutes EARLY.
+
+    This is the ordinary shape of a flight INTO Ben Gurion, not an oddity.
+    The IAA board reports its own airport, so an arrival carries an arrival
+    time and no departure time at all -- and because this law measures at
+    departure, the rule used to send EVERY inbound flight to manual review.
+    A customer whose flight landed ahead of schedule was told we would have
+    to look into it by hand.
+
+    We can answer. A departure delay is the arrival delay plus whatever was
+    made up in the air, and no aircraft makes up eight hours on a 971 km
+    flight.
+    """
+    inbound = replace(
+        a_flight(origin="HER", origin_country="GR",
+                 destination="TLV", destination_country="IL",
+                 distance_km=971.0, status=FlightStatus.LANDED,
+                 arrival_delay_hours=-0.1),
+        # The board knows nothing about the Heraklion end. `a_flight` cannot
+        # say that -- it defaults the departure delay to the arrival delay --
+        # so the departure time is removed here, which is the whole point of
+        # the case.
+        actual_departure=None,
+    )
+    assert inbound.departure_delay_hours is None
+    outcome = israel.evaluate(inbound)
+    assert outcome.verdict is Verdict.NOT_ELIGIBLE
+    assert outcome.applies is True
+    assert outcome.award is None
+
+
+def test_an_arrival_delay_near_the_threshold_still_goes_to_a_person() -> None:
+    """The guard on the guard, and the reason the margin is three hours.
+
+    This is where the new shortcut MUST NOT fire. A flight with no departure
+    time that landed six hours late could genuinely have left more than eight
+    hours late -- the arithmetic does not rule it out -- and answering "no"
+    here would be exactly the failure this system exists to avoid: telling
+    somebody they are owed nothing when they are owed ILS1,530.
+
+    Delete the `MAX_TIME_MADE_UP_HOURS` margin and this test is what catches
+    it; the one above would still pass.
+    """
+    inbound = replace(
+        a_flight(origin="LCA", origin_country="CY",
+                 destination="TLV", destination_country="IL",
+                 distance_km=971.0, status=FlightStatus.LANDED,
+                 arrival_delay_hours=6.0),
+        actual_departure=None,
+    )
+    assert inbound.departure_delay_hours is None
+    outcome = israel.evaluate(inbound)
+    assert outcome.verdict is Verdict.NEEDS_REVIEW
+
+
+def test_the_shortcut_never_turns_a_yes_into_a_no() -> None:
+    """It may only ever convert "ask a person" into "no".
+
+    A flight whose departure delay IS known is untouched by any of this, and
+    an eight-hour departure delay still pays even when the aircraft made up
+    time and landed respectably. Written because the obvious wrong way to
+    implement the shortcut -- checking the arrival delay first, for every
+    flight -- would silently refuse this one.
+    """
+    outcome = israel.evaluate(
+        a_flight(origin_country="IL", status=FlightStatus.LANDED,
+                 departure_delay_hours=8.5, arrival_delay_hours=7.0)
+    )
+    assert outcome.verdict is Verdict.ELIGIBLE
+    assert outcome.award is not None
 
 
 def test_qualifying_departure_delay_with_no_landing_time_is_priced_in_full(
