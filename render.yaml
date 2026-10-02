@@ -2,6 +2,19 @@
 #
 #   Render → New → Blueprint → pick this repository
 #
+# WHERE IT ACTUALLY LIVES. Written down because Render appends a random
+# suffix to every service name, so the URL cannot be derived from anything
+# in this file -- and guessing it wastes time and once landed on a complete
+# stranger's app, because onrender.com subdomains are global and first-come.
+#
+#   site      https://flight-frontend-gqqi.onrender.com
+#   CRM       https://flight-frontend-gqqi.onrender.com/admin
+#   API       https://flight-backend-vzuh.onrender.com
+#   health    https://flight-backend-vzuh.onrender.com/health
+#
+# The CRM needs ADMIN_API_KEY set on flight-backend. Without it every admin
+# route answers 503 rather than failing open -- see app/api/deps.py.
+#
 # ON PAID PLANS as of 23 September 2026. What that bought, and why:
 #
 #   THE DATABASE IS NO LONGER DELETED AFTER 30 DAYS. That was Render's free
