@@ -1154,6 +1154,10 @@ export const strings = {
         "הוא של הנחיתה ולא של ההמראה.",
       truncated:
         "הסריקה נקטעה — ייתכן שחסרות תוצאות. צמצמו את טווח התאריכים.",
+      /* A rejected key, said as itself. It used to read "we could not
+         load the list" -- the same sentence as a dead server, with a
+         completely different fix. */
+      denied: "המפתח נדחה. צאו והיכנסו שוב עם מפתח תקף.",
       showing: (shown: number, total: number) => `מוצגות ${shown} מתוך ${total}`,
       loadMore: "טעינת עוד",
       /* Said out loud on the browse view, because "I need to find every

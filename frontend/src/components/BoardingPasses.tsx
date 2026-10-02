@@ -25,6 +25,9 @@
 import s from "./boarding.module.css";
 
 type Pass = {
+  airline: string;
+  passenger: string;
+  from: string;
   city: string;
   code: string;
   time: string;
@@ -32,6 +35,8 @@ type Pass = {
   flight: string;
   gate: string;
   seat: string;
+  /** The digits printed under a real barcode. */
+  serial: string;
 };
 
 /**
@@ -43,31 +48,43 @@ type Pass = {
  */
 const PASSES: Pass[] = [
   {
+    airline: "EL AL",
+    passenger: "COHEN / DANA",
+    from: "TLV",
     city: "לונדון",
     code: "LHR",
     time: "14:30",
-    date: "12.05.2026",
+    date: "12 MAY 2026",
     flight: "LY315",
     gate: "C4",
     seat: "26A",
+    serial: "0 7 1 4 2 9 3 5 8 1",
   },
   {
+    airline: "ISRAIR",
+    passenger: "LEVI / OMER",
+    from: "TLV",
     city: "לרנקה",
     code: "LCA",
     time: "09:05",
-    date: "03.06.2026",
+    date: "03 JUN 2026",
     flight: "IZ162",
     gate: "B7",
     seat: "10D",
+    serial: "0 4 9 8 2 2 6 1 7 3",
   },
   {
+    airline: "AEGEAN",
+    passenger: "MIZRAHI / NOA",
+    from: "TLV",
     city: "אתונה",
     code: "ATH",
     time: "17:45",
-    date: "21.06.2026",
+    date: "21 JUN 2026",
     flight: "A3929",
     gate: "D2",
     seat: "16C",
+    serial: "0 2 6 5 7 4 1 9 0 8",
   },
 ];
 
@@ -76,41 +93,78 @@ export function BoardingPasses({ className = "" }: { className?: string }) {
     <div className={`${s.fan} ${className}`} aria-hidden>
       {PASSES.map((pass, i) => (
         <article key={pass.code} className={`${s.pass} ${s[`pass${i}`]}`}>
+          {/* The masthead every real pass has: who is flying you, and
+              what this piece of card is. Without it the thing reads as a
+              receipt. */}
+          <header className={s.head}>
+            <span className={s.airline}>{pass.airline}</span>
+            <span className={s.kind}>BOARDING PASS</span>
+          </header>
+
           <div className={s.body}>
-            <p className={s.city}>{pass.city}</p>
-            <div className={s.codeRow}>
-              <span className={s.code}>{pass.code}</span>
+            {/* Origin and destination TOGETHER. A pass shows a journey,
+                not a destination -- the first version printed one code
+                and an arrow pointing at nothing, which is why it read as
+                a luggage tag. */}
+            <div className={s.route}>
+              <span className={s.endpoint}>
+                <span className={s.codeSmall}>{pass.from}</span>
+              </span>
               <span className={s.arrow} aria-hidden>
                 <ArrowDashes />
               </span>
+              <span className={s.endpoint}>
+                <span className={s.code}>{pass.code}</span>
+                <span className={s.city}>{pass.city}</span>
+              </span>
             </div>
 
-            <p className={s.time}>
-              <span className={s.caret}>↗</span> {pass.time}
-            </p>
-            <p className={s.date}>{pass.date}</p>
-
-            <div className={s.rule} />
+            <p className={s.passenger}>{pass.passenger}</p>
 
             <dl className={s.meta}>
               <div>
-                <dt>טיסה</dt>
+                <dt>FLIGHT</dt>
                 <dd>{pass.flight}</dd>
               </div>
               <div>
-                <dt>שער</dt>
-                <dd>{pass.gate}</dd>
+                <dt>DATE</dt>
+                <dd className={s.small}>{pass.date}</dd>
               </div>
               <div>
-                <dt>מושב</dt>
-                <dd>{pass.seat}</dd>
+                <dt>BOARDING</dt>
+                <dd>{pass.time}</dd>
+              </div>
+            </dl>
+
+            <dl className={`${s.meta} ${s.metaTight}`}>
+              <div>
+                <dt>GATE</dt>
+                <dd className={s.big}>{pass.gate}</dd>
+              </div>
+              <div>
+                <dt>SEAT</dt>
+                <dd className={s.big}>{pass.seat}</dd>
+              </div>
+              <div>
+                <dt>ZONE</dt>
+                <dd className={s.big}>2</dd>
               </div>
             </dl>
           </div>
 
-          {/* The tear line, as the holes a real perforation leaves. */}
-          <div className={s.perforation} />
-          <Barcode />
+          {/* The tear: two punched notches at the edges and a line of
+              holes between them. That silhouette is the single most
+              recognisable thing about a boarding pass. */}
+          <div className={s.tear}>
+            <span className={s.notch} />
+            <span className={s.holes} />
+            <span className={s.notch} />
+          </div>
+
+          <div className={s.stub}>
+            <Barcode />
+            <p className={s.serial}>{pass.serial}</p>
+          </div>
         </article>
       ))}
     </div>

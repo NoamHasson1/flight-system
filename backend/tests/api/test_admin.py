@@ -61,6 +61,7 @@ def seed(client: TestClient) -> None:
         "/api/v1/admin/checks",
         "/api/v1/admin/claims",
         "/api/v1/admin/customers",
+        "/api/v1/admin/flights",
     ],
 )
 def test_every_admin_route_requires_a_key(
@@ -1033,3 +1034,118 @@ def test_a_document_whose_bytes_are_gone_answers_410_not_500(
         f"/api/v1/admin/customers/{check_id}", headers=AUTH
     ).json()
     assert detail["document_count"] == 1
+
+
+# --- The archive endpoint ----------------------------------------------------
+#
+# These exist because the repository was tested thoroughly and the ROUTE
+# was not, and a 500 shipped to production.
+#
+# `search_flights` grew a third return value when paging was added. The
+# repository tests were updated; the route still unpacked two, raised
+# ValueError on every single request, and the operator saw "we could not
+# load the list". Nothing in the suite touched the endpoint, so nothing
+# noticed.
+#
+# The lesson is cheap to encode: call the thing over HTTP.
+
+
+def test_the_archive_endpoint_answers_at_all(admin_client: TestClient) -> None:
+    """A 200 with the documented shape.
+
+    Deliberately the dullest test in the file. It would have caught a
+    ValueError that made the whole screen unusable, which is worth more
+    than any assertion about the contents.
+    """
+    _customer(admin_client, "BA165")
+
+    response = admin_client.get("/api/v1/admin/flights", headers=AUTH)
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert set(body) == {"items", "total", "truncated"}
+
+
+def test_every_query_this_screen_can_send_is_answered(
+    admin_client: TestClient,
+) -> None:
+    """Each control on the page, exercised through the API.
+
+    A filter that 500s is indistinguishable from a backend that is down,
+    and the page says the same sentence for both -- so each combination
+    the UI can produce is worth one line here.
+    """
+    _customer(admin_client, "BA165")
+
+    for query in (
+        "",
+        "?number=BA165",
+        "?date=2026-08-14",
+        "?disrupted_only=true",
+        "?number=ba165&disrupted_only=false",
+        "?since=2026-08-01&until=2026-08-31",
+        "?limit=1&offset=0",
+        "?limit=1&offset=5",
+    ):
+        response = admin_client.get(f"/api/v1/admin/flights{query}", headers=AUTH)
+        assert response.status_code == 200, f"{query} -> {response.text}"
+
+
+def test_a_flight_is_returned_with_the_fields_the_screen_renders(
+    admin_client: TestClient,
+) -> None:
+    """The columns, pinned.
+
+    The screen shows scheduled and actual times for both ends, the
+    source, and whether the rules could use the record. A field quietly
+    renamed in the schema would render as an empty column rather than as
+    an error, which is the kind of breakage nobody reports.
+    """
+    _customer(admin_client, "BA165")
+
+    body = admin_client.get(
+        "/api/v1/admin/flights?number=BA165", headers=AUTH
+    ).json()
+
+    assert body["items"], "the fake provider's flight should be archived"
+    row = body["items"][0]
+    for field in (
+        "flight_number",
+        "flight_date",
+        "origin_iata",
+        "destination_iata",
+        "scheduled_departure",
+        "actual_departure",
+        "scheduled_arrival",
+        "actual_arrival",
+        "status",
+        "provider",
+        "usable",
+        "raw",
+    ):
+        assert field in row, field
+
+
+def test_paging_through_the_endpoint_does_not_repeat_a_flight(
+    admin_client: TestClient,
+) -> None:
+    """Offset reaches the second page rather than re-serving the first.
+
+    The repository test covers the arithmetic; this covers the wiring,
+    which is the half that broke. `offset` was accepted by the route and
+    never passed on.
+    """
+    for number in ("BA165", "LY325", "LH687"):
+        _customer(admin_client, number)
+
+    # An explicit date: the default browse is the last seven days, and the
+    # fixture flies in August.
+    first = admin_client.get(
+        f"/api/v1/admin/flights?date={AUG_14}&limit=1&offset=0", headers=AUTH
+    ).json()
+    second = admin_client.get(
+        f"/api/v1/admin/flights?date={AUG_14}&limit=1&offset=1", headers=AUTH
+    ).json()
+
+    assert first["total"] >= 2
+    assert first["items"][0] != second["items"][0]

@@ -47,8 +47,16 @@ from app.providers.mapper import MappingFailure, to_flight_facts
 # is part of what happened.
 DISRUPTED_MINUTES = 15.0
 
-# How many days a browse covers when nothing is specified. A week is what
-# somebody means by "recently", and it keeps the decode bounded.
+# How many days a browse covers when nothing is specified.
+#
+# Measured before changing it, which is the only reason it is still seven.
+# A week is 7,200 archived rows, and the obvious suspicion -- that
+# decoding all of them is what makes the page slow -- is wrong:
+#
+#     7 days: 7,212 rows   fetch 0.70s   decode and map 0.04s
+#
+# The decode is free. The cost is fetching the rows, and from a laptop
+# that is a link to Frankfurt; on Render the database is next door.
 DEFAULT_DAYS = 7
 
 # A backstop, not the real bound. The DATE RANGE is what keeps this cheap,

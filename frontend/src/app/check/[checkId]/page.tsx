@@ -237,34 +237,14 @@ const TONE = {
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <header className={`${s.nav} px-5 py-3.5 sm:px-8`}>
-        <div className="mx-auto flex max-w-6xl items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5 no-underline">
-            <span
-              aria-hidden
-              className="grid size-8 place-items-center rounded-lg"
-              style={{ background: "var(--color-teal-600)", color: "#fff" }}
-            >
-              <svg viewBox="0 0 24 24" className="size-[18px]" fill="currentColor">
-                <path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z" />
-              </svg>
-            </span>
-            <span
-              className="text-subhead"
-              style={{
-                fontFamily: "var(--font-display-stack)",
-                fontWeight: 800,
-                color: "var(--text-strong)",
-              }}
-            >
-              {strings.brand.name}
-            </span>
-          </Link>
-          <Link href="/" className={`${s.navLink} text-callout`}>
-            {strings.result.checkAnother}
-          </Link>
-        </div>
-      </header>
+      {/* NO HEADER OF ITS OWN.
+      
+          `SiteNav` is in the root layout and renders on every page, so
+          this one put a second Skyclaim mark directly under the first.
+          Two logos stacked at the top of the claim form is the moment a
+          customer starts wondering whether the site is real -- which is
+          the single worst thing it can suggest while asking for a
+          passport number. */}
 
       <main className={`${s.rise} ${s.d1} mx-auto max-w-2xl px-5 py-16 sm:px-8`}>
         {children}

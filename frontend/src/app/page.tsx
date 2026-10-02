@@ -72,6 +72,7 @@ export default function Home() {
       <Hero />
       <TrustStrip />
       <CheckSection />
+      <TicketBand />
       <FlightBoard />
       <Bands />
       <Frameworks />
@@ -261,6 +262,34 @@ function CheckSection() {
         </div>
       </div>
 
+    </section>
+  );
+}
+
+/* --- the ticket band ------------------------------------------------------ */
+
+/**
+ * A fan of boarding passes, high up the page.
+ *
+ * It was at the very bottom, above the footer, where almost nobody
+ * scrolls. It sits here instead -- fourth section, straight after the
+ * check form -- because it is the clearest statement on the page of what
+ * this site is about, and that argument is worth making before somebody
+ * decides whether to keep reading.
+ *
+ * No heading and no second button. The check form is directly above it
+ * and the hero has a button of its own; a third call to action in the
+ * same screenful would be nagging. The cards carry the meaning on their
+ * own.
+ */
+function TicketBand() {
+  return (
+    <section
+      className="fieldInk relative overflow-hidden px-5 pb-0 pt-14 sm:px-8 sm:pt-16"
+      style={{ color: "var(--text-on-ink)", height: "clamp(19rem, 34vw, 25rem)" }}
+      aria-hidden
+    >
+      <BoardingPasses />
     </section>
   );
 }
@@ -534,17 +563,9 @@ function FinalCta() {
 
   return (
     <section
-      className="fieldInk relative overflow-hidden px-5 pb-56 pt-20 text-center sm:px-8 sm:pb-64 sm:pt-28"
+      className="fieldInk relative overflow-hidden px-5 py-20 text-center sm:px-8 sm:py-28"
       style={{ color: "var(--text-on-ink)" }}
     >
-      {/* A handful of boarding passes spilling off the bottom edge.
-      
-          Real routes out of Ben Gurion rather than the London-and-New-York
-          of a stock illustration: somebody reading this has flown one of
-          them, and recognising the route is what turns scenery into "this
-          is about me". */}
-      <BoardingPasses />
-
       <div className="relative mx-auto max-w-2xl">
         <span
           className="inline-block rounded-full px-3.5 py-1.5 text-caption"

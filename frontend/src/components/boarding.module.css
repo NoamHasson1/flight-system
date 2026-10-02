@@ -32,7 +32,13 @@
      recognisable sitting below the fold. The tear and the bars are the
      silhouette; the text is the filler. */
   margin-bottom: -2.25rem;
-  background: #fbfaf7;
+  background:
+    repeating-linear-gradient(
+      100deg,
+      rgb(0 0 0 / 0.012) 0 2px,
+      transparent 2px 5px
+    ),
+    #faf8f3;
   border-radius: var(--radius-lg);
   box-shadow:
     0 2px 6px rgb(17 24 32 / 0.08),
@@ -86,118 +92,179 @@
   to   { transform: rotate(7.1deg) translateY(1.4rem); }
 }
 
-.body {
-  padding: 1.15rem 1.25rem 0.9rem;
-  text-align: start;
-}
+/* --- The masthead --------------------------------------------------------- */
 
-.city {
-  margin: 0;
-  font-size: var(--text-caption);
-  color: #8a8a82;
-}
-
-.codeRow {
+.head {
   display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  margin-top: 0.1rem;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 1.1rem;
+  background: #17171a;
+  color: #f4f2ed;
+}
+
+.airline {
+  font-size: var(--text-caption);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+.kind {
+  font-size: var(--text-micro);
+  letter-spacing: 0.14em;
+  opacity: 0.72;
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+/* --- The body ------------------------------------------------------------- */
+
+.body { padding: 0.85rem 1.1rem 0.95rem; }
+
+/* Origin AND destination. A pass shows a journey; the first version
+   printed one code beside an arrow pointing at nothing, which is why it
+   read as a luggage tag rather than a ticket. */
+.route {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.endpoint {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .code {
-  font-size: 2.6rem;
+  font-size: 2.3rem;
   font-weight: 800;
-  line-height: 1;
+  line-height: 0.95;
   letter-spacing: -0.02em;
   color: #17171a;
   direction: ltr;
   unicode-bidi: isolate;
 }
 
+/* The origin is smaller. On a real pass the destination is what you look
+   for at a glance, and matching their sizes makes the eye hunt. */
+.codeSmall {
+  font-size: 1.35rem;
+  font-weight: 750;
+  line-height: 1.6;
+  color: #6f6f68;
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+.city {
+  margin-top: 0.1rem;
+  font-size: var(--text-micro);
+  color: #8a8a82;
+}
+
 .arrow {
   flex: 1 1 auto;
-  color: #b9b9b1;
+  color: #c3c2b9;
   display: flex;
-  /* The arrow points the way the journey goes, which in a right-to-left
-     layout means flipping the glyph rather than the meaning. */
+  align-items: center;
+  padding-top: 0.95rem;
+  /* The journey runs right to left in this document, so the glyph is
+     flipped rather than the meaning. */
   transform: scaleX(-1);
 }
 
-.arrowSvg { width: 100%; max-width: 4rem; height: 10px; }
+.arrowSvg { width: 100%; max-width: 3.2rem; height: 10px; }
 
-.time {
-  margin: 0.55rem 0 0;
-  font-size: var(--text-subhead);
-  font-weight: 650;
-  color: #17171a;
-  direction: ltr;
-  unicode-bidi: isolate;
-  text-align: start;
-}
-
-.caret {
-  display: inline-block;
-  font-size: 0.7em;
-  color: #8a8a82;
-  background: #eceae3;
-  border-radius: var(--radius-pill);
-  padding: 0.1rem 0.3rem;
-  margin-inline-end: 0.2rem;
-}
-
-.date {
-  margin: 0.1rem 0 0;
+.passenger {
+  margin: 0.7rem 0 0;
   font-size: var(--text-caption);
-  color: #8a8a82;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #3b3b36;
   direction: ltr;
   unicode-bidi: isolate;
   text-align: start;
-}
-
-.rule {
-  height: 1px;
-  background: #e4e1d8;
-  margin: 0.85rem 0 0.7rem;
 }
 
 .meta {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.5rem;
-  margin: 0;
+  gap: 0.4rem;
+  margin: 0.7rem 0 0;
+  padding-top: 0.6rem;
+  border-top: 1px solid #e6e3da;
 }
+
+.metaTight { padding-top: 0.5rem; margin-top: 0.5rem; }
 
 .meta dt {
   margin: 0;
   font-size: var(--text-micro);
-  color: #9a9a92;
+  letter-spacing: 0.1em;
+  color: #a3a29a;
+  direction: ltr;
+  unicode-bidi: isolate;
 }
 
 .meta dd {
-  margin: 0.1rem 0 0;
+  margin: 0.05rem 0 0;
   font-size: var(--text-callout);
-  font-weight: 650;
+  font-weight: 700;
   color: #17171a;
   direction: ltr;
   unicode-bidi: isolate;
 }
 
-/* The tear. Dots rather than a dashed border, because a real perforation
-   is holes punched through the card and that is what you see. */
-.perforation {
-  height: 10px;
-  background-image: radial-gradient(circle, #ded9ce 1.6px, transparent 1.7px);
-  background-size: 11px 10px;
+.meta .small { font-size: var(--text-caption); font-weight: 650; }
+.meta .big { font-size: var(--text-subhead); }
+
+/* --- The tear ------------------------------------------------------------- */
+
+/* Two punched notches with holes between them. That silhouette is the
+   single most recognisable thing about a boarding pass -- more so than
+   any of the text -- and the first version had only the holes. */
+.tear {
+  display: flex;
+  align-items: center;
+  height: 14px;
+  margin: 0.15rem 0;
+}
+
+.notch {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  /* The colour of whatever is behind the card, so it reads as a hole
+     punched through rather than a grey dot printed on. */
+  background: var(--surface-ink);
+}
+
+.notch:first-child { margin-inline-start: -7px; }
+.notch:last-child { margin-inline-end: -7px; }
+
+.holes {
+  flex: 1 1 auto;
+  height: 14px;
+  background-image: radial-gradient(circle, #d9d5ca 1.5px, transparent 1.6px);
+  background-size: 10px 14px;
   background-repeat: repeat-x;
   background-position: center;
 }
+
+/* --- The stub ------------------------------------------------------------- */
+
+.stub { padding: 0.35rem 1.1rem 0.9rem; }
 
 .barcode {
   display: flex;
   align-items: flex-end;
   gap: 2px;
-  height: 3.4rem;
-  padding: 0.5rem 1.25rem 0;
+  height: 2.6rem;
   overflow: hidden;
 }
 
@@ -208,17 +275,31 @@
   flex: 0 0 auto;
 }
 
+/* The digits under the bars. Nobody reads them and every pass has them,
+   which is exactly why leaving them off makes the card look wrong
+   without anybody being able to say why. */
+.serial {
+  margin: 0.3rem 0 0;
+  font-size: var(--text-micro);
+  letter-spacing: 0.22em;
+  color: #6f6f68;
+  text-align: center;
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
 /* --- Narrow screens -------------------------------------------------------- */
 
 /* Two cards, closer together, and smaller. Three at phone width either
    overflow or shrink until the airport codes stop being readable -- and
    an unreadable boarding pass is just a grey rectangle. */
 @media (max-width: 44rem) {
-  .pass { width: 13rem; margin-bottom: -2rem; }
+  .pass { width: 13.5rem; margin-bottom: -2rem; }
   .pass0 { margin-inline-end: -2.5rem; }
   .pass2 { display: none; }
-  .code { font-size: 2rem; }
-  .barcode { height: 2.6rem; }
+  .code { font-size: 1.9rem; }
+  .codeSmall { font-size: 1.15rem; }
+  .barcode { height: 2rem; }
 }
 
 /* --- Reduced motion -------------------------------------------------------- */

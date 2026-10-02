@@ -44,6 +44,15 @@ export type CheckStatus = "DECIDED" | "NOT_FOUND" | "AMBIGUOUS" | "UNRESOLVED";
  */
 export type ApiFailure =
   | { kind: "unreachable" }
+  /**
+   * The key was missing, wrong, or not configured on the server.
+   *
+   * Its own case because it used to fall through to `unreachable`, so a
+   * rejected admin key and a dead backend produced the identical
+   * sentence -- "we could not load the list" -- and an operator had no
+   * way to tell "sign in again" from "the server is down".
+   */
+  | { kind: "denied" }
   | { kind: "invalid"; messages: string[] }
   | { kind: "notFound" }
   /** The request was understood and refused for a reason worth showing:
@@ -189,6 +198,17 @@ async function request<T>(
     // A dead network, a timeout, DNS, CORS. The customer does not care which,
     // and none of them is an answer about their flight.
     return { ok: false, failure: { kind: "unreachable" } };
+  }
+
+  if (response.status === 401 || response.status === 403) {
+    return { ok: false, failure: { kind: "denied" } };
+  }
+
+  if (response.status === 503) {
+    // The admin API answers 503 when no key is configured at all. From
+    // the caller's side that is the same problem as a wrong key: the
+    // door is shut and the fix involves a key.
+    return { ok: false, failure: { kind: "denied" } };
   }
 
   if (response.status === 404) {

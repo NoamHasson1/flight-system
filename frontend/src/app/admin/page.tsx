@@ -173,7 +173,12 @@ function Console({
         // A rejected key sends the operator back to the gate. Showing an
         // empty table instead would read as "there are no customers",
         // which is the most misleading thing this screen could say.
+        // `denied` covers a wrong key and a server with none configured.
+        // It used to fall through to `unreachable`, so an operator whose
+        // key had been changed was told the service was down and had no
+        // reason to try signing in again.
         if (
+          result.failure.kind === "denied" ||
           result.failure.kind === "refused" ||
           result.failure.kind === "notFound"
         ) {

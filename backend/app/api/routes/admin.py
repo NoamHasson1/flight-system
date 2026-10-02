@@ -615,7 +615,7 @@ def search_flights(
     if not number and not flight_date and not since and not until:
         since = date.today() - timedelta(days=flights_repo.DEFAULT_DAYS)
 
-    found, truncated = flights_repo.search_flights(
+    found, truncated, total = flights_repo.search_flights(
         session,
         number=number,
         on=flight_date,
@@ -623,11 +623,13 @@ def search_flights(
         until=until,
         disrupted_only=disrupted_only,
         limit=limit,
+        offset=offset,
     )
     return ArchivedFlightPage(
         # `asdict`, not `vars`: ArchivedFlight uses slots, so it has no
         # __dict__ at all and `vars()` raises. Caught only by running it --
         # the type checker is happy either way.
         items=[ArchivedFlightOut(**asdict(f)) for f in found],
+        total=total,
         truncated=truncated,
     )

@@ -73,7 +73,7 @@ function Archive({ adminKey }: { adminKey: string }) {
   const [total, setTotal] = useState(0);
   const [truncated, setTruncated] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<"denied" | "unreachable" | null>(null);
   const [openRaw, setOpenRaw] = useState<string | null>(null);
 
   /**
@@ -108,8 +108,14 @@ function Archive({ adminKey }: { adminKey: string }) {
       // Anything but the newest request is thrown away, successful or not.
       if (ticket !== latest.current) return;
       setLoading(false);
-      if (!result.ok) return setFailed(true);
-      setFailed(false);
+      if (!result.ok) {
+        // A rejected key is its own problem with its own fix, and it
+        // used to arrive as the same sentence as a dead backend.
+        return setFailed(
+          result.failure.kind === "denied" ? "denied" : "unreachable",
+        );
+      }
+      setFailed(null);
       setTotal(result.data.total);
       setTruncated(result.data.truncated);
       setRows((prev) =>
@@ -200,7 +206,9 @@ function Archive({ adminKey }: { adminKey: string }) {
 
         <div className={s.card}>
           {failed ? (
-            <p className={s.empty}>{t.failed}</p>
+            <p className={s.empty}>
+              {failed === "denied" ? t.flights.denied : t.failed}
+            </p>
           ) : loading && rows.length === 0 ? (
             <p className={s.empty}>{t.files.loading}</p>
           ) : rows.length === 0 ? (
