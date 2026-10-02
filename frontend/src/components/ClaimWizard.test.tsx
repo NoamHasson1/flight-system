@@ -6,7 +6,7 @@
  * they break.
  */
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -142,42 +142,37 @@ describe("moving through the steps", () => {
   });
 });
 
-describe("when the airline told them", () => {
-  it("offers the two answers a number cannot hold", async () => {
-    // The whole reason this stopped being a day count.
-    //
-    // "They never told me" is the strongest possible answer -- no notice at
-    // all -- and "I can't remember" is the honest one. Neither is a quantity,
-    // so an integer field turned both into a blank that a claim handler could
-    // not tell apart from a question nobody asked.
-    const user = userEvent.setup();
+describe("the questions the form no longer asks", () => {
+  it("does not ask when the airline gave notice, or what happened", async () => {
+    /**
+     * Both were removed deliberately, and both still exist end to end.
+     *
+     * They are real questions that change how a letter is written. They
+     * were just being asked of somebody who has this minute been told
+     * they are owed money and wants to get on with it -- so they are now
+     * asked later, by a person, once a claim exists. The columns, the
+     * API fields and the admin screen are all untouched.
+     *
+     * This test exists so that "we took it out of the form" cannot
+     * quietly become "we stopped collecting it at all".
+     */
     render(<ClaimWizard check={CHECK} />);
 
-    const select = screen.getByLabelText(/מתי חברת התעופה הודיעה לכם/);
-    expect(
-      within(select).getByRole("option", { name: /לא הודיעו לי בכלל/ }),
-    ).toBeInTheDocument();
-    expect(
-      within(select).getByRole("option", { name: /אני לא זוכר/ }),
-    ).toBeInTheDocument();
-
-    await user.selectOptions(select, "NEVER_TOLD");
-    expect(select).toHaveValue("NEVER_TOLD");
+    expect(screen.queryByLabelText(/מתי חברת התעופה הודיעה לכם/)).toBeNull();
+    expect(screen.queryByLabelText(/מה קרה בטיסה/)).toBeNull();
+    expect(screen.queryByText(/קיבלתם כבר משהו מחברת התעופה/)).toBeNull();
   });
 
-  it("sends the answer as the backend's own vocabulary", async () => {
-    // The values are the CancellationNotice enum, not labels and not days. A
-    // mismatch here is rejected by the API, so it must be pinned somewhere.
+  it("still creates a claim without them", async () => {
+    /**
+     * The fields are optional on the API and the form now sends null.
+     * If that were ever rejected, the entire claim flow would be dead
+     * and this is the cheapest place to find out.
+     */
     createClaim.mockResolvedValue({ ok: true, data: CLAIM });
     const user = userEvent.setup();
     render(<ClaimWizard check={CHECK} />);
 
-    // Answered on step one, alongside the rest of "what happened", and it
-    // has to survive three more steps to reach the request.
-    await user.selectOptions(
-      screen.getByLabelText(/מתי חברת התעופה הודיעה לכם/),
-      "ONE_TO_TWO_WEEKS",
-    );
     await fillContact(user);
     await user.type(screen.getByLabelText(/שם מלא כפי שמופיע בכרטיס/), "Noam Hasson");
     await user.click(screen.getByRole("button", { name: /המשך/ }));
@@ -186,7 +181,8 @@ describe("when the airline told them", () => {
 
     await waitFor(() => expect(createClaim).toHaveBeenCalled());
     expect(createClaim.mock.calls[0][0]).toMatchObject({
-      cancellation_notice: "ONE_TO_TWO_WEEKS",
+      cancellation_notice: null,
+      airline_reason: null,
     });
   });
 });
@@ -344,5 +340,131 @@ describe("the passenger count from the result screen", () => {
     await fillContact(userEvent.setup());
 
     expect(screen.getAllByLabelText(/שם מלא כפי שמופיע בכרטיס/)).toHaveLength(1);
+  });
+});
+
+describe("catching a bad email where it is typed", () => {
+  it("refuses to leave the contact step on a malformed address", async () => {
+    /**
+     * The exact failure a customer hit.
+     *
+     * The claim is only created at the END of the costs step, so an
+     * address the server rejected surfaced two steps later -- as raw
+     * English from Pydantic ("The part after the @-sign is not valid"),
+     * on a page about hotel bills, about a field no longer on screen.
+     * They had entered passengers and receipts before learning they had
+     * mistyped their own email.
+     */
+    const user = userEvent.setup();
+    render(<ClaimWizard check={CHECK} />);
+
+    await user.type(screen.getByLabelText(/שם מלא ליצירת קשר/), "Noam Hasson");
+    await user.type(screen.getByLabelText(/^אימייל$/), "noam@example");
+    await user.click(screen.getByRole("button", { name: /המשך/ }));
+
+    // Still on the contact step, with the field right there to correct.
+    expect(screen.getByLabelText(/^אימייל$/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/שם מלא כפי שמופיע בכרטיס/)).toBeNull();
+  });
+
+  it("lets an ordinary address through", async () => {
+    /**
+     * The guard against over-correcting. Every regex that tries to
+     * implement RFC 5322 rejects somebody's real address, and being told
+     * "that is not an email" about one you have used for ten years is
+     * worse than a server round trip. A plus-addressed, subdomained
+     * address is perfectly normal and must pass.
+     */
+    const user = userEvent.setup();
+    render(<ClaimWizard check={CHECK} />);
+
+    await user.type(screen.getByLabelText(/שם מלא ליצירת קשר/), "Noam Hasson");
+    await user.type(
+      screen.getByLabelText(/^אימייל$/),
+      "noam+claims@mail.example.co.il",
+    );
+    await user.click(screen.getByRole("button", { name: /המשך/ }));
+
+    await screen.findByLabelText(/שם מלא כפי שמופיע בכרטיס/);
+  });
+});
+
+describe("a receipt belongs to the expense it proves", () => {
+  it("uploads it against that expense's id", async () => {
+    /**
+     * Receipts used to be collected in one pile on a later step, so
+     * neither the customer nor we could tell afterwards which receipt
+     * backed which charge -- which is exactly what an airline asks.
+     *
+     * The file cannot be sent when it is chosen: a document attaches to a
+     * claim, and the claim does not exist until this step is submitted.
+     * So it is held and sent immediately after, tagged with the id the
+     * server gave that expense.
+     */
+    createClaim.mockResolvedValue({
+      ok: true,
+      data: { ...CLAIM, expenses: [{ id: "expense-1" }] },
+    });
+    uploadDocument.mockResolvedValue({
+      ok: true,
+      data: { document: { original_filename: "hotel.pdf" } },
+    });
+
+    const user = await startClaim();
+    await user.click(screen.getByRole("button", { name: /הוספת הוצאה/ }));
+    await user.type(screen.getByLabelText(/סכום/), "42.50");
+    await user.upload(
+      screen.getByLabelText(/בחרו קובץ/),
+      new File(["x"], "hotel.pdf", { type: "application/pdf" }),
+    );
+    await user.click(screen.getByRole("button", { name: /המשך/ }));
+
+    await waitFor(() => expect(uploadDocument).toHaveBeenCalled());
+    const [claimId, file, kind, expenseId] = uploadDocument.mock.calls[0];
+    expect(claimId).toBe("claim-1");
+    expect((file as File).name).toBe("hotel.pdf");
+    expect(kind).toBe("RECEIPT");
+    expect(expenseId).toBe("expense-1");
+  });
+
+  it("does not lose the claim when a receipt will not upload", async () => {
+    /**
+     * The claim is the valuable thing and it is already saved by this
+     * point. A photo that fails to upload can be added from the
+     * documents step or the emailed link; losing the whole claim over it
+     * would be a far worse trade.
+     */
+    createClaim.mockResolvedValue({
+      ok: true,
+      data: { ...CLAIM, expenses: [{ id: "expense-1" }] },
+    });
+    uploadDocument.mockResolvedValue({ ok: false, failure: { kind: "unreachable" } });
+
+    const user = await startClaim();
+    await user.click(screen.getByRole("button", { name: /הוספת הוצאה/ }));
+    await user.type(screen.getByLabelText(/סכום/), "42.50");
+    await user.upload(
+      screen.getByLabelText(/בחרו קובץ/),
+      new File(["x"], "hotel.pdf", { type: "application/pdf" }),
+    );
+    await user.click(screen.getByRole("button", { name: /המשך/ }));
+
+    // Moved on to documents regardless.
+    await screen.findByText(/העלו מה שיש לכם/);
+  });
+
+  it("no longer asks for receipts on the documents step", async () => {
+    /**
+     * They are collected with the expenses now. Leaving the old field
+     * there would invite somebody to upload the same receipt twice, in
+     * the one place where it loses its link to a charge.
+     */
+    createClaim.mockResolvedValue({ ok: true, data: CLAIM });
+    const user = await startClaim();
+    await user.click(screen.getByRole("button", { name: /המשך/ }));
+
+    await screen.findByText(/העלו מה שיש לכם/);
+    expect(screen.queryByText(/^קבלות$/)).toBeNull();
+    expect(screen.getByText(/כרטיס או אישור הזמנה/)).toBeInTheDocument();
   });
 });

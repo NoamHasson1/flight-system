@@ -791,11 +791,9 @@ export const strings = {
     /** Step one: who to reply to, and what happened. */
     contact: {
       title: "פרטים ליצירת קשר",
-      body:
-        "מספר נייד ואימייל, ואנחנו מתחילים לעבוד על התיק. " +
-        "בלי שיחות מכירה — רק עדכונים על התביעה.",
+      body: "מספר נייד ואימייל, ואנחנו מתחילים לעבוד על התיק.",
       phone: "טלפון נייד",
-      phoneHint: "לאימות ולעדכונים על התיק בלבד. בלי שיחות מכירה.",
+      phoneHint: "לאימות ולעדכונים על התיק בלבד.",
       name: "שם מלא ליצירת קשר",
       email: "אימייל",
       whatHappened: "מה קרה בטיסה?",
@@ -836,10 +834,19 @@ export const strings = {
       minor: "מתחת לגיל 18",
       add: "הוספת נוסע",
       remove: "הסרה",
-      reference: "מספר הזמנה (PNR) — משותף לכל הנוסעים",
+      reference: "מספר ההזמנה של הטיסה",
+      /**
+       * Rewritten because "PNR" meant nothing to the person filling this in,
+       * and the old hint described a format instead of saying where to find
+       * the thing. Everybody books somewhere different -- the airline, an
+       * agency, a comparison site -- so the instruction is "look at the
+       * confirmation you were sent", which is true wherever they bought it.
+       */
       referenceHint:
-        "בדרך כלל שישה תווים על הכרטיס, למשל ABC123. אם קניתם דרך אתר " +
-        "השוואה, המספר עשוי להיות ארוך יותר — העתיקו אותו כמו שהוא.",
+        "המספר שמופיע באישור ההזמנה ששלחו לכם במייל — מחברת התעופה, " +
+        "מסוכן הנסיעות או מהאתר שדרכו הזמנתם. לפעמים כתוב לידו " +
+        "״קוד הזמנה״, ״מספר הזמנה״ או PNR. העתיקו אותו בדיוק כמו שהוא, " +
+        "באורך כלשהו.",
       anythingElse: "עוד משהו שכדאי שנדע? (לא חובה)",
       anythingElseHint:
         "תארו במילים שלכם פרטים נוספים על השיבוש, אם יש.",
@@ -848,8 +855,11 @@ export const strings = {
     booking: {
       title: "ההזמנה שלכם",
       body: "שני דברים ששום מאגר טיסות לא יודע — רק אתם.",
-      reference: "מספר הזמנה",
-      referenceHint: "שישה תווים על הכרטיס, למשל XJ4K2P.",
+      reference: "מספר ההזמנה של הטיסה",
+      referenceHint:
+        "המספר שמופיע באישור ההזמנה ששלחו לכם במייל — מחברת התעופה, " +
+        "מסוכן הנסיעות או מהאתר שדרכו הזמנתם. לפעמים כתוב לידו " +
+        "״קוד הזמנה״, ״מספר הזמנה״ או PNR. העתיקו אותו בדיוק כמו שהוא.",
       airlineReason: "מה חברת התעופה אמרה שהייתה הסיבה?",
       airlineReasonHint:
         "במילים שלכם. חברות תעופה לא חייבות לפצות כשהסיבה הייתה מחוץ " +
@@ -886,15 +896,23 @@ export const strings = {
       add: "הוספת הוצאה",
       remove: "הסרה",
       none: "לא היו הוצאות מהכיס",
+      /* The receipt sits on the expense it proves. Collecting them in a
+         separate pile two steps later meant nobody could tell which
+         receipt belonged to which charge -- including us, when writing to
+         the airline. */
+      receipt: "קבלה",
+      receiptHint: "צילום או PDF של הקבלה להוצאה הזו.",
+      receiptChoose: "בחרו קובץ",
+      receiptChosen: "נבחר",
+      receiptRemove: "הסרת הקובץ",
     },
 
     documents: {
       title: "העלו מה שיש לכם",
       body:
-        "הכרטיס או אישור ההזמנה הם החשובים. קבלות מגבות את ההוצאות שרשמתם. " +
-        "קובצי PDF או תמונות, עד 10MB כל אחד.",
+        "הכרטיס או אישור ההזמנה הוא החשוב. קובצי PDF או תמונות, " +
+        "עד 10MB כל אחד.",
       booking: "כרטיס או אישור הזמנה",
-      receipt: "קבלות",
       boardingPass: "כרטיס עלייה למטוס (לא חובה)",
       drop: "בחרו קובץ",
       uploaded: "הועלה",
@@ -904,10 +922,24 @@ export const strings = {
     review: {
       title: "עברו על הפרטים",
       body: "אחרי השליחה אנחנו פונים לחברת התעופה בכתב.",
+
+      /* The summary showed bare values under one-word labels: a flight
+         nobody had confirmed was the right one, "—" for an empty booking
+         reference, and "EUR · drink 50" with no indication of what the
+         claim was actually WORTH. The point of a last screen is that the
+         person can tell at a glance whether to press the button. */
+      flight: "הטיסה",
+      worth: "הפיצוי המשוער",
+      perPassenger: "לנוסע",
+      contact: "ליצירת קשר",
       passengers: "נוסעים",
-      booking: "ההזמנה",
-      costs: "הוצאות",
+      booking: "מספר ההזמנה",
+      bookingMissing: "לא הוזן — אפשר להוסיף אחר כך",
+      costs: "הוצאות מהכיס",
+      costsNone: "לא נרשמו הוצאות",
+      costsTotal: "סה״כ",
       documents: "מסמכים",
+      reference: "מספר התיק",
       submit: "שליחת התביעה",
       submitting: "שולחים…",
       consent:

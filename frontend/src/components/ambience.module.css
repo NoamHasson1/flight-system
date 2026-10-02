@@ -1,0 +1,211 @@
+/* Decoration that moves.
+
+   Three rules govern everything in this file.
+
+   NOTHING HERE MAY BE CLICKED. Every piece sits over or behind real
+   content, and a decorative SVG that swallows a tap meant for the check
+   button is a decoration that costs a customer.
+
+   NOTHING HERE MAY SHIFT LAYOUT. These are absolutely positioned inside
+   a relative section, so they can be added to or removed from a page
+   without a single pixel of text moving.
+
+   EVERYTHING STOPS FOR prefers-reduced-motion. Not "slows down" -- stops.
+   The whole point of the setting is that continuous movement in the
+   periphery makes some people ill, and a landing page is not worth that.
+   Each piece is composed so the still frame is the one worth looking at. */
+
+/* --- The cabin window ------------------------------------------------------ */
+
+.window {
+  position: absolute;
+  pointer-events: none;
+  user-select: none;
+  /* Behind the text, in front of the section background. */
+  z-index: 0;
+}
+
+.windowSvg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  /* The window is a real object in the scene, so it gets a real shadow
+     rather than the flat look of an icon. */
+  filter: drop-shadow(0 18px 40px rgb(17 24 32 / 0.28));
+}
+
+/* The sun sinks, and keeps sinking, forever.
+
+   Deliberately NOT a full sunset. A sun that reaches the horizon and stops
+   is a story with an ending, and once it has ended the page has a dead
+   element on it. Twelve pixels over half a minute reads as "time passing"
+   and never arrives anywhere. */
+.sun {
+  animation: amb-sink 34s ease-in-out infinite alternate;
+  transform-origin: center;
+}
+
+@keyframes amb-sink {
+  from { transform: translateY(-6px); }
+  to   { transform: translateY(10px); }
+}
+
+/* The cloud deck slides the other way to the sun, which is what makes the
+   scene read as the AIRCRAFT moving rather than the weather. */
+.deck {
+  animation: amb-deck 46s linear infinite;
+}
+
+@keyframes amb-deck {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-220px); }
+}
+
+/* The glare breathes very slightly, so the glass does not look painted on. */
+.glare {
+  animation: amb-glare 18s ease-in-out infinite alternate;
+}
+
+@keyframes amb-glare {
+  from { opacity: 0.1; }
+  to   { opacity: 0.2; }
+}
+
+/* --- Clouds ---------------------------------------------------------------- */
+
+.clouds {
+  position: absolute;
+  inset-inline: 0;
+  pointer-events: none;
+  user-select: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.cloudSvg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Two speeds, which is the entire illusion: parallax is what the eye reads
+   as distance. One layer alone is a sliding picture.
+
+   Each layer holds its shapes twice, one set a full viewBox-width apart,
+   so translating by exactly that width loops with no visible seam. */
+.cloudFar {
+  animation: amb-drift-far 90s linear infinite;
+}
+
+.cloudNear {
+  animation: amb-drift-near 58s linear infinite;
+}
+
+@keyframes amb-drift-far {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-1200px); }
+}
+
+@keyframes amb-drift-near {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-1200px); }
+}
+
+/* --- Contrails ------------------------------------------------------------- */
+
+.trails {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  user-select: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.trailSvg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* The trail is DRAWN rather than merely present.
+
+   `stroke-dasharray` of the whole path length with the offset animating
+   from full to zero makes the line appear progressively, as though the
+   aircraft were laying it. It then fades and starts again. A particle
+   system's worth of effect from two properties. */
+.trailLine {
+  stroke-dasharray: 1400;
+  stroke-dashoffset: 1400;
+  opacity: 0.32;
+  animation: amb-draw 26s linear infinite;
+}
+
+@keyframes amb-draw {
+  0%        { stroke-dashoffset: 1400; opacity: 0; }
+  6%        { opacity: 0.32; }
+  70%       { stroke-dashoffset: 0; opacity: 0.32; }
+  92%, 100% { stroke-dashoffset: 0; opacity: 0; }
+}
+
+/* The aircraft travels the same path on the same clock, so it stays at the
+   head of its own trail. `offset-rotate: auto` points it along the curve,
+   which is why the silhouette is drawn nose-right at the origin. */
+.jet {
+  offset-rotate: auto;
+  offset-distance: 0%;
+  animation: amb-fly 26s linear infinite;
+  opacity: 0;
+}
+
+@keyframes amb-fly {
+  0%        { offset-distance: 0%;   opacity: 0; }
+  6%        { opacity: 0.55; }
+  70%       { offset-distance: 100%; opacity: 0.55; }
+  92%, 100% { offset-distance: 100%; opacity: 0; }
+}
+
+/* The second aircraft is offset in time so the two never cross together,
+   which would read as choreography rather than as sky. */
+.trailTwo .trailLine,
+.trailTwo .jet {
+  animation-delay: -13s;
+}
+
+/* --- Everything stops ------------------------------------------------------ */
+
+/* Not slowed, not shortened. Stopped, on a frame chosen to be the one
+   worth seeing: the trails fully drawn, the aircraft partway along, the
+   clouds where they started. */
+@media (prefers-reduced-motion: reduce) {
+  .sun,
+  .deck,
+  .glare,
+  .cloudFar,
+  .cloudNear,
+  .trailLine,
+  .jet {
+    animation: none;
+  }
+
+  .trailLine {
+    stroke-dashoffset: 0;
+    opacity: 0.28;
+  }
+
+  .jet {
+    offset-distance: 72%;
+    opacity: 0.5;
+  }
+}
+
+/* --- Small screens --------------------------------------------------------- */
+
+/* The window is the one piece that cannot simply shrink: at phone width it
+   would either cover the text or become an unidentifiable sliver. It is
+   hidden, and the section it decorates is designed to stand without it. */
+@media (max-width: 52rem) {
+  .window {
+    display: none;
+  }
+}

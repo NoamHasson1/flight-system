@@ -2,6 +2,7 @@ import Image from "next/image";
 
 import { FlightBoard } from "@/components/Board";
 import { GoogleRating } from "@/components/GoogleRating";
+import { CabinWindow, Clouds, Contrails } from "@/components/Ambience";
 import { FlightPath } from "@/components/FlightPath";
 import { Reveal } from "@/components/Reveal";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -106,7 +107,23 @@ function Hero() {
      * the entire message.
      */
     <section className="field relative overflow-hidden px-5 pb-24 pt-16 sm:px-8 sm:pb-32 sm:pt-24">
+      {/* Two layers of sky behind the hero: the existing arc with its
+          aeroplane, and higher up, distant traffic laying contrails. The
+          second reads as depth rather than as a second animation. */}
+      <Contrails className="opacity-70" style={{ color: "var(--color-teal-600)" }} />
       <FlightPath />
+
+      {/* Cabin windows down both sides, where the hero's centred column
+          leaves real empty space. They were first put on the dark lawyer
+          section, which looked right in isolation and sat straight on top
+          of the copy at every width -- a two-column grid has no spare
+          room by definition.
+      
+          Hidden below 52rem by the stylesheet: on a phone the only
+          choices are covering the text or showing an unrecognisable
+          sliver. */}
+      <CabinWindow className="end-[2vw] top-[22%] h-[330px] w-[240px] opacity-80 xl:end-[5vw]" />
+      <CabinWindow className="start-[2vw] top-[46%] h-[280px] w-[200px] opacity-65 xl:start-[5vw]" />
 
       <div className="relative z-10 mx-auto max-w-3xl text-center">
         <span
@@ -300,7 +317,7 @@ function Lawyer() {
       className="fieldInk relative overflow-hidden px-5 py-20 sm:px-8 sm:py-28"
       style={{ color: "var(--text-on-ink)" }}
     >
-      <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-2">
+      <div className="relative mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-2">
         <div>
           <p className={s.accent + " text-callout font-bold"}>{l.eyebrow}</p>
           <h2 className="mt-3 text-title">{l.name}</h2>
@@ -444,8 +461,14 @@ function Reviews() {
   const r = strings.reviews;
 
   return (
-    <section className={`${s.mist} px-5 py-20 text-center sm:px-8`}>
-      <div className="mx-auto max-w-2xl">
+    <section className={`${s.mist} relative overflow-hidden px-5 py-20 text-center sm:px-8`}>
+      {/* A cloud bank along the foot of the band. Two speeds, so it reads
+          as distance rather than as a sliding picture. */}
+      <Clouds
+        className="bottom-[-2rem] h-[180px] text-white"
+        style={{ opacity: 0.9 }}
+      />
+      <div className="relative mx-auto max-w-2xl">
         <h2 data-reveal className="text-title" style={{ color: "var(--text-strong)" }}>
           {r.title}
         </h2>

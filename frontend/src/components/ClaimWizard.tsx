@@ -30,7 +30,20 @@ const t = strings.claim;
  */
 
 type Passenger = { fullName: string; nationalId: string; isMinor: boolean };
-type Cost = { category: string; amount: string; currency: string; description: string };
+type Cost = {
+  category: string;
+  amount: string;
+  currency: string;
+  description: string;
+  /**
+   * The receipt proving this expense, held until the claim exists.
+   *
+   * A File, not an uploaded id: documents attach to a claim, and the
+   * claim is not created until the costs step is submitted. These go up
+   * immediately afterwards, each tagged with its expense's id.
+   */
+  receipt: File | null;
+};
 
 type Draft = {
   contactName: string;
@@ -46,7 +59,13 @@ type Draft = {
 };
 
 const EMPTY_PASSENGER: Passenger = { fullName: "", nationalId: "", isMinor: false };
-const EMPTY_COST: Cost = { category: "HOTEL", amount: "", currency: "EUR", description: "" };
+const EMPTY_COST: Cost = {
+  category: "HOTEL",
+  amount: "",
+  currency: "EUR",
+  description: "",
+  receipt: null,
+};
 
 const CATEGORIES = [
   ["HOTEL", "מלון"],
@@ -98,6 +117,18 @@ function blankDraft(passengers = 1): Draft {
  * out while typing instead of three steps later.
  */
 const BOOKING_REFERENCE_MAX = 64;
+
+/**
+ * Deliberately loose. The server is the authority on what it will accept,
+ * and the only job here is to catch the obvious slip -- a missing @, a
+ * missing dot -- at the moment the person can still see the field.
+ *
+ * A strict pattern would be worse than none: every regex that tries to
+ * implement RFC 5322 rejects somebody's real address, and being told
+ * "that is not an email" about an address you have used for ten years is
+ * a far worse experience than a server round trip.
+ */
+const LOOKS_LIKE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function ClaimWizard({ check }: { check: EligibilityResponse }) {
   const storageKey = `claim-draft:${check.check_id}`;
@@ -187,6 +218,16 @@ export function ClaimWizard({ check }: { check: EligibilityResponse }) {
     if (step === 0) {
       if (!draft.contactName.trim()) return setError(t.errors.needContactName);
       if (!draft.contactEmail.trim()) return setError(t.errors.needContactEmail);
+      // CHECKED HERE, where the address is typed.
+      //
+      // The claim is only created at the end of the costs step, so an
+      // address the server rejected surfaced two steps later -- as raw
+      // English from Pydantic, on a page about hotel bills, about a field
+      // the customer could no longer see. They had filled in passengers
+      // and receipts before learning they had mistyped their own email.
+      if (!LOOKS_LIKE_EMAIL.test(draft.contactEmail.trim())) {
+        return setError(strings.errors.emailFormat);
+      }
       return setStep(1);
     }
 
@@ -251,6 +292,39 @@ export function ClaimWizard({ check }: { check: EligibilityResponse }) {
 
     if (!result.ok) return setError(failureText(result.failure));
     setClaim(result.data);
+
+    /**
+     * Now that the expenses have ids, send up the receipts attached to
+     * them.
+     *
+     * Paired BY POSITION: the server creates expenses in the order they
+     * were sent, so the nth returned expense is the nth cost on the form.
+     * That is a real assumption, which is why the length is checked
+     * rather than trusted -- a mismatch means something changed on the
+     * server and the right answer is to upload nothing rather than file
+     * somebody's hotel receipt against their taxi.
+     *
+     * A failed upload does NOT block the claim. The claim is the valuable
+     * thing and it is already saved; a receipt can be added from the
+     * documents step or the link we email. Losing the claim because a
+     * photo would not upload would be the worse trade by a long way.
+     */
+    const expenses = result.data.expenses;
+    if (expenses.length === draft.costs.length) {
+      for (const [i, cost] of draft.costs.entries()) {
+        if (!cost.receipt) continue;
+        const sent = await uploadDocument(
+          result.data.id,
+          cost.receipt,
+          "RECEIPT",
+          expenses[i].id,
+        );
+        if (sent.ok) {
+          setUploads((u) => [...u, sent.data.document.original_filename]);
+        }
+      }
+    }
+
     setStep(3);
   }
 
@@ -305,7 +379,9 @@ export function ClaimWizard({ check }: { check: EligibilityResponse }) {
           {step === 3 && (
             <Documents uploads={uploads} busy={busy} onPick={attach} />
           )}
-          {step === 4 && <Review draft={draft} claim={claim} uploads={uploads} />}
+          {step === 4 && (
+            <Review draft={draft} claim={claim} uploads={uploads} check={check} />
+          )}
         </div>
 
         {/* aria-live so the message is announced when it appears, not only
@@ -417,63 +493,17 @@ function Contact({ draft, patch }: StepProps) {
           />
         </div>
 
-        {/* Radios, not a dropdown. Four short options that change how the
-            letter is written deserve to be readable at a glance -- a
-            <select> hides three of them behind a tap. */}
-        <Field label={c.alreadyGot} hint={c.alreadyGotHint}>
-          {() => (
-            <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              {c.alreadyGotOptions.map((o) => (
-                <label
-                  key={o.value}
-                  className={`${s.radioCard} ${draft.alreadyGot === o.value ? s.radioOn : ""}`}
-                >
-                  <input
-                    type="radio"
-                    name="alreadyGot"
-                    value={o.value}
-                    checked={draft.alreadyGot === o.value}
-                    onChange={() => patch({ alreadyGot: o.value })}
-                    className="sr-only"
-                  />
-                  <span className={s.radioDot} aria-hidden />
-                  <span className="text-callout">{o.label}</span>
-                </label>
-              ))}
-            </div>
-          )}
-        </Field>
+        {/* REMOVED: "what did the airline already give you" and "what
+            happened on the flight".
+            
+            Both were real questions that change how a letter is written,
+            and both were asked of somebody who has just been told they
+            are owed money and wants to get on with it. They are better
+            asked later, by a person, once the claim exists -- so the form
+            collects what only the customer can give us and nothing else.
+            The columns stay in the database and the admin screen still
+            shows them. */}
 
-        <Field label={c.whatHappened} hint={c.whatHappenedHint}>
-          {(id, describedBy) => (
-            <textarea
-              id={id}
-              rows={3}
-              aria-describedby={describedBy}
-              value={draft.airlineReason}
-              onChange={(e) => patch({ airlineReason: e.target.value })}
-              placeholder="אמרו לנו שהייתה תקלה טכנית במטוס."
-              className={`${s.field} mt-2 w-full resize-y px-4 py-3 text-body`}
-            />
-          )}
-        </Field>
-
-        <Field label={t.booking.notice}>
-          {(id) => (
-            <select
-              id={id}
-              value={draft.cancellationNotice}
-              onChange={(e) => patch({ cancellationNotice: e.target.value })}
-              className={`${s.field} mt-2 w-full px-4 py-3.5 text-body`}
-            >
-              {t.booking.noticeOptions.map((o) => (
-                <option key={o.label} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          )}
-        </Field>
       </div>
 
       <p className="mt-6 text-center text-caption" style={{ color: "var(--text-muted)" }}>
@@ -659,6 +689,47 @@ function Costs({ draft, patch }: StepProps) {
                   onChange={(v) => set(i, { description: v })}
                 />
               </div>
+
+              {/* The receipt, on the expense it proves.
+              
+                  Held in memory rather than uploaded now: a document has
+                  to attach to a claim, and the claim does not exist until
+                  this step is submitted. The files go up immediately
+                  afterwards, each tagged with the id of the expense it
+                  belongs to. */}
+              <div className="mt-3">
+                <p className={`${s.label} text-caption`}>{t.costs.receipt}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <label className={`${s.ghostButton} cursor-pointer px-4 py-2 text-caption`}>
+                    {c.receipt ? t.costs.receiptChosen : t.costs.receiptChoose}
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      className="sr-only"
+                      onChange={(e) =>
+                        set(i, { receipt: e.target.files?.[0] ?? null })
+                      }
+                    />
+                  </label>
+                  {c.receipt && (
+                    <>
+                      <span className="text-caption" style={{ color: "var(--text-strong)" }}>
+                        {c.receipt.name}
+                      </span>
+                      <button
+                        type="button"
+                        className={`${s.removeButton} text-caption`}
+                        onClick={() => set(i, { receipt: null })}
+                      >
+                        {t.costs.receiptRemove}
+                      </button>
+                    </>
+                  )}
+                </div>
+                <p className="mt-1 text-caption" style={{ color: "var(--text-muted)" }}>
+                  {t.costs.receiptHint}
+                </p>
+              </div>
             </div>
           ))}
         </div>
@@ -689,9 +760,12 @@ function Documents({
       <Head title={t.documents.title} body={t.documents.body} />
 
       <div className="mt-6 flex flex-col gap-4">
+        {/* RECEIPTS ARE NOT HERE ANY MORE. They are attached to the
+            expense they prove, on the costs step, so that neither the
+            customer nor we have to work out afterwards which receipt
+            belongs to which charge. */}
         {[
           [t.documents.booking, "BOOKING"],
-          [t.documents.receipt, "RECEIPT"],
           [t.documents.boardingPass, "BOARDING_PASS"],
         ].map(([label, kind]) => (
           <label key={kind} className={`${s.row} flex cursor-pointer items-center justify-between gap-4 p-4 sm:p-5`}>
@@ -740,54 +814,129 @@ function Review({
   draft,
   claim,
   uploads,
+  check,
 }: {
   draft: Draft;
   claim: ClaimOut | null;
   uploads: string[];
+  check: EligibilityResponse;
 }) {
+  /**
+   * WHAT A LAST SCREEN IS FOR.
+   *
+   * The previous version listed bare values under one-word labels: "—"
+   * for an empty booking reference, "EUR · drink 50" for an expense, and
+   * no mention anywhere of the flight or the amount being claimed. It
+   * answered "what did I type" when the only question that matters here
+   * is "is this right, and is it worth pressing the button".
+   *
+   * So it now leads with the flight and the money, says what each line
+   * means, and spells out the empty cases instead of printing a dash.
+   */
+  const totals = new Map<string, number>();
+  for (const c of draft.costs) {
+    const amount = Number(c.amount);
+    if (!Number.isFinite(amount)) continue;
+    totals.set(c.currency, (totals.get(c.currency) ?? 0) + amount);
+  }
+
+  const categoryName = (code: string) =>
+    CATEGORIES.find(([value]) => value === code)?.[1] ?? code;
+
   return (
     <>
       <Head title={t.review.title} body={t.review.body} />
 
       <dl className="mt-6 flex flex-col gap-5">
+        <Summary label={t.review.flight}>
+          <span className="tabular">
+            {check.flight?.flight_number} · {check.flight?.flight_date}
+          </span>
+          {check.flight?.route ? (
+            <span className="mt-1 block tabular" style={{ color: "var(--text-muted)" }}>
+              {check.flight.route}
+            </span>
+          ) : null}
+        </Summary>
+
+        {/* The number, because it is the reason anybody is on this screen
+            and it was nowhere on it. */}
+        {check.best_award ? (
+          <Summary label={t.review.worth}>
+            <span
+              className="tabular text-subhead"
+              style={{ color: "var(--verdict-yes)", fontWeight: 700 }}
+            >
+              {check.best_award.formatted}
+            </span>
+            <span className="mt-1 block" style={{ color: "var(--text-muted)" }}>
+              {t.review.perPassenger}
+            </span>
+          </Summary>
+        ) : null}
+
+        <Summary label={t.review.contact}>
+          {draft.contactName}
+          <span className="mt-1 block" style={{ color: "var(--text-muted)" }}>
+            {draft.contactEmail}
+            {draft.contactPhone ? ` · ${draft.contactPhone}` : ""}
+          </span>
+        </Summary>
+
         <Summary label={t.review.passengers}>
           {draft.passengers.map((p) => (
             <span key={p.fullName} className="block">
               {p.fullName}
               {p.nationalId ? ` · ${p.nationalId}` : ""}
-              {p.isMinor ? " · under 18" : ""}
+              {p.isMinor ? " · קטין" : ""}
             </span>
           ))}
         </Summary>
 
         <Summary label={t.review.booking}>
-          {draft.bookingReference || "—"}
-          {draft.airlineReason ? (
-            <span className="mt-1 block" style={{ color: "var(--text-muted)" }}>
-              &ldquo;{draft.airlineReason}&rdquo;
+          {draft.bookingReference || (
+            <span style={{ color: "var(--text-muted)" }}>
+              {t.review.bookingMissing}
             </span>
-          ) : null}
+          )}
         </Summary>
 
         <Summary label={t.review.costs}>
-          {draft.costs.length
-            ? draft.costs.map((c, i) => (
-                <span key={i} className="tabular block">
-                  {c.amount} {c.currency} · {c.category.toLowerCase()}
+          {draft.costs.length === 0 ? (
+            <span style={{ color: "var(--text-muted)" }}>{t.review.costsNone}</span>
+          ) : (
+            <>
+              {draft.costs.map((c, i) => (
+                <span key={i} className="block">
+                  <span className="tabular">
+                    {c.amount} {c.currency}
+                  </span>{" "}
+                  · {categoryName(c.category)}
                   {c.description ? ` · ${c.description}` : ""}
+                  {c.receipt ? ` · ${t.costs.receipt}` : ""}
                 </span>
-              ))
-            : "אין"}
+              ))}
+              {[...totals].map(([currency, sum]) => (
+                <span key={currency} className="mt-1 block tabular" style={{ fontWeight: 700 }}>
+                  {t.review.costsTotal} {sum.toFixed(2)} {currency}
+                </span>
+              ))}
+            </>
+          )}
         </Summary>
 
         <Summary label={t.review.documents}>
-          {uploads.length ? uploads.join(", ") : "לא הועלו מסמכים"}
+          {uploads.length ? (
+            uploads.join(", ")
+          ) : (
+            <span style={{ color: "var(--text-muted)" }}>לא הועלו מסמכים</span>
+          )}
         </Summary>
       </dl>
 
       {claim ? (
         <p className="mt-6 text-caption" style={{ color: "var(--text-muted)" }}>
-          Reference <strong className="tabular">{claim.reference}</strong>
+          {t.review.reference} <strong className="tabular">{claim.reference}</strong>
         </p>
       ) : null}
 
@@ -797,6 +946,7 @@ function Review({
     </>
   );
 }
+
 
 function Done({ claim }: { claim: ClaimOut }) {
   return (
