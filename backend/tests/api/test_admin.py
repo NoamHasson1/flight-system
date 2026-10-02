@@ -779,3 +779,205 @@ def test_stats_is_not_mistaken_for_a_customer_id(admin_client: TestClient) -> No
 
     assert response.status_code == 200
     assert "total" in response.json()
+
+
+# --- Hiding, which the screen calls deleting ---------------------------------
+
+
+def test_a_hidden_customer_leaves_the_list_but_not_the_database(
+    admin_client: TestClient,
+) -> None:
+    """The whole design of the delete button, in one test.
+
+    The operator sees the row go. The record, its claim and its uploaded
+    passports stay exactly where they were -- because a checkbox and one
+    click is the easiest way in the world to remove fifty customers by
+    accident, and undo is impossible once the bytes are gone.
+    """
+    check_id = _customer(admin_client)
+    _claim_for(admin_client, check_id)
+
+    moved = admin_client.post(
+        "/api/v1/admin/customers/hide",
+        headers=AUTH,
+        json={"check_ids": [check_id]},
+    ).json()
+    assert moved["moved"] == 1
+
+    assert admin_client.get("/api/v1/admin/customers", headers=AUTH).json()["total"] == 0
+    # Still fully readable by id, claim and all.
+    detail = admin_client.get(
+        f"/api/v1/admin/customers/{check_id}", headers=AUTH
+    ).json()
+    assert detail["claim_id"] is not None
+    assert detail["hidden_at"] is not None
+
+
+def test_hidden_customers_have_one_place_to_be_found(
+    admin_client: TestClient,
+) -> None:
+    """Undo needs somewhere to look.
+
+    A hidden row that reappeared among eight hundred others would be
+    technically recoverable and practically lost.
+    """
+    gone = _customer(admin_client, "BA165", contact_email="gone@example.com")
+    _customer(admin_client, "LY325", contact_email="here@example.com")
+    admin_client.post(
+        "/api/v1/admin/customers/hide", headers=AUTH, json={"check_ids": [gone]}
+    )
+
+    visible = admin_client.get("/api/v1/admin/customers", headers=AUTH).json()
+    put_away = admin_client.get(
+        "/api/v1/admin/customers?hidden=true", headers=AUTH
+    ).json()
+
+    assert [r["contact_email"] for r in visible["items"]] == ["here@example.com"]
+    assert [r["contact_email"] for r in put_away["items"]] == ["gone@example.com"]
+
+
+def test_restoring_puts_a_customer_back(admin_client: TestClient) -> None:
+    """The undo button, end to end."""
+    check_id = _customer(admin_client)
+    admin_client.post(
+        "/api/v1/admin/customers/hide", headers=AUTH, json={"check_ids": [check_id]}
+    )
+
+    moved = admin_client.post(
+        "/api/v1/admin/customers/restore",
+        headers=AUTH,
+        json={"check_ids": [check_id]},
+    ).json()
+
+    assert moved["moved"] == 1
+    assert admin_client.get("/api/v1/admin/customers", headers=AUTH).json()["total"] == 1
+
+
+def test_the_count_reports_what_moved_not_what_was_asked(
+    admin_client: TestClient,
+) -> None:
+    """An operator selects fifty; six were already hidden by somebody else.
+
+    The honest answer is 44. A screen that echoes the request back as
+    though it were the outcome is one people stop believing the first time
+    they notice.
+    """
+    already = _customer(admin_client, "BA165", contact_email="a@example.com")
+    fresh = _customer(admin_client, "LY325", contact_email="b@example.com")
+    admin_client.post(
+        "/api/v1/admin/customers/hide", headers=AUTH, json={"check_ids": [already]}
+    )
+
+    again = admin_client.post(
+        "/api/v1/admin/customers/hide",
+        headers=AUTH,
+        json={"check_ids": [already, fresh]},
+    ).json()
+
+    assert again["moved"] == 1, "only the one that was still visible"
+
+
+def test_hidden_customers_are_left_out_of_the_counters(
+    admin_client: TestClient,
+) -> None:
+    """Deleting a row must make the number above the table go down.
+
+    Written because the counters are a separate query: it is entirely
+    possible to filter the list and forget the aggregate, leaving a header
+    that insists on customers the operator can no longer see.
+    """
+    check_id = _customer(admin_client)
+    before = admin_client.get("/api/v1/admin/customers/stats", headers=AUTH).json()
+    admin_client.post(
+        "/api/v1/admin/customers/hide", headers=AUTH, json={"check_ids": [check_id]}
+    )
+    after = admin_client.get("/api/v1/admin/customers/stats", headers=AUTH).json()
+
+    assert before["total"] == 1
+    assert after["total"] == 0
+
+
+def test_hiding_requires_the_key(admin_client: TestClient) -> None:
+    """A write endpoint, so worth its own test rather than the router sweep."""
+    check_id = _customer(admin_client)
+    assert (
+        admin_client.post(
+            "/api/v1/admin/customers/hide", json={"check_ids": [check_id]}
+        ).status_code
+        == 401
+    )
+
+
+def test_an_empty_selection_is_refused_rather_than_silently_doing_nothing(
+    admin_client: TestClient,
+) -> None:
+    """A bulk action with no ids is a bug in the caller, not a no-op.
+
+    Answering 200/"0 moved" would let a broken select-all ship unnoticed.
+    """
+    assert (
+        admin_client.post(
+            "/api/v1/admin/customers/hide", headers=AUTH, json={"check_ids": []}
+        ).status_code
+        == 422
+    )
+
+
+# --- The claim lifecycle column ----------------------------------------------
+
+
+def test_a_claim_can_be_moved_along_its_lifecycle(admin_client: TestClient) -> None:
+    """The eight stages existed and nothing could set them.
+
+    The status column only ever read DRAFT or SUBMITTED whatever had
+    really happened, which made it decoration -- and an operator with a
+    decorative status column keeps the real one in a spreadsheet.
+    """
+    check_id = _customer(admin_client)
+    claim = _claim_for(admin_client, check_id)
+
+    response = admin_client.patch(
+        f"/api/v1/admin/claims/{claim['id']}/status",
+        headers=AUTH,
+        json={"status": "SENT_TO_AIRLINE"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "SENT_TO_AIRLINE"
+    row = admin_client.get("/api/v1/admin/customers", headers=AUTH).json()["items"][0]
+    assert row["claim_status"] == "SENT_TO_AIRLINE"
+
+
+def test_a_claim_can_go_backwards(admin_client: TestClient) -> None:
+    """No transition rules, deliberately.
+
+    Real claims go backwards: an airline asks for another document, a
+    customer withdraws and refiles. A one-way pipeline would leave an
+    operator looking at the correct value and unable to set it, which is
+    how the real status ends up somewhere this system cannot see.
+    """
+    check_id = _customer(admin_client)
+    claim = _claim_for(admin_client, check_id)
+    for stage in ("SETTLED", "IN_REVIEW", "DRAFT"):
+        assert (
+            admin_client.patch(
+                f"/api/v1/admin/claims/{claim['id']}/status",
+                headers=AUTH,
+                json={"status": stage},
+            ).status_code
+            == 200
+        )
+
+
+def test_an_invented_status_is_refused(admin_client: TestClient) -> None:
+    """A typo in a dashboard must not create a ninth stage no report counts."""
+    check_id = _customer(admin_client)
+    claim = _claim_for(admin_client, check_id)
+
+    response = admin_client.patch(
+        f"/api/v1/admin/claims/{claim['id']}/status",
+        headers=AUTH,
+        json={"status": "PROBABLY_FINE"},
+    )
+
+    assert response.status_code == 422

@@ -85,6 +85,22 @@ class EligibilityCheck(Base):
     best_currency: Mapped[str | None] = mapped_column(String(3))
 
     # --- the evidence ---
+    # Hidden from the operator's list, and NOT deleted.
+    #
+    # The screen offers "delete", because that is what an operator means and
+    # what they expect to see happen. What it does is set this.
+    #
+    # A checkbox and one click is the easiest way in the world to remove
+    # fifty customers by accident, and undo is impossible once the bytes are
+    # gone. These rows also carry claim evidence -- uploaded passports and
+    # receipts -- for claims that can be brought for four years under
+    # Israeli law. Destroying that to tidy a list is a bad trade.
+    #
+    # Nullable timestamp rather than a boolean: "when" answers questions a
+    # flag cannot, and an accidental bulk hide is obvious in the data
+    # because fifty rows share a second.
+    hidden_at: Mapped[datetime | None] = mapped_column(UtcDateTime, index=True)
+
     provider: Mapped[str] = mapped_column(String(40), nullable=False)
     flight_snapshot: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     result_detail: Mapped[dict[str, Any] | None] = mapped_column(JSON)

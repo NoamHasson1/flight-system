@@ -142,6 +142,7 @@ class CustomerRow(BaseModel):
     claim_id: UUID | None
     claim_reference: str | None
     claim_status: str | None
+    hidden_at: datetime | None = None
     claim_submitted_at: datetime | None
     passenger_count: int
     document_count: int
@@ -213,3 +214,35 @@ class CustomerCounts(BaseModel):
     eligible: int
     review: int
     claims: int
+
+
+class HideRequest(BaseModel):
+    """Which customers to remove from the list, or put back.
+
+    A list rather than one id per request: the screen offers multi-select,
+    and fifty requests for one gesture is fifty chances for half of them to
+    land.
+    """
+
+    check_ids: list[UUID] = Field(min_length=1, max_length=500)
+
+
+class Moved(BaseModel):
+    """How many rows actually changed.
+
+    Not how many were asked for. If six of the fifty were already hidden,
+    the honest answer is 44 -- a screen that reports the request rather
+    than the outcome is one people stop believing.
+    """
+
+    moved: int
+
+
+class ClaimStatusUpdate(BaseModel):
+    """Where a claim has got to.
+
+    Validated against the enum rather than taken as free text, so a typo in
+    a dashboard cannot invent a ninth stage that no report counts.
+    """
+
+    status: str

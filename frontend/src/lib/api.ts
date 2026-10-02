@@ -319,12 +319,22 @@ export type CustomerRow = components["schemas"]["CustomerRow"];
 export type CustomerDetail = components["schemas"]["CustomerDetail"];
 export type CustomerPage = components["schemas"]["Page_CustomerRow_"];
 export type CustomerCounts = components["schemas"]["CustomerCounts"];
+export type ClaimStatus =
+  | "DRAFT"
+  | "SUBMITTED"
+  | "IN_REVIEW"
+  | "SENT_TO_AIRLINE"
+  | "AWAITING_AIRLINE"
+  | "SETTLED"
+  | "REJECTED"
+  | "WITHDRAWN";
 
 export type CustomerQuery = {
   search?: string;
   verdict?: string;
   hasClaim?: boolean;
   includeAnonymous?: boolean;
+  hidden?: boolean;
   limit?: number;
   offset?: number;
 };
@@ -338,6 +348,7 @@ export async function listCustomers(
   if (query.verdict) params.set("verdict", query.verdict);
   if (query.hasClaim !== undefined) params.set("has_claim", String(query.hasClaim));
   if (query.includeAnonymous) params.set("include_anonymous", "true");
+  if (query.hidden) params.set("hidden", "true");
   params.set("limit", String(query.limit ?? 50));
   params.set("offset", String(query.offset ?? 0));
 
@@ -418,6 +429,72 @@ export async function downloadDocument(
   anchor.click();
   URL.revokeObjectURL(url);
   return { ok: true, data: null };
+}
+
+/**
+ * Hide customers, or put them back.
+ *
+ * Named for what it does rather than for the button that calls it. The
+ * screen says "delete" because that is what an operator means; nothing is
+ * destroyed, which is what makes the undo in the toast possible at all.
+ *
+ * Returns how many rows actually MOVED, not how many were asked for -- if
+ * six of fifty were already hidden, the toast should say 44.
+ */
+export async function setCustomersHidden(
+  key: string,
+  checkIds: string[],
+  hidden: boolean,
+): Promise<ApiResult<{ moved: number }>> {
+  return request<{ moved: number }>(
+    `/api/v1/admin/customers/${hidden ? "hide" : "restore"}`,
+    {
+      method: "POST",
+      headers: { ...adminHeaders(key), "Content-Type": "application/json" },
+      body: JSON.stringify({ check_ids: checkIds }),
+    },
+  );
+}
+
+export async function setClaimStatus(
+  key: string,
+  claimId: string,
+  status: ClaimStatus,
+): Promise<ApiResult<{ status: string }>> {
+  return request<{ status: string }>(
+    `/api/v1/admin/claims/${encodeURIComponent(claimId)}/status`,
+    {
+      method: "PATCH",
+      headers: { ...adminHeaders(key), "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    },
+  );
+}
+
+/**
+ * Fetch a document as an object URL, for showing it rather than saving it.
+ *
+ * The bytes need the admin key, which a browser cannot put on an `<img
+ * src>` -- so the image is fetched here and handed to the DOM as a blob.
+ *
+ * THE CALLER MUST REVOKE IT. Each URL is a live handle to a customer's
+ * document held in the tab; leaving them alive means every receipt an
+ * operator glances at stays in memory and reachable for the whole session.
+ */
+export async function documentObjectUrl(
+  key: string,
+  documentId: string,
+): Promise<string | null> {
+  try {
+    const response = await fetch(
+      `/api/v1/admin/documents/${encodeURIComponent(documentId)}`,
+      { headers: adminHeaders(key), cache: "no-store" },
+    );
+    if (!response.ok) return null;
+    return URL.createObjectURL(await response.blob());
+  } catch {
+    return null;
+  }
 }
 
 function adminHeaders(key: string): Record<string, string> {

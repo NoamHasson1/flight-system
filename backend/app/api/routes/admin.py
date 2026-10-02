@@ -4,9 +4,20 @@ Read-only, and guarded by a shared secret on every route. It serves the three
 questions an operator actually has: what needs a human, who is claiming what,
 and how many people are we turning away.
 
-No endpoint here changes anything. Deliberate: a read-only surface cannot be
-used to corrupt data even if the key leaks, and every state change worth making
-belongs in a workflow with its own audit trail rather than in a dashboard.
+It WAS read-only, and mostly still is. Three endpoints now write, and the
+reasoning that kept the others read-only is what shapes them:
+
+  * hide / restore -- reversible by construction. The screen says "delete"
+    because that is what an operator means; what it does is stamp
+    `hidden_at`. Nothing is destroyed, so a leaked key cannot be used to
+    lose a claim, and a misclick is one button away from undone.
+
+  * claim status -- an operator moving a claim along its own lifecycle,
+    which is the work this dashboard exists to support. It validates
+    against the enum, so a dashboard cannot invent a stage no report counts.
+
+Still nothing here deletes a row, edits a customer's details, or touches
+money. Those belong in a workflow with an audit trail, not in a list.
 """
 
 from __future__ import annotations
@@ -34,7 +45,10 @@ from app.schemas.admin import (
     CustomerCounts,
     CustomerDetail,
     CustomerRow,
+    ClaimStatusUpdate,
     DocumentRow,
+    HideRequest,
+    Moved,
     ExpenseRow,
     Page,
     PassengerRow,
@@ -227,6 +241,10 @@ def list_customers(
             )
         ),
     ] = False,
+    hidden: Annotated[
+        bool,
+        Query(description="Show ONLY the customers that have been hidden."),
+    ] = False,
     limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> Page[CustomerRow]:
@@ -236,6 +254,7 @@ def list_customers(
         search=search,
         has_claim=has_claim,
         include_anonymous=include_anonymous,
+        hidden=hidden,
         limit=limit,
         offset=offset,
     )
@@ -247,6 +266,7 @@ def list_customers(
             search=search,
             has_claim=has_claim,
             include_anonymous=include_anonymous,
+            hidden=hidden,
         ),
         limit=limit,
         offset=offset,
@@ -408,6 +428,7 @@ def _customer_row(record: crm_repo.CustomerRecord) -> CustomerRow:
         claim_reference=claim.reference if claim else None,
         claim_status=claim.status if claim else None,
         claim_submitted_at=claim.submitted_at if claim else None,
+        hidden_at=check.hidden_at,
         passenger_count=len(claim.passengers) if claim else 0,
         document_count=len(claim.documents) if claim else 0,
     )
@@ -453,3 +474,85 @@ def _disposition(name: str) -> str:
     ).strip() or "document"
     encoded = quote(name, safe="")
     return f"attachment; filename=\"{fallback}\"; filename*=UTF-8\'\'{encoded}"
+
+
+@router.post(
+    "/customers/hide",
+    response_model=Moved,
+    summary="Remove customers from the list (reversibly)",
+)
+def hide_customers(
+    payload: HideRequest,
+    session: Annotated[Session, Depends(get_session)],
+) -> Moved:
+    """What the screen's delete button does.
+
+    Nothing is destroyed. The row keeps its claim, its passengers and its
+    uploaded passports, and `/customers?hidden=true` shows everything that
+    has been put away.
+
+    This is deliberately not a DELETE verb. DELETE would describe something
+    this does not do, and the next person reading the route list would
+    reasonably assume the data is gone.
+    """
+    moved = crm_repo.set_hidden(session, payload.check_ids, hidden=True)
+    session.commit()
+    return Moved(moved=moved)
+
+
+@router.post(
+    "/customers/restore",
+    response_model=Moved,
+    summary="Put hidden customers back in the list",
+)
+def restore_customers(
+    payload: HideRequest,
+    session: Annotated[Session, Depends(get_session)],
+) -> Moved:
+    """The undo.
+
+    Its existence is the whole argument for hiding rather than deleting:
+    the operator's very next action after an accidental bulk delete has
+    somewhere to go.
+    """
+    moved = crm_repo.set_hidden(session, payload.check_ids, hidden=False)
+    session.commit()
+    return Moved(moved=moved)
+
+
+@router.patch(
+    "/claims/{claim_id}/status",
+    response_model=ClaimRow,
+    summary="Move a claim along its lifecycle",
+)
+def update_claim_status(
+    claim_id: UUID,
+    payload: ClaimStatusUpdate,
+    session: Annotated[Session, Depends(get_session)],
+) -> ClaimRow:
+    """Advance a claim: submitted, sent to the airline, settled, rejected.
+
+    The eight stages already existed in the model and nothing could move a
+    claim between them except code. That made the status column decorative
+    -- it only ever read DRAFT or SUBMITTED, whatever had really happened.
+
+    No transition rules. A real claim goes backwards: an airline asks for
+    another document, something is withdrawn and refiled. Encoding a
+    one-way pipeline would mean an operator staring at a correct value they
+    are not allowed to set, which is how people start keeping the real
+    status in a spreadsheet.
+    """
+    claim = claims_repo.get_claim(session, claim_id)
+    if claim is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No such claim."
+        )
+    try:
+        claims_repo.set_status(session, claim, payload.status)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Not a claim status: {payload.status}",
+        ) from exc
+    session.commit()
+    return _claim_row(claim)

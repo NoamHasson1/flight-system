@@ -437,6 +437,88 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/customers/hide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove customers from the list (reversibly)
+         * @description What the screen's delete button does.
+         *
+         *     Nothing is destroyed. The row keeps its claim, its passengers and its
+         *     uploaded passports, and `/customers?hidden=true` shows everything that
+         *     has been put away.
+         *
+         *     This is deliberately not a DELETE verb. DELETE would describe something
+         *     this does not do, and the next person reading the route list would
+         *     reasonably assume the data is gone.
+         */
+        post: operations["hide_customers_api_v1_admin_customers_hide_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/customers/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put hidden customers back in the list
+         * @description The undo.
+         *
+         *     Its existence is the whole argument for hiding rather than deleting:
+         *     the operator's very next action after an accidental bulk delete has
+         *     somewhere to go.
+         */
+        post: operations["restore_customers_api_v1_admin_customers_restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/claims/{claim_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Move a claim along its lifecycle
+         * @description Advance a claim: submitted, sent to the airline, settled, rejected.
+         *
+         *     The eight stages already existed in the model and nothing could move a
+         *     claim between them except code. That made the status column decorative
+         *     -- it only ever read DRAFT or SUBMITTED, whatever had really happened.
+         *
+         *     No transition rules. A real claim goes backwards: an airline asks for
+         *     another document, something is withdrawn and refiled. Encoding a
+         *     one-way pipeline would mean an operator staring at a correct value they
+         *     are not allowed to set, which is how people start keeping the real
+         *     status in a spreadsheet.
+         */
+        patch: operations["update_claim_status_api_v1_admin_claims__claim_id__status_patch"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -750,6 +832,17 @@ export interface components {
          */
         ClaimStatus: "DRAFT" | "SUBMITTED" | "IN_REVIEW" | "SENT_TO_AIRLINE" | "AWAITING_AIRLINE" | "SETTLED" | "REJECTED" | "WITHDRAWN";
         /**
+         * ClaimStatusUpdate
+         * @description Where a claim has got to.
+         *
+         *     Validated against the enum rather than taken as free text, so a typo in
+         *     a dashboard cannot invent a ninth stage that no report counts.
+         */
+        ClaimStatusUpdate: {
+            /** Status */
+            status: string;
+        };
+        /**
          * CustomerCounts
          * @description Four numbers an operator reads before any row.
          *
@@ -813,6 +906,8 @@ export interface components {
             claim_reference: string | null;
             /** Claim Status */
             claim_status: string | null;
+            /** Hidden At */
+            hidden_at?: string | null;
             /** Claim Submitted At */
             claim_submitted_at: string | null;
             /** Passenger Count */
@@ -905,6 +1000,8 @@ export interface components {
             claim_reference: string | null;
             /** Claim Status */
             claim_status: string | null;
+            /** Hidden At */
+            hidden_at?: string | null;
             /** Claim Submitted At */
             claim_submitted_at: string | null;
             /** Passenger Count */
@@ -1239,6 +1336,18 @@ export interface components {
             environment: string;
         };
         /**
+         * HideRequest
+         * @description Which customers to remove from the list, or put back.
+         *
+         *     A list rather than one id per request: the screen offers multi-select,
+         *     and fifty requests for one gesture is fifty chances for half of them to
+         *     land.
+         */
+        HideRequest: {
+            /** Check Ids */
+            check_ids: string[];
+        };
+        /**
          * MoneyOut
          * @description An amount, three ways.
          *
@@ -1262,6 +1371,18 @@ export interface components {
              * @example £520.00
              */
             formatted: string;
+        };
+        /**
+         * Moved
+         * @description How many rows actually changed.
+         *
+         *     Not how many were asked for. If six of the fifty were already hidden,
+         *     the honest answer is 44 -- a screen that reports the request rather
+         *     than the outcome is one people stop believing.
+         */
+        Moved: {
+            /** Moved */
+            moved: number;
         };
         /**
          * OutcomeOut
@@ -1916,6 +2037,8 @@ export interface operations {
                 has_claim?: boolean | null;
                 /** @description Include checks with no name and no email -- people who typed a flight number and left. Off by default: there is nobody to contact, and thousands of them would bury the rest. */
                 include_anonymous?: boolean;
+                /** @description Show ONLY the customers that have been hidden. */
+                hidden?: boolean;
                 limit?: number;
                 offset?: number;
             };
@@ -2032,6 +2155,113 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    hide_customers_api_v1_admin_customers_hide_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-admin-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HideRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Moved"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_customers_api_v1_admin_customers_restore_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-admin-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HideRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Moved"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_claim_status_api_v1_admin_claims__claim_id__status_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-admin-key"?: string | null;
+            };
+            path: {
+                claim_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClaimStatusUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimRow"];
+                };
             };
             /** @description Validation Error */
             422: {

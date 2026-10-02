@@ -1020,6 +1020,86 @@ export const strings = {
       CANNOT_REMEMBER: "לא זוכר",
     } as Record<string, string>,
 
+    /* The eight stages of a claim, as an operator would say them. The enum
+       is the system's vocabulary; this is the business's. */
+    stages: {
+      DRAFT: "טיוטה",
+      SUBMITTED: "הוגשה",
+      IN_REVIEW: "בבדיקה אצלנו",
+      SENT_TO_AIRLINE: "נשלחה לחברה",
+      AWAITING_AIRLINE: "ממתינים לחברה",
+      SETTLED: "שולם",
+      REJECTED: "נדחתה",
+      WITHDRAWN: "בוטלה",
+    } as Record<string, string>,
+    /* The order they are offered in. Not the order they must happen in --
+       a claim really does go backwards when an airline asks for another
+       document. */
+    stageOrder: [
+      "DRAFT",
+      "SUBMITTED",
+      "IN_REVIEW",
+      "SENT_TO_AIRLINE",
+      "AWAITING_AIRLINE",
+      "SETTLED",
+      "REJECTED",
+      "WITHDRAWN",
+    ] as const,
+    noStage: "—",
+
+    select: {
+      one: "נבחרה שורה אחת",
+      many: (n: number) => `נבחרו ${n} שורות`,
+      clear: "ביטול הבחירה",
+      delete: "מחיקה",
+      restore: "שחזור",
+      exportCsv: "ייצוא ל‑CSV",
+      selectAll: "בחירת הכול",
+    },
+
+    toast: {
+      hidden: (n: number) => (n === 1 ? "לקוח אחד הוסר" : `${n} לקוחות הוסרו`),
+      restored: (n: number) =>
+        n === 1 ? "לקוח אחד שוחזר" : `${n} לקוחות שוחזרו`,
+      undo: "ביטול",
+      stageSaved: "הסטטוס עודכן",
+      copied: "הועתק",
+      failed: "הפעולה נכשלה",
+    },
+
+    /* The "deleted" view. Called a recycle bin rather than "hidden",
+       because that is the mental model every operator already has. */
+    binView: "הוסרו",
+    binNote:
+      "הלקוחות האלה הוסרו מהרשימה. שום דבר לא נמחק — אפשר לשחזר כל אחד מהם.",
+
+    /* The files, shown rather than only downloaded. */
+    files: {
+      title: "קבצים",
+      open: "פתיחה",
+      download: "הורדה",
+      notAnImage: "קובץ שאינו תמונה — אפשר להוריד אותו",
+      loading: "טוען…",
+      close: "סגירה",
+      prev: "הקודם",
+      next: "הבא",
+      of: (i: number, n: number) => `${i} מתוך ${n}`,
+    },
+
+    /* Relative time. An operator cares that somebody checked twenty
+       minutes ago far more than they care that it was 14:32. */
+    ago: {
+      now: "הרגע",
+      minutes: (n: number) => `לפני ${n} דק׳`,
+      hours: (n: number) => (n === 1 ? "לפני שעה" : `לפני ${n} שעות`),
+      days: (n: number) => (n === 1 ? "אתמול" : `לפני ${n} ימים`),
+    },
+    columns2: { when: "נבדק", stage: "שלב" },
+
+    shortcuts: {
+      hint: "לחצו / לחיפוש · ↑↓ למעבר · Enter לפתיחה",
+    },
+
     detail: {
       title: "פרטי לקוח",
       close: "סגירה",

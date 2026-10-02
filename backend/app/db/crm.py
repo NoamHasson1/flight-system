@@ -32,9 +32,9 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime
 
-from sqlalchemy import ColumnElement, Select, func, or_, select
+from sqlalchemy import ColumnElement, Select, func, or_, select, update
 from sqlalchemy.orm import Session, joinedload
 
 from app.db.models import Claim, Document, EligibilityCheck, Passenger
@@ -93,7 +93,9 @@ def _is_a_customer() -> ColumnElement[bool]:
     )
 
 
-def _base(include_anonymous: bool) -> Select[tuple[EligibilityCheck, Claim | None]]:
+def _base(
+    include_anonymous: bool, hidden: bool = False
+) -> Select[tuple[EligibilityCheck, Claim | None]]:
     """Every check, with its claim attached when there is one.
 
     An OUTER join, which is the whole design: an INNER join would silently
@@ -110,6 +112,15 @@ def _base(include_anonymous: bool) -> Select[tuple[EligibilityCheck, Claim | Non
     )
     if not include_anonymous:
         stmt = stmt.where(_is_a_customer())
+    # Hidden rows are EXCLUDED unless explicitly asked for, and the "hidden"
+    # view shows only them. An operator who hid somebody by accident needs
+    # one obvious place to look, not a list where the row is back among
+    # eight hundred others.
+    stmt = stmt.where(
+        EligibilityCheck.hidden_at.is_not(None)
+        if hidden
+        else EligibilityCheck.hidden_at.is_(None)
+    )
     return stmt
 
 
@@ -152,6 +163,7 @@ def list_customers(
     search: str | None = None,
     has_claim: bool | None = None,
     include_anonymous: bool = False,
+    hidden: bool = False,
     limit: int = 50,
     offset: int = 0,
 ) -> list[CustomerRecord]:
@@ -162,7 +174,10 @@ def list_customers(
     is who an operator is looking for when they open this screen.
     """
     stmt = _filtered(
-        _base(include_anonymous), verdict=verdict, search=search, has_claim=has_claim
+        _base(include_anonymous, hidden),
+        verdict=verdict,
+        search=search,
+        has_claim=has_claim,
     )
     rows = session.execute(
         stmt.order_by(EligibilityCheck.created_at.desc()).limit(limit).offset(offset)
@@ -177,6 +192,7 @@ def count_customers(
     search: str | None = None,
     has_claim: bool | None = None,
     include_anonymous: bool = False,
+    hidden: bool = False,
 ) -> int:
     """How many rows the filters match, ignoring the page.
 
@@ -186,7 +202,10 @@ def count_customers(
     the number that matters most.
     """
     stmt = _filtered(
-        _base(include_anonymous), verdict=verdict, search=search, has_claim=has_claim
+        _base(include_anonymous, hidden),
+        verdict=verdict,
+        search=search,
+        has_claim=has_claim,
     )
     # Count the checks, not the joined rows. A check has at most one claim,
     # so they agree today -- but `count(*)` over a join is the classic way to
@@ -257,6 +276,7 @@ def customer_counts(
     )
     if not include_anonymous:
         stmt = stmt.where(_is_a_customer())
+    stmt = stmt.where(EligibilityCheck.hidden_at.is_(None))
 
     row = session.execute(stmt).one()
     return {
@@ -265,3 +285,35 @@ def customer_counts(
         "review": row.review or 0,
         "claims": row.claims or 0,
     }
+
+
+def set_hidden(
+    session: Session, check_ids: list[uuid.UUID], *, hidden: bool
+) -> int:
+    """Hide or restore customers. Returns how many actually moved.
+
+    THE COUNT IS THE POINT. An operator selects fifty rows and presses
+    delete; if six of them were already hidden by somebody else, the honest
+    message is "44 hidden", not "50 hidden". A screen that reports what was
+    asked for rather than what happened is how people stop trusting it.
+
+    One statement rather than a loop. Fifty individual updates inside a
+    request is fifty round trips, and a partial failure halfway through
+    leaves the operator's selection half-applied with no way to tell which
+    half.
+    """
+    if not check_ids:
+        return 0
+    result = session.execute(
+        update(EligibilityCheck)
+        .where(
+            EligibilityCheck.id.in_(check_ids),
+            # Only rows actually changing state, so the count is truthful.
+            EligibilityCheck.hidden_at.is_(None)
+            if hidden
+            else EligibilityCheck.hidden_at.is_not(None),
+        )
+        .values(hidden_at=datetime.now(UTC) if hidden else None)
+    )
+    session.flush()
+    return result.rowcount or 0

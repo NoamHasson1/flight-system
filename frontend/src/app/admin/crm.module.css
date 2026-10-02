@@ -628,7 +628,242 @@
 
 .skeletonRow {
   display: grid;
-  grid-template-columns: 1.6fr 1fr 1fr 2fr 1.2fr 1.2fr;
+  grid-template-columns: 1.6fr 1fr 1fr 2fr 1.2fr 1.2fr 1fr;
   gap: 0.9rem;
   padding: 0.65rem 0;
+}
+
+/* --- Selection ------------------------------------------------------------ */
+
+.checkCell { width: 2.5rem; padding-inline: 0.9rem; }
+
+/* A selected row is tinted rather than outlined: an outline on every
+   selected row in a list of fifty is visual noise, while a tint reads as
+   one block. */
+.rowSelected { background: var(--verdict-yes-fill); }
+.rowSelected:hover { background: #e3f7f5; }
+
+/* The bulk-action bar replaces the counters rather than appearing below
+   them, so the screen does not jump when a row is ticked. */
+.bulk {
+  max-width: 78rem;
+  margin: 0 auto;
+  padding: 1.25rem 1.25rem 0;
+}
+
+.bulkInner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  background: var(--surface-ink);
+  color: var(--text-on-ink);
+  border-radius: var(--radius-lg);
+  padding: 0.7rem 1rem;
+}
+
+.bulkCount { font-weight: 650; font-size: var(--text-callout); }
+
+.bulkButton {
+  appearance: none;
+  border: 1px solid rgb(255 255 255 / 0.22);
+  background: rgb(255 255 255 / 0.08);
+  color: var(--text-on-ink);
+  font: inherit;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  padding: 0.35rem 0.85rem;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: background-color var(--duration-quick) var(--ease-out-soft);
+}
+.bulkButton:hover { background: rgb(255 255 255 / 0.18); }
+.bulkDanger { border-color: rgb(255 140 140 / 0.5); color: #ffc9c9; }
+.bulkDanger:hover { background: rgb(255 90 90 / 0.22); }
+
+/* --- The stage column ----------------------------------------------------- */
+
+/* A bare <select> styled to read as text until it is hovered. The column
+   is scanned far more often than it is changed, so at rest it should look
+   like data, not like a form. */
+.stage {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  font: inherit;
+  font-size: var(--text-caption);
+  font-weight: 600;
+  color: var(--text-default);
+  padding: 0.22rem 0.55rem;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  max-width: 10rem;
+  transition:
+    background-color var(--duration-quick) var(--ease-out-soft),
+    border-color var(--duration-quick) var(--ease-out-soft);
+}
+.stage:hover { background: var(--surface-mist); border-color: var(--border-subtle); }
+.stageSettled { color: var(--verdict-yes); }
+.stageRejected { color: #b4232a; }
+.stageWaiting { color: var(--verdict-review); }
+
+/* --- Copyable values ------------------------------------------------------ */
+
+.copy {
+  appearance: none;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: inherit;
+  color: inherit;
+  padding: 0;
+  cursor: copy;
+  border-bottom: 1px dashed transparent;
+}
+.copy:hover { border-bottom-color: var(--border-default); }
+
+/* --- Toast ---------------------------------------------------------------- */
+
+.toast {
+  position: fixed;
+  z-index: 80;
+  inset-block-end: 1.25rem;
+  inset-inline-start: 50%;
+  transform: translateX(50%);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--surface-ink);
+  color: var(--text-on-ink);
+  border-radius: var(--radius-pill);
+  padding: 0.7rem 0.9rem 0.7rem 1.25rem;
+  box-shadow: var(--shadow-float);
+  font-size: var(--text-callout);
+  animation: toastIn var(--duration-base) var(--ease-out-soft);
+}
+.toastBad { background: #7a1f24; }
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(50%) translateY(0.75rem); }
+  to { opacity: 1; transform: translateX(50%) translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
+}
+
+.toastUndo {
+  appearance: none;
+  border: 1px solid rgb(255 255 255 / 0.3);
+  background: transparent;
+  color: var(--color-teal-200);
+  font: inherit;
+  font-weight: 650;
+  font-size: var(--text-caption);
+  padding: 0.25rem 0.8rem;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+.toastUndo:hover { background: rgb(255 255 255 / 0.12); }
+
+.toastClose {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: var(--text-on-ink-dim);
+  font: inherit;
+  cursor: pointer;
+  padding: 0 0.1rem;
+}
+.toastClose:hover { color: var(--text-on-ink); }
+
+/* --- File thumbnails ------------------------------------------------------ */
+
+.thumbs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.thumb {
+  appearance: none;
+  position: relative;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--surface-mist);
+  cursor: zoom-in;
+  aspect-ratio: 4 / 3;
+  display: grid;
+  place-items: center;
+  transition: border-color var(--duration-quick) var(--ease-out-soft);
+}
+.thumb:hover { border-color: var(--color-teal-400); }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.thumbLoading { color: var(--text-muted); font-size: var(--text-caption); }
+
+.thumbKind {
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline: 0;
+  background: rgb(17 24 32 / 0.68);
+  color: #fff;
+  font-size: var(--text-micro);
+  font-weight: 700;
+  padding: 0.2rem 0.4rem;
+  text-align: start;
+}
+
+/* --- Lightbox ------------------------------------------------------------- */
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgb(10 14 19 / 0.93);
+  display: flex;
+  flex-direction: column;
+  animation: fade var(--duration-quick) var(--ease-out-soft);
+}
+
+.lightboxBar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  color: var(--text-on-ink);
+  border-bottom: 1px solid rgb(255 255 255 / 0.12);
+}
+.lightboxBar .ghost { background: rgb(255 255 255 / 0.1); border-color: rgb(255 255 255 / 0.25); color: #fff; }
+.lightboxBar .ghost:hover { background: rgb(255 255 255 / 0.2); }
+
+.lightboxName { font-size: var(--text-callout); overflow-wrap: anywhere; }
+.lightboxCount { color: var(--text-on-ink-dim); font-size: var(--text-caption); }
+
+.lightboxStage {
+  flex: 1 1 auto;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  overflow: auto;
+  cursor: zoom-out;
+}
+.lightboxStage img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  cursor: default;
+  border-radius: var(--radius-sm);
+}
+
+/* --- Keyboard hint -------------------------------------------------------- */
+
+.hint {
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+}
+@media (max-width: 60rem) {
+  .hint { display: none; }
 }
