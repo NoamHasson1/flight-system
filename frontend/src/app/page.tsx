@@ -13,6 +13,21 @@ import { resolveBackendOrigin } from "@/lib/backend-origin";
 import { strings } from "@/lib/strings";
 
 /**
+ * Rendered per request, never at build time.
+ *
+ * The check form caps its date input at today, and a prerendered page
+ * freezes whatever "today" meant when the image was built. That shipped:
+ * a build from 27 September was still refusing October dates on 2 October,
+ * and would have gone on refusing them until the next deploy.
+ *
+ * The rule: a page whose OWN OUTPUT depends on the clock cannot be a
+ * static file. The board on this page is not affected -- it is a client
+ * island that fetches with `no-store`, so its shell may be prerendered
+ * safely. The date cap is different because it is rendered HTML.
+ */
+export const dynamic = "force-dynamic";
+
+/**
  * The landing page.
  *
  * A server component. Only three things on it need JavaScript -- the check

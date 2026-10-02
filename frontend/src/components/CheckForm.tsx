@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { checkEligibility, type FlightOption } from "@/lib/api";
 import { airlineName, cityName } from "@/lib/names";
 import { strings } from "@/lib/strings";
+import { airportToday } from "@/lib/today";
 
 import s from "./hero.module.css";
 
@@ -55,7 +56,9 @@ export function CheckForm() {
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const numberRef = useRef<HTMLInputElement>(null);
 
-  const today = new Date().toISOString().slice(0, 10);
+  // Ben Gurion's day, not the viewer's and not UTC. See lib/today.ts for
+  // why this must never be read during a prerender.
+  const today = airportToday();
   const cleaned = normalise(flightNumber);
 
   const numberError = !cleaned
