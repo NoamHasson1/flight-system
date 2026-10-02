@@ -591,6 +591,7 @@ def search_flights(
         ),
     ] = False,
     limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = 100,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ArchivedFlightPage:
     """The source of truth, read back exactly as the rules receive it.
 

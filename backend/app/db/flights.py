@@ -162,14 +162,20 @@ def search_flights(
     until: date | None = None,
     disrupted_only: bool = False,
     limit: int = 100,
+    offset: int = 0,
     max_scan: int = MAX_SCAN,
-) -> tuple[list[ArchivedFlight], bool]:
+) -> tuple[list[ArchivedFlight], bool, int]:
     """What the archive holds, newest day first.
 
-    Returns the rows AND whether the answer is incomplete -- either
-    because more matched than were asked for, or because the scan itself
-    was cut short. A truncated answer that does not say so is how somebody
-    concludes a flight is missing when it is merely further down.
+    Returns the page of rows, whether the SCAN was cut short, and how many
+    matched in total.
+
+    The total is the point. A day at Ben Gurion is around 870 flights, and
+    a screen that shows 200 of them without saying so is the failure this
+    whole module exists to avoid -- somebody browses, does not find a
+    flight, and concludes we never recorded it. With the total they know
+    to keep paging; with the scan flag they know when even the total is
+    understated.
 
     A flight number alone searches the WHOLE archive -- that is the
     troubleshooting case and the column is indexed. Without one, the
@@ -233,4 +239,4 @@ def search_flights(
         ),
         reverse=True,
     )
-    return found[:limit], scan_was_cut or len(found) > limit
+    return found[offset : offset + limit], scan_was_cut, len(found)

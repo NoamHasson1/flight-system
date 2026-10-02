@@ -93,7 +93,7 @@ def test_a_flight_number_is_found_across_the_whole_archive(
     _store(session, flight_date=date(2026, 3, 30))
     _store(session, flight_date=date(2026, 9, 26))
 
-    found, _ = repo.search_flights(session, number="BZ887")
+    found, _, _total = repo.search_flights(session, number="BZ887")
 
     assert len(found) == 2
     assert [f.flight_date for f in found] == [date(2026, 9, 26), date(2026, 3, 30)]
@@ -106,7 +106,7 @@ def test_the_number_is_matched_case_and_space_insensitively(
     however it is printed. ` bz887 ` is the same flight."""
     _store(session, number="BZ887")
 
-    found, _ = repo.search_flights(session, number="  bz887 ")
+    found, _, _total = repo.search_flights(session, number="  bz887 ")
 
     assert len(found) == 1
 
@@ -124,7 +124,7 @@ def test_both_sources_are_shown_separately_and_not_merged(
     _store(session, provider="iaa")
     _store(session, provider="aerodatabox", destination=None)
 
-    found, _ = repo.search_flights(session, number="BZ887")
+    found, _, _total = repo.search_flights(session, number="BZ887")
 
     assert {f.provider for f in found} == {"iaa", "aerodatabox"}
 
@@ -140,7 +140,7 @@ def test_a_record_the_rules_cannot_use_says_why(session: Session) -> None:
     """
     _store(session, destination=None)
 
-    found, _ = repo.search_flights(session, number="BZ887")
+    found, _, _total = repo.search_flights(session, number="BZ887")
 
     assert found[0].usable is False
     assert found[0].unusable_reason
@@ -159,7 +159,7 @@ def test_a_flight_with_no_times_at_all_does_not_crash_the_sort(
     _store(session, status="CANCELLED", sched_arr=None, actual_arr=None)
     _store(session, number="LY325", sched_arr="2026-09-26T08:00:00+00:00")
 
-    found, _ = repo.search_flights(session, on=SEP_26)
+    found, _, _total = repo.search_flights(session, on=SEP_26)
 
     assert len(found) == 2
 
@@ -197,7 +197,7 @@ def test_browsing_finds_disruptions_rather_than_the_newest_rows(
     )
 
     # The date range is the real bound, so the cancellation is found.
-    found, truncated = repo.search_flights(
+    found, truncated, _total = repo.search_flights(
         session,
         since=date(2026, 9, 28),
         until=date(2026, 10, 6),
@@ -242,7 +242,7 @@ def test_a_scan_cut_short_says_so_instead_of_reporting_nothing(
         actual_arr=None,
     )
 
-    found, truncated = repo.search_flights(
+    found, truncated, _total = repo.search_flights(
         session,
         since=date(2026, 9, 28),
         until=date(2026, 10, 6),
@@ -277,21 +277,57 @@ def test_a_short_delay_counts_as_a_disruption_but_an_on_time_flight_does_not(
         actual_arr="2026-09-26T10:40:00+00:00",
     )
 
-    found, _ = repo.search_flights(session, on=SEP_26, disrupted_only=True)
+    found, _, _total = repo.search_flights(session, on=SEP_26, disrupted_only=True)
 
     assert [f.flight_number for f in found] == ["LATE1"]
 
 
-def test_truncation_is_reported_rather_than_hidden(session: Session) -> None:
-    """A cut-off list that does not say so is how somebody concludes a
-    flight is missing when it is merely further down."""
+def test_a_page_reports_how_many_matched_in_total(session: Session) -> None:
+    """The number that makes a long day walkable.
+
+    A day at Ben Gurion is around 870 flights. A screen showing 200 of
+    them with no count is how somebody browses, fails to find a flight,
+    and concludes we never recorded it -- which is exactly the
+    wrong-in-a-reassuring-direction failure this module exists to avoid.
+
+    `truncated` is a different claim and must stay false here: the scan
+    saw everything, the page is simply one page of it.
+    """
     for i in range(5):
         _store(session, number=f"BZ{i:03d}", sched_arr="2026-09-26T10:00:00+00:00")
 
-    found, truncated = repo.search_flights(session, on=SEP_26, limit=3)
+    found, truncated, total = repo.search_flights(session, on=SEP_26, limit=3)
 
     assert len(found) == 3
-    assert truncated is True
+    assert total == 5
+    assert truncated is False
+
+
+def test_paging_walks_the_whole_day_without_repeating_or_skipping(
+    session: Session,
+) -> None:
+    """Every flight reachable, which is the actual requirement.
+
+    Searching a number was always complete. BROWSING was not: the page
+    showed the first 200 of 873 and there was no way to reach the rest.
+    """
+    for i in range(7):
+        _store(
+            session,
+            number=f"BZ{i:03d}",
+            sched_arr=f"2026-09-26T{10 + i:02d}:00:00+00:00",
+        )
+
+    seen: list[str] = []
+    for offset in (0, 3, 6):
+        page, _, total = repo.search_flights(
+            session, on=SEP_26, limit=3, offset=offset
+        )
+        seen.extend(f.flight_number for f in page)
+        assert total == 7
+
+    assert len(seen) == 7, "every flight reachable"
+    assert len(set(seen)) == 7, "and none seen twice"
 
 
 def test_the_raw_payload_comes_back_untouched(session: Session) -> None:
@@ -303,6 +339,6 @@ def test_the_raw_payload_comes_back_untouched(session: Session) -> None:
     """
     _store(session)
 
-    found, _ = repo.search_flights(session, number="BZ887")
+    found, _, _total = repo.search_flights(session, number="BZ887")
 
     assert found[0].raw == {"CHOPER": "BZ", "CHRMINE": "LANDED"}

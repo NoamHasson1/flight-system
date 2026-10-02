@@ -33,6 +33,15 @@ import { strings } from "@/lib/strings";
 import { airportToday } from "@/lib/today";
 import s from "../crm.module.css";
 
+/**
+ * Rows per request.
+ *
+ * Capped at the API's own ceiling of 200. A day at Ben Gurion is around
+ * 870 flights, so a whole day is five pages -- which is only usable
+ * because the footer says how many there are in total.
+ */
+const PAGE = 150;
+
 export default function FlightArchivePage() {
   const [key] = useAdminKey();
   const t = strings.admin;
@@ -61,6 +70,7 @@ function Archive({ adminKey }: { adminKey: string }) {
   const [day, setDay] = useState("");
   const [disruptedOnly, setDisruptedOnly] = useState(true);
   const [rows, setRows] = useState<ArchivedFlight[]>([]);
+  const [total, setTotal] = useState(0);
   const [truncated, setTruncated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -81,29 +91,36 @@ function Archive({ adminKey }: { adminKey: string }) {
    */
   const latest = useRef(0);
 
-  const load = useCallback(async () => {
-    const ticket = ++latest.current;
-    setLoading(true);
-    const result = await searchArchive(adminKey, {
-      number: number.trim() || undefined,
-      date: day || undefined,
-      // A flight number is a targeted lookup, and the reason to do one is
-      // usually that the flight does NOT look disrupted. Filtering those
-      // out would hide the answer the operator came for.
-      disruptedOnly: number.trim() ? false : disruptedOnly,
-      limit: 150,
-    });
-    // Anything but the newest request is thrown away, successful or not.
-    if (ticket !== latest.current) return;
-    setLoading(false);
-    if (!result.ok) return setFailed(true);
-    setFailed(false);
-    setRows(result.data.items);
-    setTruncated(result.data.truncated);
-  }, [adminKey, number, day, disruptedOnly]);
+  const load = useCallback(
+    async (offset: number) => {
+      const ticket = ++latest.current;
+      setLoading(true);
+      const result = await searchArchive(adminKey, {
+        number: number.trim() || undefined,
+        date: day || undefined,
+        // A flight number is a targeted lookup, and the reason to do one
+        // is usually that the flight does NOT look disrupted. Filtering
+        // those out would hide the answer the operator came for.
+        disruptedOnly: number.trim() ? false : disruptedOnly,
+        limit: PAGE,
+        offset,
+      });
+      // Anything but the newest request is thrown away, successful or not.
+      if (ticket !== latest.current) return;
+      setLoading(false);
+      if (!result.ok) return setFailed(true);
+      setFailed(false);
+      setTotal(result.data.total);
+      setTruncated(result.data.truncated);
+      setRows((prev) =>
+        offset === 0 ? result.data.items : [...prev, ...result.data.items],
+      );
+    },
+    [adminKey, number, day, disruptedOnly],
+  );
 
   useEffect(() => {
-    const timer = setTimeout(() => void load(), 250);
+    const timer = setTimeout(() => void load(0), 250);
     return () => clearTimeout(timer);
   }, [load]);
 
@@ -173,7 +190,12 @@ function Archive({ adminKey }: { adminKey: string }) {
 
       <main className={s.sheet} style={{ marginTop: "1.25rem" }}>
         <p className={s.footerCount} style={{ marginBottom: "0.75rem" }}>
-          {t.flights.lead}
+          {t.flights.lead}{" "}
+          {/* Said out loud, because "can I find EVERY flight" is the
+              question this screen is for and the browse default --
+              disruptions only -- answers "no" unless you know to untick
+              it. */}
+          {!number.trim() && t.flights.allFlights}
         </p>
 
         <div className={s.card}>
@@ -223,15 +245,27 @@ function Archive({ adminKey }: { adminKey: string }) {
           )}
         </div>
 
-        {truncated && (
-          <p className={s.footerCount} style={{ marginTop: "0.75rem" }}>
-            {t.flights.truncated}
-          </p>
-        )}
         {rows.length > 0 && (
-          <p className={s.footerCount} style={{ marginTop: "0.5rem" }}>
-            {rows.length}
-          </p>
+          <div className={s.footer}>
+            <span className={s.footerCount}>
+              {t.flights.showing(rows.length, total)}
+            </span>
+            {rows.length < total && (
+              <button
+                type="button"
+                className={s.ghost}
+                disabled={loading}
+                onClick={() => void load(rows.length)}
+              >
+                {t.flights.loadMore}
+              </button>
+            )}
+            {truncated && (
+              <span className={s.footerCount} style={{ color: "var(--verdict-review)" }}>
+                {t.flights.truncated}
+              </span>
+            )}
+          </div>
         )}
       </main>
     </div>

@@ -1121,7 +1121,14 @@ export const strings = {
         "אם הטיסה אמורה להיות כאן, ייתכן שהיא מעולם לא נקלטה — או שהתאריך " +
         "הוא של הנחיתה ולא של ההמראה.",
       truncated:
-        "התוצאות נחתכו. צמצמו את טווח התאריכים או הזינו מספר טיסה.",
+        "הסריקה נקטעה — ייתכן שחסרות תוצאות. צמצמו את טווח התאריכים.",
+      showing: (shown: number, total: number) => `מוצגות ${shown} מתוך ${total}`,
+      loadMore: "טעינת עוד",
+      /* Said out loud on the browse view, because "I need to find every
+         flight" is the whole reason this screen exists. */
+      allFlights:
+        "הארכיון מכיל כל טיסה בנתב״ג, גם כאלה שהמריאו ונחתו בזמן. " +
+        "חיפוש לפי מספר טיסה מוצא כל אחת מהן.",
       columns: {
         flight: "טיסה",
         date: "תאריך",

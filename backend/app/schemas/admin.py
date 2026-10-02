@@ -285,8 +285,19 @@ class ArchivedFlightOut(BaseModel):
 
 class ArchivedFlightPage(BaseModel):
     items: list[ArchivedFlightOut]
-    # Not a total. Counting every matching flight means decoding every
-    # stored payload, which is the expensive thing this endpoint avoids --
-    # so it says "there are more" rather than inventing a number it did
-    # not actually compute.
+
+    # How many matched, not how many are on this page.
+    #
+    # A day at Ben Gurion is around 870 flights. Showing 200 of them with
+    # no count is how somebody browses, fails to find a flight, and
+    # concludes we never recorded it -- the exact wrong-in-a-reassuring-
+    # direction failure this screen exists to prevent.
+    #
+    # It costs nothing extra: the payloads are already decoded to apply
+    # the disruption filter, so counting them is free.
+    total: int
+
+    # True when the SCAN hit its ceiling, meaning even `total` is
+    # understated. Distinct from "there are more pages": this one says the
+    # answer itself is incomplete.
     truncated: bool

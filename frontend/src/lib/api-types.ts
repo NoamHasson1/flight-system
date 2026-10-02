@@ -621,6 +621,8 @@ export interface components {
         ArchivedFlightPage: {
             /** Items */
             items: components["schemas"]["ArchivedFlightOut"][];
+            /** Total */
+            total: number;
             /** Truncated */
             truncated: boolean;
         };
@@ -2387,6 +2389,7 @@ export interface operations {
                 /** @description Only cancellations, diversions and delays of 15 minutes or more. Off when searching a flight number: the reason to look one up is often that it does NOT appear disrupted. */
                 disrupted_only?: boolean;
                 limit?: number;
+                offset?: number;
             };
             header?: {
                 "x-admin-key"?: string | null;

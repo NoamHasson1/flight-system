@@ -528,6 +528,7 @@ export async function searchArchive(
     until?: string;
     disruptedOnly?: boolean;
     limit?: number;
+    offset?: number;
   },
 ): Promise<ApiResult<ArchivedFlightPage>> {
   const params = new URLSearchParams();
@@ -537,6 +538,7 @@ export async function searchArchive(
   if (query.until) params.set("until", query.until);
   if (query.disruptedOnly) params.set("disrupted_only", "true");
   params.set("limit", String(query.limit ?? 100));
+  params.set("offset", String(query.offset ?? 0));
 
   return request<ArchivedFlightPage>(`/api/v1/admin/flights?${params}`, {
     method: "GET",
