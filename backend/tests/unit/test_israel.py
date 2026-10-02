@@ -294,6 +294,62 @@ def test_an_early_arrival_is_refused_outright_despite_no_departure_time() -> Non
     assert outcome.award is None
 
 
+def test_a_badly_delayed_inbound_flight_is_a_claim_with_one_question() -> None:
+    """WZ4311 from Sochi, 26 September. It reached Tel Aviv NINETEEN hours late.
+
+    The law decides eligibility on the departure delay, and the Israeli
+    airport authority publishes only the Ben Gurion end -- so this flight had
+    no departure time and sat in manual review, next to 81 others. Its
+    passengers were told we would have to look into it by hand.
+
+    Nobody loses nineteen hours in the air. The flight left late, and the
+    only thing in doubt is by exactly how much.
+
+    LIKELY_ELIGIBLE rather than ELIGIBLE, deliberately: we are not asserting
+    a figure we cannot see, we are naming the one fact that settles it and
+    asking the person who was standing in the departure hall.
+    """
+    inbound = replace(
+        a_flight(origin="AER", origin_country="RU",
+                 destination="TLV", destination_country="IL",
+                 distance_km=1600.0, status=FlightStatus.LANDED,
+                 arrival_delay_hours=19.1),
+        actual_departure=None,
+    )
+    assert inbound.departure_delay_hours is None
+
+    outcome = israel.evaluate(inbound)
+
+    assert outcome.verdict is Verdict.LIKELY_ELIGIBLE
+    assert outcome.open_question == "actual_departure"
+    # 1,600 km is the first band, and the figure is the FULL one. The 50%
+    # reduction turns on the arrival delay, and this flight's arrival delay
+    # is nineteen hours -- far outside the 4h ceiling that would halve it.
+    assert outcome.award == Money.of("1530", ILS)
+
+
+def test_the_claim_is_quoted_at_the_full_band_amount_not_the_halved_one() -> None:
+    """The reduction must not be applied twice, or pre-emptively.
+
+    `compensation_for` halves the award when the passenger still landed close
+    to schedule. A flight that qualifies through THIS branch arrived at least
+    eight hours late, which is outside every band's reduction ceiling
+    (4h/5h/6h) -- so the full figure is always right here, and quoting a
+    halved one would under-state every claim on this path.
+    """
+    inbound = replace(
+        a_flight(origin="DXB", origin_country="AE",
+                 destination="TLV", destination_country="IL",
+                 distance_km=2100.0, status=FlightStatus.LANDED,
+                 arrival_delay_hours=9.4),
+        actual_departure=None,
+    )
+
+    outcome = israel.evaluate(inbound)
+
+    assert outcome.award == Money.of("2450", ILS), "second band, in full"
+
+
 def test_an_arrival_delay_near_the_threshold_still_goes_to_a_person() -> None:
     """The guard on the guard, and the reason the margin is three hours.
 

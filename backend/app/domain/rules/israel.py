@@ -181,6 +181,54 @@ def evaluate(flight: FlightFacts) -> RegulationOutcome:
         # the one failure this system exists to avoid -- a wrong no -- is not
         # reachable from here.
         arrival_delay = flight.arrival_delay_hours
+
+        # THE SAME INEQUALITY, READ THE OTHER WAY.
+        #
+        # A departure delay is the arrival delay plus whatever was made up in
+        # the air, MINUS whatever was lost in it. The first direction (below)
+        # rules a claim out. This one rules it in: a flight that reached Tel
+        # Aviv eight hours late did not leave on time, because nobody loses
+        # eight hours between two airports.
+        #
+        # 82 flights in the archive sat in manual review on this, and they
+        # are not marginal -- WZ4311 from Sochi on 26 September arrived
+        # NINETEEN HOURS late and we were telling its passengers we would
+        # have to look into it by hand.
+        #
+        # The verdict is LIKELY_ELIGIBLE and not ELIGIBLE, deliberately. We
+        # are not asserting the departure delay; we are saying this is a
+        # claim and naming the one fact that settles it. The passenger was
+        # in the departure hall and knows what time the aircraft left.
+        #
+        # The threshold is the law's own eight hours, with no second
+        # constant. Below it the arithmetic genuinely does not decide -- a
+        # flight that landed six hours late could have left four hours late
+        # or nine -- so those still go to a person.
+        if (
+            arrival_delay is not None
+            and arrival_delay >= MINIMUM_DEPARTURE_DELAY_HOURS
+        ):
+            band = distance_band(flight.distance_km, BAND_1_KM, BAND_2_KM)
+            award = COMPENSATION[band]
+            return _outcome(
+                Verdict.LIKELY_ELIGIBLE,
+                applies=True,
+                award=award,
+                open_question=OpenQuestion.ACTUAL_DEPARTURE,
+                reason=(
+                    f"{LABEL} covers this flight ({flight.route}), and it "
+                    f"arrived {describe_delay(arrival_delay)}. This law "
+                    f"measures the delay at departure, and the Israeli "
+                    f"airport authority only records the Ben Gurion end, so "
+                    f"we have no departure time for it -- but a flight does "
+                    f"not lose "
+                    f"{format_hours(MINIMUM_DEPARTURE_DELAY_HOURS)} in the "
+                    f"air, so it left late too. "
+                    f"{_describe_band(flight.distance_km, award)} Tell us "
+                    f"what time you actually took off and we will confirm it."
+                ),
+            )
+
         if (
             arrival_delay is not None
             and arrival_delay + MAX_TIME_MADE_UP_HOURS

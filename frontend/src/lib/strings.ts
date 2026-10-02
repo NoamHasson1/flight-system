@@ -402,6 +402,18 @@ export const strings = {
         { value: "CANNOT_REMEMBER", label: "אני לא זוכר" },
       ],
     },
+    actual_departure: {
+      title: "באיזו שעה המריאה הטיסה בפועל?",
+      /* The reason we are asking, said plainly. The passenger should not
+         have to wonder why a flight-data company is asking them for flight
+         data: the Israeli board publishes the Ben Gurion end only, and this
+         flight took off somewhere else. */
+      explain:
+        "הטיסה שלכם נחתה באיחור גדול, ולכן כמעט בוודאי גם המריאה באיחור — " +
+        "והחוק הישראלי נמדד לפי שעת ההמראה. רשות שדות התעופה מפרסמת רק את " +
+        "מה שקורה בנתב״ג, והטיסה הזו המריאה משדה אחר. אתם הייתם שם.",
+      options: [] as const,
+    },
     actual_arrival: {
       title: "מתי נחתתם בפועל?",
       explain:

@@ -80,6 +80,21 @@ class OpenQuestion(StrEnum):
     Only the passenger knows when the message arrived.
     """
 
+    ACTUAL_DEPARTURE = "actual_departure"
+    """When the aircraft actually left the departure airport.
+
+    The mirror of ACTUAL_ARRIVAL, and asked for the opposite reason. The
+    Israeli law decides eligibility on the DEPARTURE delay, and the Israeli
+    airport authority publishes what happens at Ben Gurion -- so for a flight
+    INTO Israel there is an arrival time and no departure time at all.
+
+    Asked only when the arrival delay already makes a qualifying departure
+    delay near-certain. A flight that reached Tel Aviv nineteen hours late
+    did not leave on time; nobody loses nineteen hours in the air. What we
+    cannot do is prove the exact figure from the Israeli end, and the
+    passenger was standing in the departure hall.
+    """
+
     ACTUAL_ARRIVAL = "actual_arrival"
     """When the passenger actually reached their destination.
 
