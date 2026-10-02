@@ -28,6 +28,7 @@
 
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -295,7 +296,14 @@ function Console({
     <div className={s.page}>
       <header className={s.bar}>
         <div className={s.barInner}>
-          <h1 className={s.title}>{t.title}</h1>
+          <nav className={s.tabs}>
+            <Link href="/admin" className={`${s.tab} ${s.tabOn}`}>
+              {t.flights.customersTab}
+            </Link>
+            <Link href="/admin/flights" className={s.tab}>
+              {t.flights.tab}
+            </Link>
+          </nav>
 
           <div className={s.search}>
             <span className={s.searchIcon} aria-hidden>

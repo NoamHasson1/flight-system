@@ -319,6 +319,8 @@ export type CustomerRow = components["schemas"]["CustomerRow"];
 export type CustomerDetail = components["schemas"]["CustomerDetail"];
 export type CustomerPage = components["schemas"]["Page_CustomerRow_"];
 export type CustomerCounts = components["schemas"]["CustomerCounts"];
+export type ArchivedFlight = components["schemas"]["ArchivedFlightOut"];
+export type ArchivedFlightPage = components["schemas"]["ArchivedFlightPage"];
 export type ClaimStatus =
   | "DRAFT"
   | "SUBMITTED"
@@ -506,6 +508,41 @@ export async function documentObjectUrl(
   } catch {
     return { ok: false, reason: "error" };
   }
+}
+
+/**
+ * What the archive holds about a flight.
+ *
+ * The browser version of `app.tasks.find`, which has settled every data
+ * argument in this project. A flight number searches all of time because
+ * the person asking rarely knows the date; without one the search is
+ * bounded by dates, because the server has to decode every stored payload
+ * to know whether a flight was disrupted.
+ */
+export async function searchArchive(
+  key: string,
+  query: {
+    number?: string;
+    date?: string;
+    since?: string;
+    until?: string;
+    disruptedOnly?: boolean;
+    limit?: number;
+  },
+): Promise<ApiResult<ArchivedFlightPage>> {
+  const params = new URLSearchParams();
+  if (query.number) params.set("number", query.number);
+  if (query.date) params.set("date", query.date);
+  if (query.since) params.set("since", query.since);
+  if (query.until) params.set("until", query.until);
+  if (query.disruptedOnly) params.set("disrupted_only", "true");
+  params.set("limit", String(query.limit ?? 100));
+
+  return request<ArchivedFlightPage>(`/api/v1/admin/flights?${params}`, {
+    method: "GET",
+    headers: adminHeaders(key),
+    cache: "no-store",
+  });
 }
 
 function adminHeaders(key: string): Record<string, string> {

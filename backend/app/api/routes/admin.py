@@ -22,7 +22,8 @@ money. Those belong in a workflow with an audit trail, not in a list.
 
 from __future__ import annotations
 
-from datetime import date
+from dataclasses import asdict
+from datetime import date, timedelta
 from typing import Annotated
 from uuid import UUID
 
@@ -36,9 +37,12 @@ from fastapi import Response
 from app.api.deps import get_file_storage, get_session, require_admin
 from app.db import claims as claims_repo
 from app.db import crm as crm_repo
+from app.db import flights as flights_repo
 from app.db import repositories as checks_repo
 from app.db.models import Claim, Document, EligibilityCheck
 from app.schemas.admin import (
+    ArchivedFlightOut,
+    ArchivedFlightPage,
     CheckDetail,
     CheckRow,
     ClaimRow,
@@ -556,3 +560,73 @@ def update_claim_status(
         ) from exc
     session.commit()
     return _claim_row(claim)
+
+
+# --- the archive, as a screen ------------------------------------------------
+
+
+@router.get(
+    "/flights",
+    response_model=ArchivedFlightPage,
+    summary="What the archive holds about a flight",
+)
+def search_flights(
+    session: Annotated[Session, Depends(get_session)],
+    number: Annotated[
+        str | None, Query(description="Flight number, e.g. BZ887. Searches all time.")
+    ] = None,
+    flight_date: Annotated[
+        date | None, Query(alias="date", description="One specific day.")
+    ] = None,
+    since: date | None = None,
+    until: date | None = None,
+    disrupted_only: Annotated[
+        bool,
+        Query(
+            description=(
+                "Only cancellations, diversions and delays of 15 minutes or "
+                "more. Off when searching a flight number: the reason to look "
+                "one up is often that it does NOT appear disrupted."
+            )
+        ),
+    ] = False,
+    limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = 100,
+) -> ArchivedFlightPage:
+    """The source of truth, read back exactly as the rules receive it.
+
+    This is `app.tasks.find` in a browser. It has settled every data
+    argument in this project so far -- BZ887, HM9349, A45024, 6H502 were
+    all diagnosed by reading the stored row rather than the code -- and
+    the question it answers is always the same: did the rules get bad
+    data, or make a bad decision?
+
+    Admin-only, with the rest of this router. The flight data itself is
+    public -- the Israeli airport authority publishes it -- but the
+    derived fields and the "could the rules use this" verdict are our
+    internals, and a page of them is a debugging tool rather than a
+    product.
+
+    Browsing with no flight number and no dates defaults to the last week.
+    Without a bound this would decode every payload in a fifteen-thousand
+    row table on each page view, and get slower every day the archive
+    grows.
+    """
+    if not number and not flight_date and not since and not until:
+        since = date.today() - timedelta(days=flights_repo.DEFAULT_DAYS)
+
+    found, truncated = flights_repo.search_flights(
+        session,
+        number=number,
+        on=flight_date,
+        since=since,
+        until=until,
+        disrupted_only=disrupted_only,
+        limit=limit,
+    )
+    return ArchivedFlightPage(
+        # `asdict`, not `vars`: ArchivedFlight uses slots, so it has no
+        # __dict__ at all and `vars()` raises. Caught only by running it --
+        # the type checker is happy either way.
+        items=[ArchivedFlightOut(**asdict(f)) for f in found],
+        truncated=truncated,
+    )

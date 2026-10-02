@@ -246,3 +246,47 @@ class ClaimStatusUpdate(BaseModel):
     """
 
     status: str
+
+
+class ArchivedFlightOut(BaseModel):
+    """One source's record of one flight, as the archive holds it.
+
+    Deliberately includes the DERIVED fields and the raw payload side by
+    side. The question this screen answers is "did the rules get bad data
+    or make a bad decision", and that can only be settled by seeing both
+    what the source said and what we made of it.
+    """
+
+    provider: str
+    observed_at: datetime
+    is_final: bool
+
+    flight_number: str
+    flight_date: date
+    airline_iata: str | None
+    origin_iata: str | None
+    destination_iata: str | None
+    status: str
+
+    scheduled_departure: datetime | None
+    actual_departure: datetime | None
+    scheduled_arrival: datetime | None
+    actual_arrival: datetime | None
+
+    departure_delay_minutes: float | None
+    arrival_delay_minutes: float | None
+
+    usable: bool
+    unusable_reason: str | None
+    distance_km: float | None
+
+    raw: dict[str, Any]
+
+
+class ArchivedFlightPage(BaseModel):
+    items: list[ArchivedFlightOut]
+    # Not a total. Counting every matching flight means decoding every
+    # stored payload, which is the expensive thing this endpoint avoids --
+    # so it says "there are more" rather than inventing a number it did
+    # not actually compute.
+    truncated: bool

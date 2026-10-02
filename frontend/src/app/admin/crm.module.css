@@ -877,3 +877,113 @@
   padding: 0.5rem;
   line-height: 1.35;
 }
+
+/* --- Tabs between the two operator screens -------------------------------- */
+
+.tabs {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+.tab {
+  font: inherit;
+  font-size: var(--text-callout);
+  font-weight: 650;
+  color: var(--text-muted);
+  text-decoration: none;
+  padding: 0.35rem 0.9rem;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+  transition: background-color var(--duration-quick) var(--ease-out-soft);
+}
+.tab:hover { background: var(--surface-mist); color: var(--text-strong); }
+.tabOn { background: var(--surface-ink); color: var(--text-on-ink); }
+.tabOn:hover { background: var(--surface-ink); color: var(--text-on-ink); }
+
+/* --- The archive table ----------------------------------------------------- */
+
+/* Times are the whole point of this screen, so they are monospaced and
+   tabular: an operator is comparing 19:35 against 12:20 down a column, and
+   proportional digits make that genuinely harder. */
+.clock {
+  font-family: var(--font-code);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-caption);
+  direction: ltr;
+  unicode-bidi: isolate;
+  display: inline-block;
+}
+.clockNone { color: var(--border-default); }
+
+/* A time that differs from the scheduled one. Not red -- a delay is the
+   normal subject of this page, not an error. */
+.clockLate { color: var(--verdict-review); font-weight: 650; }
+.clockEarly { color: var(--verdict-yes); }
+
+.delay {
+  font-size: var(--text-micro);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  margin-inline-start: 0.3rem;
+  direction: ltr;
+  unicode-bidi: isolate;
+  display: inline-block;
+}
+
+.source {
+  font-size: var(--text-micro);
+  font-weight: 700;
+  letter-spacing: var(--text-micro--letter-spacing);
+  color: var(--text-muted);
+  background: var(--surface-mist);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.1rem 0.4rem;
+  white-space: nowrap;
+}
+
+/* The row's own answer to "could the rules use this". Red here, because
+   unlike a delay this IS a fault, and it is the thing the operator came to
+   find out. */
+.unusable {
+  color: #b4232a;
+  font-weight: 650;
+  font-size: var(--text-caption);
+}
+
+.rawRow { background: var(--surface-mist); }
+
+.rawBox {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  font-family: var(--font-code);
+  font-size: var(--text-caption);
+  line-height: 1.55;
+  color: var(--text-default);
+  direction: ltr;
+  text-align: left;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.rawMeta {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 1rem 0;
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.dateInput {
+  font: inherit;
+  font-size: var(--text-callout);
+  color: var(--text-strong);
+  background: var(--surface-mist);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  padding: 0.45rem 0.9rem;
+  min-width: 0;
+}
+.dateInput:focus { background: var(--surface-page); border-color: var(--border-focus); }

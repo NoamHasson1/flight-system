@@ -519,10 +519,111 @@ export interface paths {
         patch: operations["update_claim_status_api_v1_admin_claims__claim_id__status_patch"];
         trace?: never;
     };
+    "/api/v1/admin/flights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the archive holds about a flight
+         * @description The source of truth, read back exactly as the rules receive it.
+         *
+         *     This is `app.tasks.find` in a browser. It has settled every data
+         *     argument in this project so far -- BZ887, HM9349, A45024, 6H502 were
+         *     all diagnosed by reading the stored row rather than the code -- and
+         *     the question it answers is always the same: did the rules get bad
+         *     data, or make a bad decision?
+         *
+         *     Admin-only, with the rest of this router. The flight data itself is
+         *     public -- the Israeli airport authority publishes it -- but the
+         *     derived fields and the "could the rules use this" verdict are our
+         *     internals, and a page of them is a debugging tool rather than a
+         *     product.
+         *
+         *     Browsing with no flight number and no dates defaults to the last week.
+         *     Without a bound this would decode every payload in a fifteen-thousand
+         *     row table on each page view, and get slower every day the archive
+         *     grows.
+         */
+        get: operations["search_flights_api_v1_admin_flights_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * ArchivedFlightOut
+         * @description One source's record of one flight, as the archive holds it.
+         *
+         *     Deliberately includes the DERIVED fields and the raw payload side by
+         *     side. The question this screen answers is "did the rules get bad data
+         *     or make a bad decision", and that can only be settled by seeing both
+         *     what the source said and what we made of it.
+         */
+        ArchivedFlightOut: {
+            /** Provider */
+            provider: string;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /** Is Final */
+            is_final: boolean;
+            /** Flight Number */
+            flight_number: string;
+            /**
+             * Flight Date
+             * Format: date
+             */
+            flight_date: string;
+            /** Airline Iata */
+            airline_iata: string | null;
+            /** Origin Iata */
+            origin_iata: string | null;
+            /** Destination Iata */
+            destination_iata: string | null;
+            /** Status */
+            status: string;
+            /** Scheduled Departure */
+            scheduled_departure: string | null;
+            /** Actual Departure */
+            actual_departure: string | null;
+            /** Scheduled Arrival */
+            scheduled_arrival: string | null;
+            /** Actual Arrival */
+            actual_arrival: string | null;
+            /** Departure Delay Minutes */
+            departure_delay_minutes: number | null;
+            /** Arrival Delay Minutes */
+            arrival_delay_minutes: number | null;
+            /** Usable */
+            usable: boolean;
+            /** Unusable Reason */
+            unusable_reason: string | null;
+            /** Distance Km */
+            distance_km: number | null;
+            /** Raw */
+            raw: {
+                [key: string]: unknown;
+            };
+        };
+        /** ArchivedFlightPage */
+        ArchivedFlightPage: {
+            /** Items */
+            items: components["schemas"]["ArchivedFlightOut"][];
+            /** Truncated */
+            truncated: boolean;
+        };
         /**
          * BandOut
          * @description One distance band and what it pays.
@@ -2261,6 +2362,47 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClaimRow"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_flights_api_v1_admin_flights_get: {
+        parameters: {
+            query?: {
+                /** @description Flight number, e.g. BZ887. Searches all time. */
+                number?: string | null;
+                /** @description One specific day. */
+                date?: string | null;
+                since?: string | null;
+                until?: string | null;
+                /** @description Only cancellations, diversions and delays of 15 minutes or more. Off when searching a flight number: the reason to look one up is often that it does NOT appear disrupted. */
+                disrupted_only?: boolean;
+                limit?: number;
+            };
+            header?: {
+                "x-admin-key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArchivedFlightPage"];
                 };
             };
             /** @description Validation Error */

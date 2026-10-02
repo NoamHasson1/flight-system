@@ -1104,6 +1104,59 @@ export const strings = {
       hint: "לחצו / לחיפוש · ↑↓ למעבר · Enter לפתיחה",
     },
 
+    /* The archive screen -- the source of truth, read back raw. */
+    flights: {
+      tab: "ארכיון טיסות",
+      customersTab: "לקוחות",
+      title: "ארכיון הטיסות",
+      lead:
+        "מה שהמערכת באמת מחזיקה על כל טיסה. אם לקוח מקבל תשובה מוזרה — " +
+        "כאן רואים אם הבעיה בנתונים או בכללים.",
+      searchNumber: "מספר טיסה, למשל BZ887",
+      searchDate: "תאריך",
+      clear: "ניקוי",
+      disruptedOnly: "רק שיבושים",
+      empty: "אין רשומה כזו בארכיון.",
+      emptyHint:
+        "אם הטיסה אמורה להיות כאן, ייתכן שהיא מעולם לא נקלטה — או שהתאריך " +
+        "הוא של הנחיתה ולא של ההמראה.",
+      truncated:
+        "התוצאות נחתכו. צמצמו את טווח התאריכים או הזינו מספר טיסה.",
+      columns: {
+        flight: "טיסה",
+        date: "תאריך",
+        route: "מסלול",
+        scheduledDeparture: "המראה בלוח",
+        actualDeparture: "המראה בפועל",
+        scheduledArrival: "נחיתה בלוח",
+        actualArrival: "נחיתה בפועל",
+        status: "סטטוס",
+        source: "מקור",
+        usable: "שמיש?",
+      },
+      statuses: {
+        SCHEDULED: "מתוכננת",
+        EN_ROUTE: "באוויר",
+        LANDED: "נחתה",
+        CANCELLED: "בוטלה",
+        DIVERTED: "הוסטה",
+        UNKNOWN: "לא ידוע",
+      } as Record<string, string>,
+      usableYes: "כן",
+      usableNo: "לא",
+      /* The three facts that settle a data argument, shown on the row that
+         is expanded. */
+      seen: "נקלט",
+      settled: "סופי",
+      notSettled: "לא סופי",
+      distance: "מרחק",
+      rawTitle: "מה שהמקור אמר, בלי עיבוד",
+      showRaw: "הצגת הנתון הגולמי",
+      hideRaw: "הסתרה",
+      delayShort: (m: number) =>
+        m === 0 ? "בזמן" : m > 0 ? `+${Math.round(m)}ד׳` : `${Math.round(m)}ד׳`,
+    },
+
     detail: {
       title: "פרטי לקוח",
       close: "סגירה",
