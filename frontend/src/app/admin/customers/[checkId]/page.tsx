@@ -407,8 +407,15 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Two offset rounded squares -- the copy glyph everybody already knows. */
-export function CopyIcon() {
+/** Two offset rounded squares -- the copy glyph everybody already knows.
+ *
+ *  NOT exported. A Next page file may only export a fixed set of names
+ *  (`default`, `metadata`, `dynamic`, and friends), and anything else
+ *  fails type-checking with a message about an index signature that says
+ *  nothing about the real problem. Turbopack's build does not run that
+ *  check; webpack's does, which is how this was found.
+ */
+function CopyIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
       <rect x="5.4" y="5.4" width="8.2" height="8.2" rx="2"

@@ -26,6 +26,22 @@ COPY . .
 # and this server proxies /api/* onward, so nothing in the client is tied to
 # one machine's address. See next.config.ts.
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# WEBPACK, NOT TURBOPACK. See package.json.
+#
+# Next 16 builds with Turbopack by default and it works on a laptop. In
+# this image it died every time, inside Turbopack's own Google Fonts
+# replacer:
+#
+#   Can't resolve '@vercel/turbopack-next/internal/font/google/font'
+#   next/font/google queries have exactly one entry
+#
+# An internal assertion, not a download failure. Deploys had been failing
+# silently for a day before anybody looked at the build log.
+#
+# Webpack builds the same source without complaint, and it also runs the
+# generated route type-check that Turbopack skips -- which immediately
+# caught an illegal export from a page file that had already shipped.
 RUN npm run build
 
 # --- stage 3: the application ------------------------------------------------
