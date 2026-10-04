@@ -1108,3 +1108,142 @@
 .checkItem:hover { color: var(--text-strong); }
 
 .section > .primary { margin-top: 0.85rem; }
+
+/* --- The customer document ------------------------------------------------
+ 
+   A SHEET OF PAPER, NOT A DASHBOARD.
+ 
+   This page is opened in its own tab, read top to bottom, copied from,
+   and sometimes printed or saved as a PDF to put on a file. That is a
+   document, and documents have a shape people already know: a white
+   page on a grey desk, wide margins, a rule under each heading, and
+   content that reads in one column rather than being arranged.
+ 
+   The rest of the console is deliberately dense because it is scanned.
+   This is the opposite job. */
+
+.desk {
+  min-height: 100vh;
+  background: var(--surface-mist);
+  padding: 2rem 1rem 5rem;
+}
+
+.sheet2 {
+  max-width: 48rem;
+  margin: 0 auto;
+  background: var(--surface-page);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  /* The generous side margins are the whole look. A document with
+     dashboard padding reads as a card. */
+  padding: 3rem clamp(1.5rem, 5vw, 4rem) 3.5rem;
+}
+
+.docHead {
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid var(--text-strong);
+  margin-bottom: 2rem;
+}
+
+.docTitle {
+  font-size: var(--text-title);
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--text-strong);
+  margin: 0;
+}
+
+.docSub {
+  margin: 0.6rem 0 0;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  font-size: var(--text-callout);
+  color: var(--text-muted);
+}
+
+/* A heading with a rule under it, which is what makes a run of sections
+   read as one document rather than as stacked cards. */
+.docSection { margin-top: 2.25rem; }
+
+.docSectionTitle {
+  font-size: var(--text-caption);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--text-strong);
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* Label above value, not beside it. A two-column grid is a form; a
+   document puts the label over the thing it names so the eye runs
+   straight down the values. */
+.docFields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 1rem 2rem;
+  margin: 0;
+}
+
+.docLabel {
+  margin: 0;
+  font-size: var(--text-micro);
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.docValue {
+  margin: 0.15rem 0 0;
+  font-size: var(--text-body);
+  color: var(--text-strong);
+  overflow-wrap: anywhere;
+}
+
+.docRow {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--text-body);
+}
+.docRow:last-child { border-bottom: 0; }
+
+.docTotal {
+  margin-top: 0.8rem;
+  padding-top: 0.6rem;
+  border-top: 2px solid var(--text-strong);
+  font-weight: 800;
+  font-size: var(--text-subhead);
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The toolbar floats above the sheet and is the one part that is not
+   part of the document -- so it does not print. */
+.docBar {
+  max-width: 48rem;
+  margin: 0 auto 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+/* --- Printing -------------------------------------------------------------
+ 
+   Somebody will press Cmd-P on this to put a copy on a physical file, and
+   a dashboard printed as-is wastes a sheet on chrome. The desk, the
+   toolbar and anything interactive come off; the sheet becomes the page. */
+
+@media print {
+  .desk { background: #fff; padding: 0; min-height: 0; }
+  .sheet2 { box-shadow: none; border: 0; max-width: none; padding: 0; }
+  .docBar, .noPrint { display: none !important; }
+  .docSection { break-inside: avoid; }
+  .thumb { break-inside: avoid; }
+}

@@ -1204,6 +1204,7 @@ export const strings = {
     copy: {
       all: "העתקת הכול",
       done: "הועתק",
+      print: "הדפסה / PDF",
     },
 
     /* The two letters an operator sends by hand. The wording goes out

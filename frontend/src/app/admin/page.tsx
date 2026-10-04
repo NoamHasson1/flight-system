@@ -56,13 +56,28 @@ const PAGE = 50;
  * fields across. A panel cannot be kept open, bookmarked, or pasted to
  * a colleague.
  *
- * `noopener` because a new tab opened with `window.open` can otherwise
- * reach back through `window.opener` and navigate the page it came from.
- * This is our own origin, so it is not an attack -- it is just a handle
- * nothing needs, and leaving it means the two tabs share a process.
+ * NO `noopener`, AND THAT IS LOAD-BEARING.
+ *
+ * It was there at first, on the general principle that a new tab has no
+ * business holding a handle on the one that opened it. For this link
+ * that principle costs the whole feature: the admin key lives in
+ * `sessionStorage`, and a browsing context created WITH `noopener` is
+ * severed from its opener and starts with empty session storage. The new
+ * tab opened, found no key, and showed the login box instead of the
+ * customer.
+ *
+ * Without it, the browser copies the opener's session storage into the
+ * new context, which is exactly the behaviour wanted here. The usual
+ * danger of `window.opener` is a hostile destination navigating the page
+ * it came from; the destination is our own page on our own origin.
+ *
+ * The alternative -- moving the key to `localStorage` so every tab sees
+ * it -- was rejected. That key unlocks every customer's phone number and
+ * passport scan, and it should die with the browser session rather than
+ * sit on disk waiting for the next person at that desk.
  */
 function openCustomer(checkId: string): void {
-  window.open(`/admin/customers/${checkId}`, "_blank", "noopener");
+  window.open(`/admin/customers/${checkId}`, "_blank");
 }
 
 export default function AdminPage() {

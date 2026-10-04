@@ -105,34 +105,38 @@ function Customer({ adminKey, checkId }: { adminKey: string; checkId: string }) 
   }
 
   return (
-    <div className={s.page}>
-      <header className={s.bar}>
-        <div className={s.barInner}>
-          <Link href="/admin" className={s.tab}>
-            ← {t.customersBack}
-          </Link>
-          <span className={s.spacer} />
-          <CopyEverything data={data} onCopied={() => toast.show({ text: t.copy.done })} />
-        </div>
-      </header>
+    <div className={s.desk}>
+      {/* Not part of the document, and it does not print. */}
+      <div className={`${s.docBar} ${s.noPrint}`}>
+        <Link href="/admin" className={s.ghost} style={{ textDecoration: "none" }}>
+          ← {t.customersBack}
+        </Link>
+        <span className={s.spacer} />
+        <CopyEverything data={data} onCopied={() => toast.show({ text: t.copy.done })} />
+        <button type="button" className={s.ghost} onClick={() => window.print()}>
+          {t.copy.print}
+        </button>
+      </div>
 
-      <main className={s.sheet} style={{ marginTop: "1.5rem", maxWidth: "52rem" }}>
-        <h1 className={s.panelName}>{data.contact_name || "—"}</h1>
-        <p className={s.panelMeta}>
-          <span className={s.num}>{data.flight_number}</span>
-          <span aria-hidden>·</span>
-          <span className={s.num}>{data.flight_date}</span>
-          {data.verdict && (
-            <span className={`${s.pill} ${verdictTone(data.verdict)}`}>
-              {t.verdicts[data.verdict] ?? data.verdict}
-            </span>
-          )}
-          {data.best_amount && (
-            <span className={s.amount}>
-              {money(data.best_amount, data.best_currency)}
-            </span>
-          )}
-        </p>
+      <main className={s.sheet2}>
+        <header className={s.docHead}>
+          <h1 className={s.docTitle}>{data.contact_name || "—"}</h1>
+          <p className={s.docSub}>
+            <span className={s.num}>{data.flight_number}</span>
+            <span aria-hidden>·</span>
+            <span className={s.num}>{data.flight_date}</span>
+            {data.verdict && (
+              <span className={`${s.pill} ${verdictTone(data.verdict)}`}>
+                {t.verdicts[data.verdict] ?? data.verdict}
+              </span>
+            )}
+            {data.best_amount && (
+              <span className={s.amount}>
+                {money(data.best_amount, data.best_currency)}
+              </span>
+            )}
+          </p>
+        </header>
 
         <Section title={t.detail.contact}>
           <Fields
@@ -168,7 +172,7 @@ function Customer({ adminKey, checkId }: { adminKey: string; checkId: string }) 
             {data.passengers.length > 0 && (
               <Section title={`${t.detail.passengers} (${data.passengers.length})`}>
                 {data.passengers.map((p, i) => (
-                  <div key={i} className={s.item}>
+                  <div key={i} className={s.docRow}>
                     <strong>{p.full_name}</strong>
                     {p.national_id && (
                       <span className={s.muted}>
@@ -184,14 +188,14 @@ function Customer({ adminKey, checkId }: { adminKey: string; checkId: string }) 
             {data.expenses.length > 0 && (
               <Section title={t.detail.expenses}>
                 {data.expenses.map((e) => (
-                  <div key={e.id} className={s.item}>
+                  <div key={e.id} className={s.docRow}>
                     <span className={s.amount}>{money(e.amount, e.currency)}</span>
                     <span>{t.categories[e.category] ?? e.category}</span>
                     {e.description && <span className={s.muted}>{e.description}</span>}
                   </div>
                 ))}
                 {Object.entries(data.expense_totals).map(([currency, sum]) => (
-                  <p key={currency} className={s.total}>
+                  <p key={currency} className={s.docTotal}>
                     {t.detail.total} {money(sum, currency)}
                   </p>
                 ))}
@@ -368,9 +372,9 @@ function money(amount: string, currency: string | null): string {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className={s.section}>
-      <h2 className={s.sectionTitle}>{title}</h2>
-      <div className="mt-2">{children}</div>
+    <section className={s.docSection}>
+      <h2 className={s.docSectionTitle}>{title}</h2>
+      {children}
     </section>
   );
 }
@@ -379,7 +383,7 @@ function Fields({ rows }: { rows: Array<[string, string | null]> }) {
   const present = rows.filter(([, value]) => value);
   if (!present.length) return null;
   return (
-    <dl className={s.fields}>
+    <dl className={s.docFields}>
       {present.map(([label, value]) => (
         <Row key={label} label={label} value={value as string} />
       ))}
@@ -391,9 +395,9 @@ function Fields({ rows }: { rows: Array<[string, string | null]> }) {
     record; most of the time an operator wants one field. */
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <>
-      <dt className={s.fieldLabel}>{label}</dt>
-      <dd className={s.fieldValue}>
+    <div>
+      <dt className={s.docLabel}>{label}</dt>
+      <dd className={s.docValue}>
         <button
           type="button"
           className={s.copy}
@@ -403,7 +407,7 @@ function Row({ label, value }: { label: string; value: string }) {
           {value}
         </button>
       </dd>
-    </>
+    </div>
   );
 }
 
