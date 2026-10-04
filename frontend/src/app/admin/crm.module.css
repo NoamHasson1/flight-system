@@ -1004,3 +1004,107 @@
   margin-inline-start: 0.3rem;
   white-space: nowrap;
 }
+
+/* --- Copy everything ------------------------------------------------------ */
+
+.copyAll {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  appearance: none;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-page);
+  font: inherit;
+  font-size: var(--text-caption);
+  font-weight: 650;
+  color: var(--text-default);
+  padding: 0.42rem 0.9rem;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-quick) var(--ease-out-soft),
+    border-color var(--duration-quick) var(--ease-out-soft);
+}
+.copyAll:hover { background: var(--surface-mist); border-color: var(--border-default); }
+.copyAll:active { transform: scale(0.985); }
+
+/* --- Drop zone ------------------------------------------------------------ */
+
+/* A real <label> wrapping a real file input, styled as a drop target.
+   Drag-and-drop alone excludes anyone on a keyboard, and a styled div
+   that merely looks droppable is the commonest way an upload becomes
+   unreachable. */
+.drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-height: 6.5rem;
+  padding: 1rem;
+  text-align: center;
+  border: 1.5px dashed var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--surface-mist);
+  cursor: pointer;
+  transition:
+    border-color var(--duration-quick) var(--ease-out-soft),
+    background-color var(--duration-quick) var(--ease-out-soft);
+}
+.drop:hover { border-color: var(--color-teal-400); }
+.drop:focus-within {
+  border-color: var(--border-focus);
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+/* While a file is over it. Without this the only feedback is the cursor,
+   and the operator cannot tell whether letting go will do anything. */
+.dropOver {
+  border-color: var(--color-teal-400);
+  background: var(--verdict-yes-fill);
+}
+
+.dropText {
+  font-size: var(--text-callout);
+  font-weight: 650;
+  color: var(--text-strong);
+  overflow-wrap: anywhere;
+}
+
+.dropHint { font-size: var(--text-caption); color: var(--text-muted); }
+
+.noteBox {
+  width: 100%;
+  margin-top: 0.75rem;
+  font: inherit;
+  font-size: var(--text-callout);
+  color: var(--text-strong);
+  background: var(--surface-mist);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.6rem 0.8rem;
+  resize: vertical;
+}
+.noteBox:focus { background: var(--surface-page); border-color: var(--border-focus); }
+
+/* --- The missing-items checklist ------------------------------------------ */
+
+.checkGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.4rem 1rem;
+}
+
+.checkItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--text-callout);
+  color: var(--text-default);
+  padding: 0.3rem 0;
+  cursor: pointer;
+}
+.checkItem:hover { color: var(--text-strong); }
+
+.section > .primary { margin-top: 0.85rem; }

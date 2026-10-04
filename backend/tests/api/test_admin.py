@@ -376,6 +376,7 @@ def test_pipeline_value_is_never_one_number(admin_client: TestClient) -> None:
 import io  # noqa: E402
 
 JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 64
+PDF = b"%PDF-1.4\n" + b"0" * 2048
 
 
 def _customer(client: TestClient, number: str = "BA165", **extra: object) -> str:
@@ -1149,3 +1150,135 @@ def test_paging_through_the_endpoint_does_not_repeat_a_flight(
 
     assert first["total"] >= 2
     assert first["items"][0] != second["items"][0]
+
+
+# --- The two letters an operator sends by hand -------------------------------
+
+
+def _claimed(admin_client: TestClient) -> dict:  # type: ignore[type-arg]
+    check_id = _customer(admin_client)
+    return _claim_for(admin_client, check_id)
+
+
+def test_the_statement_is_stored_before_it_is_sent(
+    admin_client: TestClient,
+) -> None:
+    """"Did we send them the pleading, and when?"
+
+    That question gets asked months later, usually by somebody who was
+    not the person who sent it. Keeping the document on the claim means
+    the answer is in the database rather than in one person's sent
+    folder.
+    """
+    claim = _claimed(admin_client)
+
+    response = admin_client.post(
+        f"/api/v1/admin/claims/{claim['id']}/statement",
+        headers=AUTH,
+        files={"file": ("statement.pdf", io.BytesIO(PDF), "application/pdf")},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["to"] == "noam@example.com"
+
+    detail = admin_client.get(
+        f"/api/v1/admin/customers/{claim['check_id']}", headers=AUTH
+    ).json()
+    kinds = [d["kind"] for d in detail["documents"]]
+    assert "STATEMENT_OF_CLAIM" in kinds
+
+
+def test_a_rejected_file_leaves_nothing_behind(admin_client: TestClient) -> None:
+    """An executable named .pdf is refused, and no row is written.
+
+    The bytes reach disk before the database row is attempted, so a
+    failure between the two would orphan a file that nothing knows about
+    -- invisible to the admin screen and to any deletion request.
+    """
+    claim = _claimed(admin_client)
+
+    response = admin_client.post(
+        f"/api/v1/admin/claims/{claim['id']}/statement",
+        headers=AUTH,
+        files={"file": ("statement.pdf", io.BytesIO(b"MZ\x90\x00" * 40), "application/pdf")},
+    )
+
+    assert response.status_code == 422
+    detail = admin_client.get(
+        f"/api/v1/admin/customers/{claim['check_id']}", headers=AUTH
+    ).json()
+    assert detail["documents"] == []
+
+
+def test_asking_for_items_sends_a_checklist(admin_client: TestClient) -> None:
+    """The ordinary case, through the API."""
+    claim = _claimed(admin_client)
+
+    response = admin_client.post(
+        f"/api/v1/admin/claims/{claim['id']}/request-items",
+        headers=AUTH,
+        json={"items": ["BOOKING", "RECEIPTS"], "note": "תודה!"},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json() == {"sent": True, "to": "noam@example.com"}
+
+
+def test_an_unknown_item_is_refused_rather_than_printed_raw(
+    admin_client: TestClient,
+) -> None:
+    """A customer must never receive "BOARDING_PASS" inside a Hebrew letter.
+
+    If the front end and the back end ever disagree about the vocabulary,
+    the failure should be a 422 that somebody notices -- not a letter
+    with an empty list in the middle of it, or worse, an enum name.
+    """
+    claim = _claimed(admin_client)
+
+    response = admin_client.post(
+        f"/api/v1/admin/claims/{claim['id']}/request-items",
+        headers=AUTH,
+        json={"items": ["SOMETHING_WE_DO_NOT_ASK_FOR"]},
+    )
+
+    assert response.status_code == 422
+
+
+def test_a_partly_unknown_list_still_sends_what_it_recognises(
+    admin_client: TestClient,
+) -> None:
+    """One stale key must not cost the customer the whole letter.
+
+    The opposite of the test above, and the reason it checks for ALL
+    unknown rather than ANY: refusing a request because one item is out
+    of date would make a front-end deploy able to break outbound mail.
+    """
+    claim = _claimed(admin_client)
+
+    response = admin_client.post(
+        f"/api/v1/admin/claims/{claim['id']}/request-items",
+        headers=AUTH,
+        json={"items": ["BOOKING", "OLD_KEY_FROM_A_PREVIOUS_VERSION"]},
+    )
+
+    assert response.status_code == 200
+
+
+def test_both_letters_need_the_key(admin_client: TestClient) -> None:
+    """They send mail to a customer in our name. Worth its own test."""
+    claim = _claimed(admin_client)
+
+    assert (
+        admin_client.post(
+            f"/api/v1/admin/claims/{claim['id']}/request-items",
+            json={"items": ["BOOKING"]},
+        ).status_code
+        == 401
+    )
+    assert (
+        admin_client.post(
+            f"/api/v1/admin/claims/{claim['id']}/statement",
+            files={"file": ("x.pdf", io.BytesIO(PDF), "application/pdf")},
+        ).status_code
+        == 401
+    )

@@ -32,14 +32,22 @@ from sqlalchemy.orm import Session
 
 from urllib.parse import quote
 
-from fastapi import Response
+from fastapi import File, Form, Response, UploadFile
 
-from app.api.deps import get_file_storage, get_session, require_admin
+from app.api.deps import (
+    get_email_sender,
+    get_file_storage,
+    get_session,
+    require_admin,
+)
 from app.db import claims as claims_repo
 from app.db import crm as crm_repo
 from app.db import flights as flights_repo
+from app.email.base import EmailSender
+from app.services import outreach
+from app.storage.files import FileStorage, UploadRejected
 from app.db import repositories as checks_repo
-from app.db.models import Claim, Document, EligibilityCheck
+from app.db.models import Claim, Document, DocumentKind, EligibilityCheck
 from app.schemas.admin import (
     ArchivedFlightOut,
     ArchivedFlightPage,
@@ -56,9 +64,10 @@ from app.schemas.admin import (
     ExpenseRow,
     Page,
     PassengerRow,
+    RequestItemsIn,
+    Sent,
     Summary,
 )
-from app.storage.files import FileStorage
 
 # The guard is applied to the router, not to each route. One line, and it
 # cannot be forgotten on the next endpoint somebody adds.
@@ -633,3 +642,119 @@ def search_flights(
         total=total,
         truncated=truncated,
     )
+
+
+# --- the two letters an operator sends by hand -------------------------------
+#
+# Everything else this system emails is automatic. These are sent by a
+# person, about one claim, at a moment of their choosing -- so they are
+# POSTs with a human behind them rather than anything on a timer.
+
+
+@router.post(
+    "/claims/{claim_id}/statement",
+    response_model=Sent,
+    summary="Email the statement of claim to the customer",
+)
+async def send_statement(
+    claim_id: UUID,
+    session: Annotated[Session, Depends(get_session)],
+    storage: Annotated[FileStorage, Depends(get_file_storage)],
+    sender: Annotated[EmailSender, Depends(get_email_sender)],
+    file: Annotated[UploadFile, File()],
+    note: Annotated[str | None, Form()] = None,
+) -> Sent:
+    """Take the lawyer's pleading, keep a copy, and send it on.
+
+    STORED BEFORE IT IS SENT, and stored even if sending fails. "Did we
+    send them the pleading, and when?" gets asked months later by somebody
+    who was not the person who sent it, and the answer should live in the
+    database rather than in one person's sent folder.
+
+    The bytes go to the email straight from the upload rather than being
+    read back out of storage. Writing them and reading them again only
+    creates a chance for the two to disagree.
+    """
+    claim = claims_repo.get_claim(session, claim_id)
+    if claim is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No such claim."
+        )
+
+    content = await file.read()
+    try:
+        stored = storage.save(content, content_type=file.content_type or "")
+    except UploadRejected as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
+
+    try:
+        claims_repo.add_document(
+            session,
+            claim,
+            kind=DocumentKind.STATEMENT_OF_CLAIM,
+            original_filename=file.filename or "statement.pdf",
+            stored_path=stored.path,
+            content_type=stored.content_type,
+            size_bytes=stored.size_bytes,
+        )
+    except claims_repo.ClaimError as exc:
+        # The bytes are already on disk; without this they are orphaned
+        # there, invisible to the database and to any deletion request.
+        storage.delete(stored.path)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from exc
+
+    session.commit()
+
+    sent = outreach.send_statement_of_claim(
+        sender,
+        claim,
+        filename=file.filename or "statement.pdf",
+        content=content,
+        content_type=stored.content_type,
+        note=(note or "").strip() or None,
+    )
+    return Sent(sent=sent, to=claim.contact_email)
+
+
+@router.post(
+    "/claims/{claim_id}/request-items",
+    response_model=Sent,
+    summary="Ask the customer for what is still missing",
+)
+def request_items(
+    claim_id: UUID,
+    payload: RequestItemsIn,
+    session: Annotated[Session, Depends(get_session)],
+    sender: Annotated[EmailSender, Depends(get_email_sender)],
+) -> Sent:
+    """A checklist, not a paragraph.
+
+    Rejects a request whose items are all unknown rather than sending a
+    letter with an empty list in the middle of it -- which is the shape
+    this fails in if the front end and the back end ever disagree about
+    the vocabulary.
+    """
+    claim = claims_repo.get_claim(session, claim_id)
+    if claim is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No such claim."
+        )
+
+    known = [i for i in payload.items if i in outreach.REQUESTABLE]
+    if not known:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"None of those are things we ask for: {payload.items}",
+        )
+
+    sent = outreach.send_request_for_items(
+        sender,
+        claim,
+        items=known,
+        note=(payload.note or "").strip() or None,
+    )
+    return Sent(sent=sent, to=claim.contact_email)

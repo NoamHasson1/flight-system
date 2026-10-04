@@ -160,7 +160,11 @@ export function CheckForm() {
   }
 
   return (
-    <div id="check" className={`${s.card} ${s.rise} ${s.d4} w-full p-6 text-left sm:p-8`}>
+    // `text-start`, not `text-left`: the document is Hebrew, so "left" is
+    // the END of the line and the heading sat on the wrong side of its own
+    // card. `start` means "where the text begins" and is right in either
+    // language without anybody having to remember which one this is.
+    <div id="check" className={`${s.card} ${s.rise} ${s.d4} w-full p-6 text-start sm:p-8`}>
       <h2
         className="text-heading"
         style={{ color: "var(--text-strong)", fontFamily: "var(--font-display-stack)" }}

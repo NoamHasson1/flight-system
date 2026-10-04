@@ -34,21 +34,36 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   customerStats,
   listCustomers,
-  readCustomer,
   setClaimStatus,
   setCustomersHidden,
   type ClaimStatus,
   type CustomerCounts,
-  type CustomerDetail,
   type CustomerRow,
 } from "@/lib/api";
 import { useAdminKey } from "@/lib/session-key";
 import { strings } from "@/lib/strings";
-import { Files } from "./Files";
 import { Toast, useToast } from "./Toast";
 import s from "./crm.module.css";
 
 const PAGE = 50;
+
+/**
+ * Open one customer in a NEW TAB.
+ *
+ * It used to be a slide-over, which is right for "glance and close" and
+ * wrong for the job this screen is actually for: an operator with the
+ * airline's form open in one tab and the customer in another, copying
+ * fields across. A panel cannot be kept open, bookmarked, or pasted to
+ * a colleague.
+ *
+ * `noopener` because a new tab opened with `window.open` can otherwise
+ * reach back through `window.opener` and navigate the page it came from.
+ * This is our own origin, so it is not an attack -- it is just a handle
+ * nothing needs, and leaving it means the two tabs share a process.
+ */
+function openCustomer(checkId: string): void {
+  window.open(`/admin/customers/${checkId}`, "_blank", "noopener");
+}
 
 export default function AdminPage() {
   const [key, setKey] = useAdminKey();
@@ -119,7 +134,6 @@ function Console({
   const [anonymous, setAnonymous] = useState(false);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
-  const [open, setOpen] = useState<string | null>(null);
   const [bin, setBin] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [cursor, setCursor] = useState(-1);
@@ -285,7 +299,7 @@ function Console({
         return setCursor((c) => Math.max(c - 1, 0));
       }
       if (e.key === "Enter" && cursor >= 0 && rows[cursor]) {
-        return setOpen(rows[cursor].check_id);
+        return openCustomer(rows[cursor].check_id);
       }
       if (e.key === "x" && cursor >= 0 && rows[cursor]) {
         e.preventDefault();
@@ -464,7 +478,7 @@ function Console({
                       selected={selected.has(row.check_id)}
                       focused={i === cursor}
                       onToggle={() => toggle(row.check_id)}
-                      onOpen={() => setOpen(row.check_id)}
+                      onOpen={() => openCustomer(row.check_id)}
                       onStageSaved={() => {
                         toast.show({ text: t.toast.stageSaved });
                         void load(0);
@@ -510,13 +524,6 @@ function Console({
 
       <Toast message={toast.message} onDismiss={toast.dismiss} />
 
-      {open && (
-        <DetailPanel
-          adminKey={adminKey}
-          checkId={open}
-          onClose={() => setOpen(null)}
-        />
-      )}
     </div>
   );
 }
@@ -786,236 +793,6 @@ function SkeletonTable() {
         </div>
       ))}
     </div>
-  );
-}
-
-// --- the detail panel --------------------------------------------------------
-
-function DetailPanel({
-  adminKey,
-  checkId,
-  onClose,
-}: {
-  adminKey: string;
-  checkId: string;
-  onClose: () => void;
-}) {
-  const t = strings.admin;
-  const [data, setData] = useState<CustomerDetail | null>(null);
-  const [failed, setFailed] = useState(false);
-  const panel = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    void readCustomer(adminKey, checkId).then((r) =>
-      r.ok ? setData(r.data) : setFailed(true),
-    );
-  }, [adminKey, checkId]);
-
-  // Escape closes it, and focus moves in when it opens. An operator working
-  // a list reaches for Escape before the mouse, and a panel that ignores it
-  // feels stuck; moving focus is also what makes a screen reader announce
-  // the thing that just appeared.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    panel.current?.focus();
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  return (
-    <>
-      <div className={s.scrim} onClick={onClose} aria-hidden />
-      <aside
-        ref={panel}
-        className={s.panel}
-        role="dialog"
-        aria-modal="true"
-        aria-label={t.detail.title}
-        tabIndex={-1}
-      >
-        <div className={s.panelBar}>
-          <button type="button" className={s.ghost} onClick={onClose}>
-            {t.detail.close}
-          </button>
-        </div>
-
-        <div className={s.panelBody}>
-          {failed && <p className={s.error}>{t.failed}</p>}
-          {!failed && !data && (
-            <>
-              <div
-                className={s.skeleton}
-                style={{ height: "2rem", width: "60%" }}
-              />
-              <div
-                className={s.skeleton}
-                style={{ height: "1rem", width: "40%", marginTop: "0.75rem" }}
-              />
-            </>
-          )}
-          {data && <Detail data={data} adminKey={adminKey} />}
-        </div>
-      </aside>
-    </>
-  );
-}
-
-function Detail({ data, adminKey }: { data: CustomerDetail; adminKey: string }) {
-  const t = strings.admin;
-  return (
-    <>
-      <h2 className={s.panelName}>{data.contact_name || "—"}</h2>
-      <p className={s.panelMeta}>
-        <span className={s.num}>{data.flight_number}</span>
-        <span aria-hidden>·</span>
-        <span className={s.num}>{data.flight_date}</span>
-        <Pill verdict={data.verdict} />
-        {data.best_amount && (
-          <span className={s.amount}>
-            {money(data.best_amount, data.best_currency)}
-          </span>
-        )}
-      </p>
-
-      <section className={s.section}>
-        <h3 className={s.sectionTitle}>{t.detail.contact}</h3>
-        <dl className={s.fields}>
-          {data.contact_email && (
-            <>
-              <dt className={s.fieldLabel}>{t.columns.email}</dt>
-              <dd className={s.fieldValue}>
-                {/* A real mailto. The next thing an operator does after
-                    reading this row is write to the person. */}
-                <a className={s.link} href={`mailto:${data.contact_email}`}>
-                  {data.contact_email}
-                </a>
-              </dd>
-            </>
-          )}
-          {data.contact_phone && (
-            <>
-              <dt className={s.fieldLabel}>{t.columns.phone}</dt>
-              <dd className={s.fieldValue}>
-                <a className={s.link} href={`tel:${data.contact_phone}`}>
-                  <span className={s.num}>{data.contact_phone}</span>
-                </a>
-              </dd>
-            </>
-          )}
-        </dl>
-      </section>
-
-      {!data.claim_id ? (
-        <section className={s.section}>
-          <p className={s.note}>{t.detail.nothingSubmitted}</p>
-        </section>
-      ) : (
-        <>
-          <section className={s.section}>
-            <h3 className={s.sectionTitle}>{t.detail.claim}</h3>
-            <dl className={s.fields}>
-              <Field label={t.detail.reference} value={data.claim_reference} mono />
-              <Field
-                label={t.detail.bookingReference}
-                value={data.booking_reference}
-                mono
-              />
-              <Field label={t.detail.airlineReason} value={data.airline_reason} />
-              <Field
-                label={t.detail.cancellationNotice}
-                value={
-                  data.cancellation_notice
-                    ? (t.notice[data.cancellation_notice] ??
-                      data.cancellation_notice)
-                    : null
-                }
-              />
-              <Field
-                label={t.detail.state}
-                value={
-                  data.claim_submitted_at
-                    ? t.detail.submitted
-                    : t.detail.notSubmitted
-                }
-              />
-            </dl>
-          </section>
-
-          {data.passengers.length > 0 && (
-            <section className={s.section}>
-              <h3 className={s.sectionTitle}>
-                {t.detail.passengers} ({data.passengers.length})
-              </h3>
-              {data.passengers.map((p, i) => (
-                <div key={i} className={s.item}>
-                  <strong>{p.full_name}</strong>
-                  {p.national_id && (
-                    <span className={s.muted}>
-                      {t.detail.nationalId}{" "}
-                      <span className={s.num}>{p.national_id}</span>
-                    </span>
-                  )}
-                  {p.is_minor && <span className={s.muted}>{t.detail.minor}</span>}
-                </div>
-              ))}
-            </section>
-          )}
-
-          {data.expenses.length > 0 && (
-            <section className={s.section}>
-              <h3 className={s.sectionTitle}>{t.detail.expenses}</h3>
-              {data.expenses.map((e) => (
-                <div key={e.id} className={s.item}>
-                  <span className={s.amount}>{money(e.amount, e.currency)}</span>
-                  <span>{t.categories[e.category] ?? e.category}</span>
-                  {e.description && (
-                    <span className={s.muted}>{e.description}</span>
-                  )}
-                </div>
-              ))}
-              {Object.entries(data.expense_totals).map(([currency, sum]) => (
-                <p key={currency} className={s.total}>
-                  {t.detail.total} {money(sum, currency)}
-                </p>
-              ))}
-            </section>
-          )}
-
-          <section className={s.section}>
-            <h3 className={s.sectionTitle}>
-              {t.detail.documents} ({data.documents.length})
-            </h3>
-            {data.documents.length === 0 ? (
-              <p className={s.note}>{t.noFiles}</p>
-            ) : (
-              <Files adminKey={adminKey} documents={data.documents} />
-            )}
-          </section>
-        </>
-      )}
-    </>
-  );
-}
-
-function Field({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: string | null;
-  mono?: boolean;
-}) {
-  if (!value) return null;
-  return (
-    <>
-      <dt className={s.fieldLabel}>{label}</dt>
-      <dd className={s.fieldValue}>
-        {mono ? <span className={s.num}>{value}</span> : value}
-      </dd>
-    </>
   );
 }
 

@@ -567,6 +567,47 @@ export async function searchArchive(
   });
 }
 
+/**
+ * Send the lawyer's pleading to the customer, with a copy kept on file.
+ *
+ * Multipart, so the file goes straight from the operator's machine to
+ * the customer's inbox without a round trip through storage in between.
+ */
+export async function sendStatement(
+  key: string,
+  claimId: string,
+  file: File,
+  note?: string,
+): Promise<ApiResult<{ sent: boolean; to: string }>> {
+  const form = new FormData();
+  form.append("file", file);
+  if (note) form.append("note", note);
+
+  // No Content-Type header: the browser must set it so it can add the
+  // multipart boundary. Setting it by hand produces a body the server
+  // cannot parse, and the error says nothing useful.
+  return request<{ sent: boolean; to: string }>(
+    `/api/v1/admin/claims/${encodeURIComponent(claimId)}/statement`,
+    { method: "POST", headers: adminHeaders(key), body: form },
+  );
+}
+
+export async function requestItems(
+  key: string,
+  claimId: string,
+  items: string[],
+  note?: string,
+): Promise<ApiResult<{ sent: boolean; to: string }>> {
+  return request<{ sent: boolean; to: string }>(
+    `/api/v1/admin/claims/${encodeURIComponent(claimId)}/request-items`,
+    {
+      method: "POST",
+      headers: { ...adminHeaders(key), "Content-Type": "application/json" },
+      body: JSON.stringify({ items, note: note || null }),
+    },
+  );
+}
+
 function adminHeaders(key: string): Record<string, string> {
   return { "X-Admin-Key": key };
 }

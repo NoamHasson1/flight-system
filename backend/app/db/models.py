@@ -174,6 +174,16 @@ class DocumentKind(StrEnum):
     RECEIPT = "RECEIPT"  # evidence for one expense
     IDENTIFICATION = "IDENTIFICATION"
     CORRESPONDENCE = "CORRESPONDENCE"  # what the airline wrote back
+
+    STATEMENT_OF_CLAIM = "STATEMENT_OF_CLAIM"
+    """The lawyer's pleading, drafted by us and sent TO the customer.
+
+    The only kind here that travels outwards. Everything else is evidence
+    the customer gave us; this is the document they are waiting for, and
+    it is stored against the claim so that "what did we send them, and
+    when" has an answer that does not depend on somebody's sent folder.
+    """
+
     OTHER = "OTHER"
 
 

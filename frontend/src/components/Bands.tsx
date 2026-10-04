@@ -100,9 +100,6 @@ export function Bands() {
           <a href="#check" className={`${s.cta} ${s.ctaPill} px-7 py-3.5 text-subhead`}>
             {b.cta}
           </a>
-          <p className="mt-4 text-caption" style={{ color: "var(--text-muted)" }}>
-            {b.updatedNote}
-          </p>
           {family ? (
             <p className="mt-2 text-caption" style={{ color: "var(--text-muted)" }}>
               {b.familyCaveat}

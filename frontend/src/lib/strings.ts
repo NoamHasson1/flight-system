@@ -513,7 +513,6 @@ export const strings = {
     familyExample: "טסתם כמשפחה של 4? טיסה ארוכה שבוטלה יכולה להגיע לדוגמה ל:",
     familyCaveat: "כפוף כמובן לזכאות ולנסיבות המקרה.",
     cta: "בדקו מה מגיע על הטיסה שלכם",
-    updatedNote: "הסכומים מעודכנים לספטמבר 2026.",
   },
 
   frameworks: {
@@ -1197,6 +1196,53 @@ export const strings = {
       hideRaw: "הסתרה",
       delayShort: (m: number) =>
         m === 0 ? "בזמן" : m > 0 ? `+${Math.round(m)}ד׳` : `${Math.round(m)}ד׳`,
+    },
+
+    customersBack: "חזרה לרשימה",
+    flightHeading: "הטיסה",
+
+    copy: {
+      all: "העתקת הכול",
+      done: "הועתק",
+    },
+
+    /* The two letters an operator sends by hand. The wording goes out
+       over a lawyer's name, so it lives here where somebody who does not
+       read code can edit it. */
+    outreach: {
+      statementTitle: "שליחת כתב התביעה ללקוח",
+      dropHere: "גררו לכאן את כתב התביעה, או לחצו לבחירה",
+      dropHint: "PDF או תמונה. נשמר בתיק ונשלח ללקוח במייל.",
+      notePlaceholder: "משהו להוסיף למייל? (לא חובה)",
+      sendStatement: "שליחה ללקוח",
+
+      requestTitle: "בקשת חומרים מהלקוח",
+      requestLead: "סמנו מה חסר. הלקוח יקבל מייל עם רשימה ויוכל פשוט להשיב.",
+      sendRequest: "שליחת הבקשה",
+
+      sending: "שולחים…",
+      failed: "השליחה נכשלה. נסו שוב.",
+      statementSent: (to: string) => `כתב התביעה נשלח אל ${to}`,
+      requestSent: (to: string) => `הבקשה נשלחה אל ${to}`,
+
+      /* Named recipients in the confirmations, deliberately. "Are you
+         sure?" is a question nobody reads; the address is. */
+      confirmStatement: "לשלוח את כתב התביעה ללקוח במייל?",
+      confirmRequest: "לשלוח ללקוח בקשה לחומרים?",
+
+      /* Mirrors REQUESTABLE in app/services/outreach.py. The server
+         refuses a key it does not know, so a drift here is a 422 rather
+         than an enum name landing in a Hebrew letter. */
+      items: {
+        BOOKING: "אישור הזמנה או כרטיס טיסה",
+        BOARDING_PASS: "כרטיס עלייה למטוס",
+        RECEIPTS: "קבלות על ההוצאות",
+        ID: "תעודת זהות או דרכון",
+        BANK: "פרטי חשבון בנק",
+        AIRLINE_REPLY: "מכתב מחברת התעופה",
+        DEPARTURE_TIME: "שעת ההמראה בפועל",
+        NOTICE: "מתי הודיעו על הביטול",
+      } as Record<string, string>,
     },
 
     detail: {

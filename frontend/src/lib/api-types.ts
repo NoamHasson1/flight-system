@@ -556,6 +556,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/claims/{claim_id}/statement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email the statement of claim to the customer
+         * @description Take the lawyer's pleading, keep a copy, and send it on.
+         *
+         *     STORED BEFORE IT IS SENT, and stored even if sending fails. "Did we
+         *     send them the pleading, and when?" gets asked months later by somebody
+         *     who was not the person who sent it, and the answer should live in the
+         *     database rather than in one person's sent folder.
+         *
+         *     The bytes go to the email straight from the upload rather than being
+         *     read back out of storage. Writing them and reading them again only
+         *     creates a chance for the two to disagree.
+         */
+        post: operations["send_statement_api_v1_admin_claims__claim_id__statement_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/claims/{claim_id}/request-items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask the customer for what is still missing
+         * @description A checklist, not a paragraph.
+         *
+         *     Rejects a request whose items are all unknown rather than sending a
+         *     letter with an empty list in the middle of it -- which is the shape
+         *     this fails in if the front end and the back end ever disagree about
+         *     the vocabulary.
+         */
+        post: operations["request_items_api_v1_admin_claims__claim_id__request_items_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -649,6 +703,13 @@ export interface components {
             days: number;
             /** Rows */
             rows: components["schemas"]["DisruptionOut"][];
+        };
+        /** Body_send_statement_api_v1_admin_claims__claim_id__statement_post */
+        Body_send_statement_api_v1_admin_claims__claim_id__statement_post: {
+            /** File */
+            file: string;
+            /** Note */
+            note?: string | null;
         };
         /** Body_upload_document_api_v1_claims__claim_id__documents_post */
         Body_upload_document_api_v1_claims__claim_id__documents_post: {
@@ -1146,7 +1207,7 @@ export interface components {
          * DocumentKind
          * @enum {string}
          */
-        DocumentKind: "BOOKING" | "BOARDING_PASS" | "RECEIPT" | "IDENTIFICATION" | "CORRESPONDENCE" | "OTHER";
+        DocumentKind: "BOOKING" | "BOARDING_PASS" | "RECEIPT" | "IDENTIFICATION" | "CORRESPONDENCE" | "STATEMENT_OF_CLAIM" | "OTHER";
         /** DocumentOut */
         DocumentOut: {
             /**
@@ -1619,6 +1680,35 @@ export interface components {
         RegulationsOut: {
             /** Regulations */
             regulations: components["schemas"]["RegulationOut"][];
+        };
+        /**
+         * RequestItemsIn
+         * @description Which missing things to ask the customer for.
+         *
+         *     Keys from a closed list, not sentences. Free text would be easier and
+         *     worse: these are the same handful of things every time, a fixed list
+         *     gives the customer a clean checklist rather than something typed in a
+         *     hurry, and it lets us later count which item actually stalls claims.
+         */
+        RequestItemsIn: {
+            /** Items */
+            items: string[];
+            /** Note */
+            note?: string | null;
+        };
+        /**
+         * Sent
+         * @description Whether the mail actually went.
+         *
+         *     Not "accepted". The sender returns false when the provider refused it,
+         *     and an operator who is told "sent" about a message that bounced will
+         *     sit waiting for a reply that cannot come.
+         */
+        Sent: {
+            /** Sent */
+            sent: boolean;
+            /** To */
+            to: string;
         };
         /**
          * Summary
@@ -2406,6 +2496,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ArchivedFlightPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_statement_api_v1_admin_claims__claim_id__statement_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-admin-key"?: string | null;
+            };
+            path: {
+                claim_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_send_statement_api_v1_admin_claims__claim_id__statement_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sent"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_items_api_v1_admin_claims__claim_id__request_items_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-admin-key"?: string | null;
+            };
+            path: {
+                claim_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestItemsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sent"];
                 };
             };
             /** @description Validation Error */

@@ -301,3 +301,28 @@ class ArchivedFlightPage(BaseModel):
     # understated. Distinct from "there are more pages": this one says the
     # answer itself is incomplete.
     truncated: bool
+
+
+class RequestItemsIn(BaseModel):
+    """Which missing things to ask the customer for.
+
+    Keys from a closed list, not sentences. Free text would be easier and
+    worse: these are the same handful of things every time, a fixed list
+    gives the customer a clean checklist rather than something typed in a
+    hurry, and it lets us later count which item actually stalls claims.
+    """
+
+    items: list[str] = Field(min_length=1, max_length=12)
+    note: str | None = Field(default=None, max_length=1000)
+
+
+class Sent(BaseModel):
+    """Whether the mail actually went.
+
+    Not "accepted". The sender returns false when the provider refused it,
+    and an operator who is told "sent" about a message that bounced will
+    sit waiting for a reply that cannot come.
+    """
+
+    sent: bool
+    to: str
