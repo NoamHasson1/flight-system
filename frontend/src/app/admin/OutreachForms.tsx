@@ -1,15 +1,19 @@
 /**
- * The two letters an operator sends by hand, as reusable forms.
+ * The two letters an operator sends by hand, as forms.
  *
- * They are reached from two places -- a button at the end of a row in
- * the list, and a section on the customer's own page -- and they are ONE
- * implementation. Two copies of a form that sends mail to a customer
- * over a lawyer's name is two places for the wording, the confirmation
- * and the error handling to drift apart.
+ * REACHED FROM ONE PLACE: the two buttons at the end of a row in the
+ * list, via `RowActions`. They were on the customer's page too, and that
+ * was removed deliberately -- the page is a document to read and copy
+ * from, and a form that mails a customer over a lawyer's name has no
+ * business sitting at the bottom of something an operator scrolls
+ * through while transcribing a claim.
  *
- * Each form owns its own state and reports the outcome upwards. Neither
- * knows whether it is inside a page or a dialog, which is what makes it
- * usable in both.
+ * They stay in their own file rather than inside `RowActions` because
+ * what they say to a customer is the part most likely to be edited, and
+ * it should be findable without reading dialog plumbing first.
+ *
+ * Each form owns its own state and reports the outcome upwards, so it
+ * does not know or care what is around it.
  */
 
 "use client";

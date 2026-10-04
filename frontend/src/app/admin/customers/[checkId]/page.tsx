@@ -27,7 +27,6 @@ import { useAdminKey } from "@/lib/session-key";
 import { strings } from "@/lib/strings";
 import { Files } from "../../Files";
 import { Toast, useToast } from "../../Toast";
-import { Outreach } from "./Outreach";
 import s from "../../crm.module.css";
 
 export default function CustomerPage({
@@ -63,15 +62,6 @@ function Customer({ adminKey, checkId }: { adminKey: string; checkId: string }) 
   const t = strings.admin;
   const [data, setData] = useState<CustomerDetail | null>(null);
   const [failed, setFailed] = useState<"denied" | "unreachable" | null>(null);
-  /**
-   * Bumped to re-read after sending something.
-   *
-   * A counter rather than calling a `load()` function from the handler.
-   * The fetch then lives in exactly one place, which is the only way the
-   * `alive` guard below can cover every path -- a second call site is a
-   * second chance to set state on a page somebody has already left.
-   */
-  const [reloads, setReloads] = useState(0);
   const toast = useToast();
 
   useEffect(() => {
@@ -85,7 +75,7 @@ function Customer({ adminKey, checkId }: { adminKey: string; checkId: string }) 
     return () => {
       alive = false;
     };
-  }, [adminKey, checkId, reloads]);
+  }, [adminKey, checkId]);
 
   if (failed) {
     return (
@@ -209,16 +199,6 @@ function Customer({ adminKey, checkId }: { adminKey: string; checkId: string }) 
                 <Files adminKey={adminKey} documents={data.documents} />
               )}
             </Section>
-
-            <Outreach
-              adminKey={adminKey}
-              claimId={data.claim_id}
-              email={data.contact_email ?? ""}
-              onDone={(text) => {
-                toast.show({ text });
-                setReloads((n) => n + 1);
-              }}
-            />
           </>
         ) : (
           <Section title={t.detail.claim}>
