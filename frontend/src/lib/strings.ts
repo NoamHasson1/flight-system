@@ -1121,7 +1121,7 @@ export const strings = {
       hours: (n: number) => (n === 1 ? "לפני שעה" : `לפני ${n} שעות`),
       days: (n: number) => (n === 1 ? "אתמול" : `לפני ${n} ימים`),
     },
-    columns2: { when: "נבדק", stage: "שלב" },
+    columns2: { when: "נבדק", stage: "שלב", actions: "שליחה" },
 
     shortcuts: {
       hint: "לחצו / לחיפוש · ↑↓ למעבר · Enter לפתיחה",

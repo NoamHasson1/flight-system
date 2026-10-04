@@ -193,7 +193,13 @@
      only ever affect the few Latin strings, making them inconsistent with
      everything beside them. */
   color: var(--text-muted);
-  padding: 0.7rem 0.9rem;
+  /* 0.75rem a side, not 0.9. Twelve columns at the old figure put the
+     table forty pixels wider than the card it sits in, which is how the
+     last column -- the one with the send buttons -- ended up behind the
+     edge. Narrowing the gutters buys back more than enough, and the
+     sticky rule below is what keeps the column reachable on a laptop
+     screen that is narrower still. */
+  padding: 0.7rem 0.75rem;
   border-bottom: 1px solid var(--border-subtle);
   white-space: nowrap;
   background: var(--surface-page);
@@ -217,7 +223,7 @@
 }
 
 .td {
-  padding: 0.7rem 0.9rem;
+  padding: 0.7rem 0.75rem;
   color: var(--text-default);
   vertical-align: middle;
   white-space: nowrap;
@@ -1107,7 +1113,6 @@
 }
 .checkItem:hover { color: var(--text-strong); }
 
-.section > .primary { margin-top: 0.85rem; }
 
 /* --- The customer document ------------------------------------------------
  
@@ -1233,6 +1238,156 @@
   gap: 0.6rem;
   flex-wrap: wrap;
 }
+
+/* --- The two send buttons at the end of a row ------------------------------
+
+   ALWAYS VISIBLE, not revealed on hover. Hover-reveal looks tidy in a
+   screenshot and hides the feature from anyone on a touch screen and
+   from anyone scanning the table to learn what it can do. They are
+   quiet instead of hidden: muted until pointed at. */
+
+/* PINNED TO THE END OF THE ROW.
+
+   The table is wider than the card by about forty pixels, on every screen
+   -- `.sheet` is capped at 78rem and twelve columns do not fit. Without
+   this the one column that scrolls out of sight is the new one, so the
+   two buttons would exist and nobody would find them.
+
+   `inset-inline-end`, not `left`: the document is right-to-left, the last
+   column sits on the LEFT, and writing `left: 0` here would be right by
+   accident and wrong the day anything renders the other way round. */
+.actionCell,
+.actionHead {
+  position: sticky;
+  inset-inline-end: 0;
+  width: 1%;
+  white-space: nowrap;
+  /* A sticky cell slides over the others, so it needs an opaque
+     background of its own -- the row's does not come with it. */
+  background: var(--surface-card);
+  /* The edge the hidden columns pass behind. */
+  border-inline-start: 1px solid var(--border-subtle);
+}
+
+.actionHead {
+  /* Pinned both ways: it is the corner of a header that is already
+     sticky downwards, and it must outrank both. */
+  z-index: 2;
+  background: var(--surface-page);
+}
+
+/* The row's own states have to be repainted on the cell, or a pinned
+   column stays white while the row under it highlights. */
+.row:hover .actionCell,
+.row:focus-visible .actionCell { background: var(--surface-mist); }
+.rowSelected .actionCell { background: var(--verdict-yes-fill); }
+.rowSelected:hover .actionCell { background: #e3f7f5; }
+
+
+.rowActions {
+  display: inline-flex;
+  gap: 0.3rem;
+}
+
+.iconButton {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* 30px. Below about 28 a pointer target starts needing aim, and this
+     one sits beside another button that sends a different email. */
+  width: 1.875rem;
+  height: 1.875rem;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--surface-page);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color var(--duration-quick) var(--ease-out-soft),
+    border-color var(--duration-quick) var(--ease-out-soft),
+    background-color var(--duration-quick) var(--ease-out-soft),
+    transform var(--duration-instant) var(--ease-out-soft);
+}
+.iconButton:hover {
+  color: var(--text-strong);
+  background: var(--surface-mist);
+  border-color: var(--border-default);
+}
+.iconButton:active { transform: scale(0.94); }
+.iconButton:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+/* --- The send dialog -------------------------------------------------------
+
+   Centred rather than slid in from the edge. The slide-over is this
+   console's "here is the record"; an operator given two panels with the
+   same motion stops reading which one arrived. This one asks a question
+   and goes away. */
+
+.dialog {
+  position: fixed;
+  z-index: 62;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(32rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+  padding: 1.25rem 1.4rem 1.5rem;
+  background: var(--surface-page);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-float);
+  animation: dialogIn var(--duration-base) var(--ease-out-soft);
+}
+
+@keyframes dialogIn {
+  from { opacity: 0; transform: translate(-50%, -48%) scale(0.985); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* Motion for its own sake, to somebody who asked for none. */
+@media (prefers-reduced-motion: reduce) {
+  .dialog { animation: none; }
+}
+
+.dialogHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.dialogTitle {
+  margin: 0;
+  font-size: var(--text-subhead);
+  font-weight: 650;
+  color: var(--text-strong);
+}
+
+/* The recipient, on screen the whole time: this form sends mail in our
+   name, and "which row did I click?" is not a question to answer from
+   memory. */
+.dialogSub {
+  margin: 0.2rem 0 0;
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.dialogBody { display: block; }
+
+/* The send button, in both places these forms are used. It used to be an
+   inline style in the component; a margin is not a thing worth having in
+   two files. */
+.sendButton { margin-top: 0.85rem; }
+
+/* The one line above the checklist. */
+.requestLead { margin-bottom: 0.75rem; }
 
 /* --- Printing -------------------------------------------------------------
  

@@ -213,6 +213,7 @@ function Customer({ adminKey, checkId }: { adminKey: string; checkId: string }) 
             <Outreach
               adminKey={adminKey}
               claimId={data.claim_id}
+              email={data.contact_email ?? ""}
               onDone={(text) => {
                 toast.show({ text });
                 setReloads((n) => n + 1);

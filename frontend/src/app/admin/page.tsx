@@ -42,6 +42,7 @@ import {
 } from "@/lib/api";
 import { useAdminKey } from "@/lib/session-key";
 import { strings } from "@/lib/strings";
+import { RowActions } from "./RowActions";
 import { Toast, useToast } from "./Toast";
 import s from "./crm.module.css";
 
@@ -482,6 +483,9 @@ function Console({
                     <th className={s.th}>{t.columns.amount}</th>
                     <th className={s.th}>{t.columns.files}</th>
                     <th className={s.th}>{t.columns2.when}</th>
+                    <th className={`${s.th} ${s.actionHead}`}>
+                      {t.columns2.actions}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -499,6 +503,13 @@ function Console({
                         void load(0);
                       }}
                       onCopied={() => toast.show({ text: t.toast.copied })}
+                      onSent={(text, storedFile) => {
+                        toast.show({ text });
+                        // Only the statement writes anything; re-reading the
+                        // list after a request for items would cost a round
+                        // trip to learn nothing had changed.
+                        if (storedFile) void load(0);
+                      }}
                     />
                   ))}
                 </tbody>
@@ -575,6 +586,7 @@ function Row({
   onOpen,
   onStageSaved,
   onCopied,
+  onSent,
 }: {
   row: CustomerRow;
   adminKey: string;
@@ -584,6 +596,7 @@ function Row({
   onOpen: () => void;
   onStageSaved: () => void;
   onCopied: () => void;
+  onSent: (message: string, storedFile: boolean) => void;
 }) {
   const ref = useRef<HTMLTableRowElement>(null);
 
@@ -669,6 +682,18 @@ function Row({
         )}
       </td>
       <td className={`${s.td} ${s.muted}`}>{ago(row.created_at)}</td>
+      {/* Last cell, and last on purpose. These two send mail to a real
+          person; they sit after everything that only reads, where a
+          mis-aimed click on the way down the row cannot reach them. */}
+      <td className={`${s.td} ${s.actionCell}`}>
+        <RowActions
+          adminKey={adminKey}
+          claimId={row.claim_id}
+          email={row.contact_email}
+          name={row.contact_name}
+          onDone={onSent}
+        />
+      </td>
     </tr>
   );
 }
